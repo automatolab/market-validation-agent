@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: market-validation-agent
+Version: 0.1.0
+Summary: Evidence-backed market validation engine
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<1.0.0,>=0.116.0
+Requires-Dist: pydantic<3.0.0,>=2.9.0
+Requires-Dist: uvicorn<1.0.0,>=0.31.0
+Provides-Extra: dev
+Requires-Dist: httpx<1.0.0,>=0.27.0; extra == "dev"
+Requires-Dist: pytest<9.0.0,>=8.3.0; extra == "dev"
+
+# Market Validation Agent
+
+A market validation research agent that turns a business idea into an evidence-backed viability report with scoring, risks, and next experiments.
+
+## Core Product
+
+Given a business idea, customer, and market, the engine returns:
+
+- market summary
+- target customer clarity
+- competitor map
+- demand signals
+- pricing reality check
+- distribution difficulty
+- risks
+- unknowns
+- confidence score
+- next validation experiments
+- evidence table with sources
+
+## Architecture
+
+The implementation follows a 3-layer design:
+
+1. General engine: fixed validation pipeline and scoring dimensions.
+2. Market profiles: profile-specific weighting and source priorities.
+3. Optional templates: lightweight overlays (weight nudges and source emphasis).
+
+## Fixed Pipeline
+
+1. Clarify the idea into a structured research brief.
+2. Collect evidence from available inputs and supplied external evidence.
+3. Extract structured facts about buyers, pain, pricing, and competition.
+4. Score the market with a fixed rubric.
+5. Synthesize a verdict with confidence, risks, unknowns, and next tests.
+
+## API
+
+### `POST /validate`
+
+Request body:
+
+```json
+{
+  "idea": "AI scheduling assistant for outpatient clinics",
+  "target_customer": "Clinic operations managers in small private practices",
+  "geography": "US",
+  "business_model": "B2B SaaS subscription",
+  "competitors": ["NexHealth", "Luma Health"],
+  "pricing_guess": "$149/month per location",
+  "assumptions": ["Staff are overloaded with phone scheduling"],
+  "constraints": ["No integration in v1"],
+  "profile": "saas",
+  "template": "ai_saas",
+  "evidence_inputs": [
+    {
+      "source_type": "review_site",
+      "source_title": "G2 reviews for scheduling software",
+      "source_url": "https://www.g2.com/categories/appointment-scheduling",
+      "observed_fact": "Users complain about setup complexity and hidden costs",
+      "strength": "high"
+    }
+  ]
+}
+```
+
+Run locally:
+
+```bash
+pip install -e .[dev]
+uvicorn market_validation.main:app --reload
+```
+
+Run tests:
+
+```bash
+pytest
+```
