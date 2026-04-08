@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 *.pyc
 .data/
+
+# Environment variables (credentials and secrets)
+.env

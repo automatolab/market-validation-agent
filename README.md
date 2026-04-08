@@ -160,18 +160,35 @@ Optional request fields:
 
 `deep` mode uses more query variants, fetches more pages, retries longer on rate limits, and waits for a larger evidence set before returning.
 
+## Configuration
+
+Environment variables are managed via `.env` file. Copy `.env_example` to `.env` and fill in your credentials:
+
+```bash
+cp .env_example .env
+# Edit .env with your SMTP, IMAP, and Ollama settings
+```
+
+Supported environment variables:
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` — outbound email
+- `IMAP_HOST`, `IMAP_PORT`, `IMAP_USER`, `IMAP_PASSWORD` — inbound reply tracking (falls back to SMTP_* if unset)
+- `OLLAMA_API_BASE`, `OLLAMA_MODEL` — LLM scoring and drafting
+
+Configuration is loaded via `market_validation.config` module:
+
+```python
+from market_validation.config import get_smtp_config, get_imap_config, get_ollama_config
+
+smtp_cfg = get_smtp_config()
+imap_cfg = get_imap_config()
+ollama_cfg = get_ollama_config()
+```
+
 Run locally:
 
 ```bash
 pip install -e .[dev]
 uvicorn market_validation.main:app --reload
-```
-
-Optional: enable Ollama-backed context and score refinement:
-
-```bash
-export OLLAMA_API_BASE=http://100.122.77.81:11434
-export OLLAMA_MODEL=gpt-oss:120b
 ```
 
 When `OLLAMA_API_BASE` is set, the engine will use Ollama to enrich inferred customer context and refine dimension scoring rationale. If Ollama is unreachable, the API safely falls back to deterministic scoring.
