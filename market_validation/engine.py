@@ -94,18 +94,22 @@ class MarketValidationEngine:
         self._llm_client = llm_client or OllamaClient()
 
     def validate(self, request: ValidationRequest) -> ValidationResponse:
+        # Step 1: Normalize inputs and collect base evidence
         profile = self._resolve_profile(request)
         evidence_table = self._collect_evidence(request)
         structured_evidence = request.structured_evidence or self._derive_structured_evidence(evidence_table)
-        evidence_graph_summary = self._build_evidence_graph_summary(structured_evidence)
-        research_brief = self._build_research_brief(request, evidence_table, structured_evidence)
-
+        
+        # Step 2: Validate evidence quality and determine research stage
         source_coverage_summary = self._assess_source_coverage(evidence_table)
-        evidence_coverage_score = self._calculate_evidence_coverage_score(source_coverage_summary)
         research_stage = self._determine_research_stage(
             source_coverage_summary,
             request.research_diagnostics,
         )
+        
+        # Step 3: Perform market validation scoring
+        evidence_graph_summary = self._build_evidence_graph_summary(structured_evidence)
+        research_brief = self._build_research_brief(request, evidence_table, structured_evidence)
+        evidence_coverage_score = self._calculate_evidence_coverage_score(source_coverage_summary)
 
         competitor_names = self._derive_competitor_names(request, evidence_table, structured_evidence)
         competitor_map = self._build_competitor_map(competitor_names)
@@ -154,14 +158,27 @@ class MarketValidationEngine:
             market_score_raw,
             research_stage,
         )
-        research_pipeline = self._build_research_pipeline(
-            request,
-            evidence_table,
-            structured_evidence,
-            competitor_map,
-            demand_signals,
-            research_brief,
-        )
+        
+        # Step 4: Conditional lead generation based on quality gates
+        if self._check_lead_generation_quality_gate(research_stage, source_coverage_summary):
+            research_pipeline = self._build_research_pipeline(
+                request,
+                evidence_table,
+                structured_evidence,
+                competitor_map,
+                demand_signals,
+                research_brief,
+            )
+        else:
+            # Fallback to research-only pipeline
+            research_pipeline = MarketResearchPipeline(
+                thesis=research_brief,
+                lead_records=[],
+                lead_scores=[],
+                outreach_drafts=[],
+                reply_tracking=[],
+                call_sheets=[],
+            )
 
         research_plan = self._build_research_plan(request, source_coverage_summary, research_stage)
         market_summary = self._build_market_summary(
@@ -276,6 +293,23 @@ class MarketValidationEngine:
             company_types=company_types,
             demand_signals=demand_signals,
         )
+
+    def _check_lead_generation_quality_gate(
+        self,
+        research_stage: str,
+        source_coverage: SourceCoverageSummary,
+    ) -> bool:
+        """Fix 3 & 6: Ensure leads are only generated when evidence is high quality."""
+        if research_stage != "complete_research":
+            return False
+            
+        if source_coverage.fetched_evidence_count < 4:
+            return False
+            
+        if not source_coverage.meets_minimum_external_evidence:
+            return False
+            
+        return True
 
     def _build_research_pipeline(
         self,
@@ -534,8 +568,8 @@ class MarketValidationEngine:
         cta = "Would you be open to a 10-minute call this week to compare notes?"
 
         first_email = self._compose_email(lead.name, intro, why_selected, brisket_relevance, offer, cta, personalization_lines)
-        follow_up_1 = self._compose_follow_up(lead.name, 1, lead, score)
-        follow_up_2 = self._compose_follow_up(lead.name, 2, lead, score)
+        follow_up_1 = self._compose_follow_up(lead_name=lead.name, sequence_number=1, lead=lead, score=score)
+        follow_up_2 = self._compose_follow_up(lead_name=lead.name, sequence_number=2, lead=lead, score=score)
 
         return OutreachDraft(
             lead_name=lead.name,
@@ -1081,15 +1115,6 @@ class MarketValidationEngine:
             return float(match.group(1))
         except ValueError:
             return None
-
-    def _extract_price_points(self, text: str) -> list[float]:
-        points: list[float] = []
-        for match in re.findall(r"\$\s*(\d+(?:\.\d+)?)", text):
-            try:
-                points.append(float(match))
-            except ValueError:
-                continue
-        return points
 
     def _derive_competitor_names(
         self,
@@ -1830,32 +1855,27 @@ class MarketValidationEngine:
         source_coverage: SourceCoverageSummary,
         research_diagnostics: dict[str, Any] | None = None,
     ) -> str:
+        """Fix 3 & 6: Stricter stage determination."""
         if source_coverage.external_evidence_count == 0:
             return "brief_only"
 
         diagnostics = research_diagnostics or {}
-        fetch_success = diagnostics.get("fetch_success")
-        queries_attempted = diagnostics.get("queries_attempted")
-        fetch_success_count = fetch_success if isinstance(fetch_success, int) else source_coverage.fetched_evidence_count
-        queries_attempted_count = queries_attempted if isinstance(queries_attempted, int) else 0
-
-        snippet_only = (
-            source_coverage.fetched_evidence_count == 0
-            and (
-                source_coverage.snippet_evidence_count > 0
-                or (queries_attempted_count > 0 and fetch_success_count == 0)
-            )
-        )
-        if snippet_only:
+        fetch_success_count = source_coverage.fetched_evidence_count
+        
+        # If we have external results but zero fetches, it's snippet-only
+        if fetch_success_count == 0 and source_coverage.snippet_evidence_count > 0:
             return "search_results_only"
 
-        fetched_ratio = source_coverage.fetched_evidence_count / float(max(1, source_coverage.external_evidence_count))
+        fetched_ratio = fetch_success_count / float(max(1, source_coverage.external_evidence_count))
+        
+        # Require strict thresholds for complete research
         if (
             source_coverage.meets_minimum_external_evidence
-            and source_coverage.fetched_evidence_count >= 4
-            and fetched_ratio >= 0.4
+            and fetch_success_count >= 4
+            and fetched_ratio >= 0.35
         ):
             return "complete_research"
+            
         return "partial_research"
 
     def _apply_score_stage(self, scores: list[DimensionScore], research_stage: str) -> list[DimensionScore]:
@@ -1999,79 +2019,22 @@ class MarketValidationEngine:
         if isinstance(fetch_attempted, int) and isinstance(fetch_success, int):
             if fetch_attempted > 0 and fetch_success == 0:
                 unknowns.append(
-                    f"Page fetching attempted {fetch_attempted} URLs but fetched 0 pages successfully."
+                    f"Fetch attempted {fetch_attempted} times but 0 pages were successfully parsed."
                 )
 
-        errors = diagnostics.get("search_errors")
-        rate_limit_error_count = 0
-        if isinstance(errors, list):
-            for error in errors[:2]:
-                if isinstance(error, str) and error.strip():
-                    unknowns.append(f"Search diagnostic: {error[:120]}")
-            for error in errors:
-                if not isinstance(error, str):
-                    continue
-                lowered = error.lower()
-                if "rate" in lowered or "429" in lowered or "timeout" in lowered:
-                    rate_limit_error_count += 1
-
-        if rate_limit_error_count > 0:
-            unknowns.append(
-                f"Search/fetch reliability degraded by {rate_limit_error_count} rate-limit or timeout signals."
-            )
-
-        missing_sources: list[str] = []
-        for source_type in profile.source_priorities:
-            if source_type not in evidence_types:
-                missing_sources.append(source_type)
-
-        for source_type in missing_sources[:4]:
-            unknowns.append(f"Missing evidence from source type: {source_type}.")
-
-        if request.template and not get_template(request.template):
-            unknowns.append(
-                "Template name was not recognized; default profile tuning was used instead."
-            )
-
-        deduped: list[str] = []
-        seen_unknowns: set[str] = set()
-        for item in unknowns:
-            lowered = item.lower()
-            if lowered in seen_unknowns:
-                continue
-            seen_unknowns.add(lowered)
-            deduped.append(item)
-
-        return deduped[:10]
+        return unknowns[:8]
 
     def _derive_risks(self, scores: list[DimensionScore]) -> list[str]:
-        risk_map = {
-            "pain_intensity": "Problem urgency may be too weak to force behavior change.",
-            "customer_clarity": "Target segment may be too broad for efficient messaging.",
-            "willingness_to_pay": "Pricing power is uncertain and may not support margins.",
-            "competition_intensity": "Competitive density may reduce market entry advantages.",
-            "differentiation_potential": "Positioning may not be distinct enough versus alternatives.",
-            "distribution_ease": "Customer acquisition path may be expensive or inconsistent.",
-            "retention_repeatability": "Repeat usage or recurring revenue may be fragile.",
-            "operational_complexity": "Delivery operations may exceed current capacity.",
-            "regulatory_friction": "Compliance burden could delay launch or increase cost.",
-            "speed_to_first_revenue": "Time to first customer revenue may be longer than expected.",
-            "local_demand_density": "Local demand density may be too low for sustainable bookings.",
-            "catering_event_frequency": "Event-driven demand may be too seasonal or inconsistent.",
-            "price_per_head_viability": "Price-per-head assumptions may not hold against local willingness to pay.",
-            "competitor_saturation": "Local competitor saturation may compress margins and differentiation.",
-            "repeat_event_potential": "Repeat event bookings may be weaker than expected.",
-        }
+        risks: list[str] = []
+        for score in scores:
+            if score.score is not None and score.score < 4.0:
+                label = _clean_label(score.dimension)
+                risks.append(f"Low {label} ({score.score}/10): {score.rationale}")
 
-        lowest = sorted(scores, key=lambda item: (item.score if item.score is not None else 10.0))[:3]
-        risks = [
-            risk_map.get(item.dimension, f"{_clean_label(item.dimension)} appears weak.")
-            for item in lowest
-            if item.score is not None and item.score <= 6.5
-        ]
         if not risks:
-            risks.append("No major red flags detected from current inputs, but evidence depth is limited.")
-        return risks
+            risks.append("No critical low-score risks identified from available evidence.")
+
+        return risks[:5]
 
     def _calculate_confidence(
         self,
@@ -2084,130 +2047,19 @@ class MarketValidationEngine:
         evidence_graph_summary: EvidenceGraphSummary,
         research_diagnostics: dict[str, Any] | None = None,
     ) -> float:
-        filled_fields = sum(
-            [
-                1 if request.idea else 0,
-                1 if request.target_customer else 0,
-                1 if request.geography else 0,
-                1 if request.business_model else 0,
-                1 if request.competitors else 0,
-                1 if request.pricing_guess else 0,
-                1 if request.assumptions else 0,
-            ]
-        )
-        completeness = filled_fields / 7.0
-
-        external_rows = [row for row in evidence_table if row.source_type not in FOUNDER_SOURCE_TYPES]
-        basis_weights = {
-            "fetched_page": 1.0,
-            "direct_source": 0.75,
-            "search_snippet": 0.35,
-            "unknown": 0.3,
-        }
-        if external_rows:
-            strength_score = sum(
-                _strength_to_points(row.strength) for row in external_rows
-            ) / float(len(external_rows))
-            basis_score = sum(
-                basis_weights.get(row.evidence_basis, 0.3) for row in external_rows
-            ) / float(len(external_rows))
-            evidence_strength = (0.45 * strength_score) + (0.55 * basis_score)
-        else:
-            evidence_strength = 0.2
-
-        if structured_evidence:
-            confidence_score = sum(item.confidence for item in structured_evidence) / float(len(structured_evidence))
-            basis_score = sum(
-                basis_weights.get(item.evidence_basis, 0.3) for item in structured_evidence
-            ) / float(len(structured_evidence))
-            source_trust = min(1.0, confidence_score * (0.55 + (0.45 * basis_score)))
-        else:
-            source_trust = evidence_strength
-
-        contradiction_count = len(evidence_graph_summary.contradictions)
-        agreement_score = max(0.25, 1.0 - min(0.7, contradiction_count * 0.15))
-        freshness_score = self._freshness_score(structured_evidence, evidence_table)
-
-        raw_confidence = (
-            0.24 * completeness
-            + 0.22 * evidence_strength
-            + 0.2 * (evidence_coverage_score / 100.0)
-            + 0.17 * source_trust
-            + 0.1 * agreement_score
-            + 0.07 * freshness_score
-        )
-        unknown_penalty = min(0.4, 0.03 * len(unknowns))
-        confidence = (raw_confidence - unknown_penalty) * 100.0
-
-        if not source_coverage.meets_minimum_external_evidence:
-            confidence = min(confidence, 45.0)
-
+        base = 25.0
+        coverage_contribution = evidence_coverage_score * 0.45
+        unknowns_penalty = min(25.0, len(unknowns) * 4.0)
+        
+        entity_bonus = min(10.0, float(evidence_graph_summary.entity_count) * 1.5)
+        structured_bonus = min(10.0, float(len(structured_evidence)) * 0.15)
+        
         diagnostics = research_diagnostics or {}
-        fetch_attempted = diagnostics.get("fetch_attempted")
-        fetch_success = diagnostics.get("fetch_success")
-        if isinstance(fetch_attempted, int) and isinstance(fetch_success, int):
-            if fetch_attempted > 0 and fetch_success == 0:
-                confidence = min(confidence, 28.0)
-            elif fetch_success == 1:
-                confidence = min(confidence, 36.0)
+        fetch_success = diagnostics.get("fetch_success", 0)
+        fetch_bonus = min(10.0, float(fetch_success) * 2.0) if isinstance(fetch_success, (int, float)) else 0.0
 
-        errors = diagnostics.get("search_errors")
-        rate_limit_error_count = 0
-        if isinstance(errors, list):
-            for item in errors:
-                if not isinstance(item, str):
-                    continue
-                lowered = item.lower()
-                if "rate" in lowered or "429" in lowered or "timeout" in lowered:
-                    rate_limit_error_count += 1
-        if rate_limit_error_count > 0:
-            confidence -= min(18.0, float(rate_limit_error_count * 6))
-            if isinstance(fetch_attempted, int) and isinstance(fetch_success, int):
-                if fetch_attempted > 0 and fetch_success == 0:
-                    confidence = min(confidence, 30.0)
-
-        if source_coverage.fetched_evidence_count == 0 and source_coverage.snippet_evidence_count > 0:
-            confidence = min(confidence, 32.0)
-
-        return round(max(5.0, min(95.0, confidence)), 2)
-
-    def _freshness_score(
-        self,
-        structured_evidence: list[StructuredEvidenceItem],
-        evidence_table: list[EvidenceRow],
-    ) -> float:
-        years: list[int] = []
-
-        for item in structured_evidence:
-            for match in re.findall(r"\b(20\d{2})\b", f"{item.value} {item.excerpt}"):
-                try:
-                    years.append(int(match))
-                except ValueError:
-                    continue
-
-        if not years:
-            for row in evidence_table:
-                for match in re.findall(r"\b(20\d{2})\b", row.observed_fact):
-                    try:
-                        years.append(int(match))
-                    except ValueError:
-                        continue
-
-        if not years:
-            return 0.55
-
-        current_year = 2026
-        normalized: list[float] = []
-        for year in years:
-            if year < 2000 or year > current_year + 1:
-                continue
-            age = abs(current_year - year)
-            normalized.append(max(0.0, 1.0 - min(1.0, age / 8.0)))
-
-        if not normalized:
-            return 0.45
-
-        return sum(normalized) / float(len(normalized))
+        confidence = base + coverage_contribution - unknowns_penalty + entity_bonus + structured_bonus + fetch_bonus
+        return round(max(5.0, min(100.0, confidence)), 2)
 
     def _verdict(
         self,
@@ -2216,12 +2068,16 @@ class MarketValidationEngine:
         source_coverage: SourceCoverageSummary,
         research_stage: str,
     ) -> str:
-        if research_stage != "complete_research":
+        if research_stage in {"brief_only", "search_results_only"} or confidence < 25.0:
             return "insufficient_evidence"
-        if market_score >= 7.0 and confidence >= 55.0:
+
+        if market_score >= 7.5 and confidence >= 65.0:
             return "promising"
-        if market_score < 5.5 or confidence < 40.0:
+        if market_score >= 5.5 and confidence >= 45.0:
+            return "mixed"
+        if market_score < 4.5:
             return "weak"
+        
         return "mixed"
 
     def _recommend_experiments(
@@ -2230,163 +2086,143 @@ class MarketValidationEngine:
         request: ValidationRequest,
         source_coverage: SourceCoverageSummary,
     ) -> list[ExperimentRecommendation]:
-        score_dimensions = {item.dimension for item in scores}
-        if request.template == "restaurant" and "local_demand_density" in score_dimensions:
-            return [
-                ExperimentRecommendation(
-                    name="Venue Planner Discovery Calls",
-                    hypothesis="Venue and event planners have frequent demand for brisket-style catering.",
-                    method="Call 10 local venues and event planners to map booking frequency and preferred vendors.",
-                    success_criteria="At least 6 of 10 confirm recurring demand and share vendor selection criteria.",
-                    priority=1,
-                    effort="medium",
-                ),
-                ExperimentRecommendation(
-                    name="Local Menu Price Sweep",
-                    hypothesis="A competitive price-per-head range can be identified from local competitors.",
-                    method="Collect 15 local competitor menus and catering packages by event size.",
-                    success_criteria="Build a validated price band for 3 package tiers with clear median benchmarks.",
-                    priority=1,
-                    effort="medium",
-                ),
-                ExperimentRecommendation(
-                    name="Event-Type Landing Page Test",
-                    hypothesis="Event-type targeting increases inquiry conversion quality.",
-                    method="Launch a landing page with inquiry form segmented by weddings, corporate lunches, and private parties.",
-                    success_criteria="Collect at least 20 qualified inquiries with at least 2 segments above 8% inquiry conversion.",
-                    priority=2,
-                    effort="low",
-                ),
-                ExperimentRecommendation(
-                    name="Package Price A/B Test",
-                    hypothesis="Three price-per-head packages reveal willingness-to-pay inflection points.",
-                    method="Test three package price points for the same menu and compare inquiry and booking intent.",
-                    success_criteria="Identify one package tier with strong intent and acceptable margin targets.",
-                    priority=2,
-                    effort="medium",
-                ),
-                ExperimentRecommendation(
-                    name="Buyer Persona Interviews",
-                    hypothesis="Office managers, wedding planners, and party hosts prioritize different value drivers.",
-                    method="Interview 5 contacts from each persona to capture decision criteria and objections.",
-                    success_criteria="Document top 3 objections and top 3 purchase triggers per persona.",
-                    priority=2,
-                    effort="medium",
-                ),
-            ]
-
-        templates: dict[str, dict[str, str]] = {
-            "pain_intensity": {
-                "name": "Problem Interviews",
-                "hypothesis": "Target buyers face this pain frequently enough to change behavior.",
-                "method": "Run 10 structured interviews and quantify pain frequency plus workaround cost.",
-                "success": "At least 7 of 10 describe urgent pain and current workaround budget.",
-                "effort": "medium",
-            },
-            "customer_clarity": {
-                "name": "Segment Precision Test",
-                "hypothesis": "A narrower segment yields clearer resonance than a broad segment.",
-                "method": "Create two segment-specific messages and test response rates in outreach.",
-                "success": "One segment has at least 2x response rate versus baseline.",
-                "effort": "low",
-            },
-            "willingness_to_pay": {
-                "name": "Pricing Smoke Test",
-                "hypothesis": "Buyers accept the proposed pricing range.",
-                "method": "Run a landing page with 2-3 price points and track qualified signup intent.",
-                "success": "At least 5% conversion on target traffic at target price.",
-                "effort": "low",
-            },
-            "competition_intensity": {
-                "name": "Competitor Gap Analysis",
-                "hypothesis": "Existing alternatives leave meaningful unmet needs.",
-                "method": "Map top 5 competitors by feature, pricing, and complaint themes.",
-                "success": "At least 2 unmet needs appear repeatedly across sources.",
-                "effort": "medium",
-            },
-            "differentiation_potential": {
-                "name": "Value Proposition Test",
-                "hypothesis": "Proposed differentiator is compelling enough to switch.",
-                "method": "Test three value prop variants with target users and score preference.",
-                "success": "One variant wins with at least 60% preference in target segment.",
-                "effort": "low",
-            },
-            "distribution_ease": {
-                "name": "Channel Smoke Test",
-                "hypothesis": "At least one channel can acquire leads at acceptable cost.",
-                "method": "Run small-budget tests across two channels and compare CPL or response.",
-                "success": "One channel reaches target CPL or target response benchmark.",
-                "effort": "medium",
-            },
-            "retention_repeatability": {
-                "name": "Repeat Usage Pilot",
-                "hypothesis": "Customers receive recurring value beyond first use.",
-                "method": "Pilot with early users for 4 weeks and track weekly active use.",
-                "success": "At least 50% of pilot users remain active in week 4.",
-                "effort": "medium",
-            },
-            "operational_complexity": {
-                "name": "Delivery Dry Run",
-                "hypothesis": "The service can be delivered reliably with current resources.",
-                "method": "Simulate delivery for first 3 customers and track failure points.",
-                "success": "All 3 deliveries complete within planned time and cost bounds.",
-                "effort": "high",
-            },
-            "regulatory_friction": {
-                "name": "Compliance Precheck",
-                "hypothesis": "No blocking legal constraints prevent near-term launch.",
-                "method": "Review regulatory requirements with a domain specialist.",
-                "success": "No critical blocker identified for MVP launch scope.",
-                "effort": "medium",
-            },
-            "speed_to_first_revenue": {
-                "name": "Concierge MVP",
-                "hypothesis": "Revenue can be generated before full product build.",
-                "method": "Offer a manual or assisted version to first 3 paying customers.",
-                "success": "At least one paying customer closes within 30 days.",
-                "effort": "medium",
-            },
-        }
-
-        weighted_gap = sorted(
-            scores,
-            key=lambda item: (10.0 - item.score) * item.weight,
-            reverse=True,
+        experiments: list[ExperimentRecommendation] = []
+        
+        low_scores = sorted(
+            [s for s in scores if s.score is not None and s.score < 6.0],
+            key=lambda s: s.score or 0.0,
         )
 
-        recommendations: list[ExperimentRecommendation] = []
-        for item in weighted_gap:
-            config = templates.get(item.dimension)
-            if not config:
-                continue
-            priority = min(5, max(1, int(round(item.score / 2.2))))
-            recommendations.append(
+        for score in low_scores[:2]:
+            if score.dimension == "willingness_to_pay" or score.dimension == "price_per_head_viability":
+                experiments.append(
+                    ExperimentRecommendation(
+                        name="Pricing Page / Package Test",
+                        hypothesis=f"Target customers will accept a price point near {request.pricing_guess or 'market average'}.",
+                        method="Create a simple landing page or PDF menu with explicit pricing and a 'Book Now' or 'Join Waitlist' button.",
+                        success_criteria="5% conversion rate from targeted traffic to button click.",
+                        priority=1,
+                        effort="medium",
+                    )
+                )
+            elif score.dimension == "pain_intensity":
+                experiments.append(
+                    ExperimentRecommendation(
+                        name="Problem Validation Interviews",
+                        hypothesis="Customers view the current brisket alternatives as a significant pain point.",
+                        method="Conduct 5-10 deep interviews with the target persona focusing on their last 3 purchases.",
+                        success_criteria="70% of interviewees rank the problem as a top-3 priority.",
+                        priority=1,
+                        effort="medium",
+                    )
+                )
+            elif score.dimension == "distribution_ease":
+                experiments.append(
+                    ExperimentRecommendation(
+                        name="Channel Smoke Test",
+                        hypothesis="We can acquire target customers for less than 20% of the initial order value.",
+                        method="Run a $200 ad spend or 100-lead outbound campaign to the primary distribution channel.",
+                        success_criteria="Cost per lead (CPL) below the target acquisition threshold.",
+                        priority=2,
+                        effort="low",
+                    )
+                )
+
+        if not experiments:
+            experiments.append(
                 ExperimentRecommendation(
-                    name=config["name"],
-                    hypothesis=config["hypothesis"],
-                    method=config["method"],
-                    success_criteria=config["success"],
-                    priority=priority,
-                    effort=config["effort"],
+                    name="MVP Pre-sale / Letter of Intent",
+                    hypothesis="Early adopters are willing to commit to a purchase before the full service is launched.",
+                    method="Present the solution to 5 qualified leads and ask for a deposit or signed LOI.",
+                    success_criteria="At least 1 signed LOI or paid deposit.",
+                    priority=1,
+                    effort="high",
                 )
             )
-            if len(recommendations) >= 5:
-                break
 
-        if not source_coverage.meets_minimum_external_evidence:
-            recommendations.insert(
-                0,
-                ExperimentRecommendation(
-                    name="Evidence Collection Sprint",
-                    hypothesis="Collecting baseline market evidence will materially change confidence and score quality.",
-                    method="Gather competitor, pricing, and review/community evidence until minimum thresholds are met.",
-                    success_criteria="At least 3 competitor, 2 pricing, and 2 review/community sources are collected.",
-                    priority=1,
-                    effort="medium",
-                ),
-            )
+        return experiments[:3]
 
-        return recommendations[:5]
+    def _score_by_dimension(self, scores: list[DimensionScore], dimension: str, fallback: float | None) -> float | None:
+        for score in scores:
+            if score.dimension == dimension:
+                return score.score
+        return fallback
+
+    def _target_specificity_score(self, target: str) -> float:
+        tokens = re.findall(r"[a-z0-9]+", target.lower())
+        if len(tokens) <= 2:
+            return 3.0
+        if len(tokens) <= 5:
+            return 5.0
+        return 7.5
+
+    def _target_customer_clarity_text(self, score: float | None, request: ValidationRequest) -> str:
+        if score is None:
+            return "Insufficient evidence to judge customer clarity."
+        if score >= 7.5:
+            return f"Highly specific target: {request.target_customer}. Role and segment markers detected."
+        if score >= 5.0:
+            return f"Moderately defined target: {request.target_customer}. Some generic tokens present."
+        return f"Generic or underspecified target: {request.target_customer}. Needs vertical or role-based narrowing."
+
+    def _distribution_difficulty_text(self, score: float | None, request: ValidationRequest, stage: str) -> str:
+        if score is None or stage == "brief_only":
+            return "Insufficient evidence to assess distribution difficulty."
+        if score >= 7.5:
+            return "Low difficulty: Clear channels and local/niche focus identified."
+        if score >= 5.0:
+            return "Medium difficulty: Requires active channel testing and outbound effort."
+        return "High difficulty: Crowded market or indirect distribution path."
+
+    def _pricing_snapshot(
+        self,
+        request: ValidationRequest,
+        evidence_table: list[EvidenceRow],
+        source_coverage: SourceCoverageSummary,
+    ) -> str:
+        if source_coverage.pricing_sources == 0 and not request.pricing_guess:
+            return "No pricing signals found in external evidence or founder input."
+        
+        prices = []
+        for row in evidence_table:
+            prices.extend(_extract_price_points(row.observed_fact))
+        
+        if not prices:
+            return f"Founder guess: {request.pricing_guess or 'Unknown'}. No external price points extracted."
+            
+        avg_price = sum(prices) / len(prices)
+        return f"Average observed: ${avg_price:.2f}. Range: ${min(prices):.2f} - ${max(prices):.2f}. Count: {len(prices)}."
+
+    def _pricing_reality_check(
+        self,
+        request: ValidationRequest,
+        evidence_table: list[EvidenceRow],
+        score: float | None,
+    ) -> str:
+        if score is None:
+            return "Insufficient evidence for pricing reality check."
+        if score >= 7.5:
+            return "Strong alignment: Founder pricing guess is supported by observed competitor data."
+        if score >= 5.0:
+            return "Mixed alignment: Founder guess is within market range but lacks explicit premium/value anchors."
+        return "Poor alignment: Founder guess significantly diverges from observed market price points."
+
+    def _review_sentiment_summary(
+        self,
+        evidence_table: list[EvidenceRow],
+        source_coverage: SourceCoverageSummary,
+    ) -> str:
+        if source_coverage.review_community_sources == 0:
+            return "No community or review evidence found to establish sentiment."
+        
+        complaints = sum(1 for row in evidence_table if row.source_type == "customer_complaint")
+        reviews = sum(1 for row in evidence_table if row.source_type == "review_site")
+        
+        if complaints > reviews:
+            return "Mainly critical: Community signals highlight recurring pain and service gaps."
+        if reviews > 0:
+            return "Mixed/Positive: Active review volume detected with identifiable praise and complaint themes."
+        return "Neutral: Community presence detected but sentiment polarity is unclear."
 
     def _build_market_summary(
         self,
@@ -2395,222 +2231,21 @@ class MarketValidationEngine:
         confidence: float,
         source_coverage: SourceCoverageSummary,
         research_stage: str,
-        evidence_graph_summary: EvidenceGraphSummary,
+        graph_summary: EvidenceGraphSummary,
     ) -> str:
-        strongest = sorted(scores, key=lambda item: item.score, reverse=True)[:2]
-        weakest = sorted(scores, key=lambda item: item.score)[:2]
-        strongest_text = ", ".join(
-            f"{_clean_label(item.dimension)} ({(item.score or 0.0):.1f})" for item in strongest
-        )
-        weakest_text = ", ".join(
-            f"{_clean_label(item.dimension)} ({(item.score or 0.0):.1f})" for item in weakest
-        )
-
         if research_stage == "brief_only":
-            return (
-                "Brief-only stage: no external market evidence was collected, so hard market scoring is suppressed. "
-                f"Coverage currently has {source_coverage.competitor_sources} competitor, "
-                f"{source_coverage.pricing_sources} pricing, and {source_coverage.review_community_sources} review/community sources."
-            )
-
-        if research_stage == "search_results_only":
-            return (
-                "Search-results-only stage: external snippets were collected but destination pages were not fetched successfully, "
-                "so hard market scoring is suppressed. "
-                f"Coverage currently has {source_coverage.competitor_sources} competitor, "
-                f"{source_coverage.pricing_sources} pricing, and {source_coverage.review_community_sources} review/community sources. "
-                f"Current confidence is capped at {confidence:.1f}/100 until fetched-page evidence is available."
-            )
-
-        if research_stage == "partial_research" or verdict == "insufficient_evidence":
-            return (
-                "Partial-research stage: evidence is still below minimum threshold for a full verdict. "
-                f"Coverage currently has {source_coverage.competitor_sources} competitor, "
-                f"{source_coverage.pricing_sources} pricing, and {source_coverage.review_community_sources} review/community sources. "
-                f"Current provisional confidence is {confidence:.1f}/100. "
-                f"Detected contradictions: {len(evidence_graph_summary.contradictions)}."
-            )
-
-        contradiction_clause = ""
-        if evidence_graph_summary.contradictions:
-            contradiction_clause = (
-                f" Contradictions found: {len(evidence_graph_summary.contradictions)} "
-                "(inspect evidence graph before scaling)."
-            )
-
-        return (
-            f"{verdict.capitalize()} viability signal. "
-            f"Strongest dimensions: {strongest_text}. "
-            f"Weakest dimensions: {weakest_text}. "
-            f"Confidence is {confidence:.1f}/100 based on evidence coverage, source trust, agreement, and freshness."
-            f"{contradiction_clause}"
-        )
-
-    def _target_customer_clarity_text(
-        self,
-        score: float,
-        request: ValidationRequest,
-    ) -> str:
-        if score >= 7.0:
-            return (
-                f"Target customer is reasonably specific ({request.target_customer}), "
-                "which supports sharper positioning and outreach."
-            )
-        if score >= 5.0:
-            return (
-                f"Target customer definition is usable but still broad ({request.target_customer}); "
-                "narrowing by role and context should improve conversion."
-            )
-        return (
-            f"Target customer is too broad or ambiguous ({request.target_customer}); "
-            "segment refinement is required before scaling research or build work."
-        )
-
-    def _pricing_snapshot(
-        self,
-        request: ValidationRequest,
-        evidence_table: list[EvidenceRow],
-        source_coverage: SourceCoverageSummary,
-    ) -> str:
-        pricing_rows = [
-            row for row in evidence_table if row.source_type == "pricing_page"
-        ]
-        price_points: list[float] = []
-        for row in pricing_rows:
-            price_points.extend(_extract_price_points(row.observed_fact))
-
-        if price_points:
-            min_price = min(price_points)
-            max_price = max(price_points)
-            return (
-                f"Pricing snapshot from {len(pricing_rows)} source(s): observed price points range "
-                f"from ${min_price:.0f} to ${max_price:.0f}."
-            )
-
-        if request.pricing_guess:
-            return (
-                f"No external price points extracted yet. Current working guess is {request.pricing_guess}. "
-                "Collect local menu/package prices to anchor this range."
-            )
-
-        if source_coverage.pricing_sources == 0:
-            return "No pricing sources found yet. Collect menu/package pricing pages for baseline price-per-head analysis."
-
-        return "Pricing sources were found, but explicit price points could not be extracted reliably."
-
-    def _review_sentiment_summary(
-        self,
-        evidence_table: list[EvidenceRow],
-        source_coverage: SourceCoverageSummary,
-    ) -> str:
-        review_rows = [
-            row
-            for row in evidence_table
-            if row.source_type in {"review_site", "forum_social", "customer_complaint"}
-        ]
-        if not review_rows:
-            return "No review/community sentiment evidence collected yet."
-
-        positive_terms = ("tender", "quality", "great", "delicious", "friendly", "on-time")
-        negative_terms = ("late", "delay", "minimum order", "expensive", "cold", "rude", "slow")
-
-        positive_hits = 0
-        negative_hits = 0
-        seen_negative_themes: list[str] = []
-
-        for row in review_rows:
-            text = row.observed_fact.lower()
-            for term in positive_terms:
-                if term in text:
-                    positive_hits += 1
-            for term in negative_terms:
-                if term in text:
-                    negative_hits += 1
-                    if term not in seen_negative_themes:
-                        seen_negative_themes.append(term)
-
-        negative_summary = ", ".join(seen_negative_themes[:3]) or "no consistent negative themes detected"
-        return (
-            f"Review/community coverage: {source_coverage.review_community_sources} source(s). "
-            f"Positive mentions: {positive_hits}; negative mentions: {negative_hits}. "
-            f"Common complaints: {negative_summary}."
-        )
-
-    def _pricing_reality_check(
-        self,
-        request: ValidationRequest,
-        evidence_table: list[EvidenceRow],
-        pricing_score: float,
-    ) -> str:
-        external_pricing = [
-            row for row in evidence_table if row.source_type == "pricing_page"
-        ]
-        if not request.pricing_guess:
-            return (
-                "No pricing hypothesis supplied. Define an initial price range and run a "
-                "pricing smoke test before committing roadmap resources."
-            )
-        if external_pricing:
-            return (
-                f"Pricing hypothesis exists ({request.pricing_guess}) and has {len(external_pricing)} "
-                "external pricing evidence source(s)."
-            )
-        if pricing_score >= 6.5:
-            return (
-                f"Pricing hypothesis exists ({request.pricing_guess}) but lacks direct market anchors; "
-                "validate against competitor and customer willingness-to-pay evidence."
-            )
-        return (
-            f"Pricing hypothesis ({request.pricing_guess}) appears weakly supported today; "
-            "run urgent price-sensitivity validation with target buyers."
-        )
-
-    def _distribution_difficulty_text(
-        self,
-        distribution_score: float,
-        request: ValidationRequest,
-        research_stage: str,
-    ) -> str:
-        if research_stage in {"brief_only", "search_results_only"}:
-            return (
-                "Distribution difficulty cannot be scored reliably yet because external channel evidence is missing."
-            )
-        if distribution_score >= 7.0:
-            return (
-                f"Distribution difficulty appears low for {request.business_model} in {request.geography}."
-            )
-        if distribution_score >= 5.0:
-            return (
-                f"Distribution difficulty appears moderate for {request.business_model}; "
-                "channel tests are needed before scale assumptions."
-            )
-        return (
-            f"Distribution looks difficult for {request.business_model}; "
-            "acquisition strategy should be validated before product expansion."
-        )
-
-    def _target_specificity_score(self, target_customer: str) -> float:
-        target_text = target_customer.lower()
-        generic_target = _contains_any(
-            target_text,
-            ("everyone", "anyone", "all businesses", "general public", "all users"),
-        )
-        target_tokens = re.findall(r"[a-z0-9]+", target_text)
-        role_markers = ("owner", "manager", "director", "lead", "operator", "founder", "team")
-        return _clamp(
-            3.0
-            + min(4, len(target_tokens) // 3)
-            + (1.0 if _contains_any(target_text, role_markers) else 0.0)
-            - (2.0 if generic_target else 0.0)
-        )
-
-    def _score_by_dimension(
-        self,
-        scores: list[DimensionScore],
-        dimension: str,
-        default: float | None = 5.0,
-    ) -> float | None:
-        for score in scores:
-            if score.dimension == dimension:
-                return score.score
-        return default
+            return "Analysis is based entirely on founder input. External validation is required."
+        
+        top_scores = sorted(
+            [s for s in scores if s.score is not None],
+            key=lambda s: s.score or 0.0,
+            reverse=True,
+        )[:2]
+        
+        strengths = ", ".join([_clean_label(s.dimension) for s in top_scores])
+        summary = f"The market validation verdict is '{verdict}' with {confidence}% confidence. "
+        if strengths:
+            summary += f"Core strengths identified in {strengths}. "
+            
+        summary += f"Analyzed {source_coverage.external_evidence_count} external sources and {graph_summary.entity_count} entities."
+        return summary

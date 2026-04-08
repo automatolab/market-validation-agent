@@ -143,6 +143,39 @@ class MarketResearchPipeline(BaseModel):
     call_sheets: list[CallSheet] = Field(default_factory=list)
 
 
+# --- Brisket pipeline request/response models ---
+
+class DiscoverRequest(BaseModel):
+    geography: str = Field(min_length=2)
+    max_leads: int = Field(default=20, ge=1, le=50)
+    keywords: list[str] = Field(
+        default_factory=lambda: ["BBQ", "brisket", "smokehouse", "barbecue", "catering"]
+    )
+
+
+class NoteInput(BaseModel):
+    note: str = Field(min_length=1)
+    author: str | None = None
+
+
+class ReplyInput(BaseModel):
+    raw_reply_text: str = Field(min_length=1)
+
+
+class LeadSummary(BaseModel):
+    id: str
+    name: str
+    location: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    pipeline_status: str
+    score_status: str | None = None
+    probability_buy: float | None = None
+    outreach_sent: bool = False
+    reply_intent: str | None = None
+    created_at: str
+
+
 class CompetitorEntry(BaseModel):
     competitor: str
     inferred_positioning: str

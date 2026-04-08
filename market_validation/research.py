@@ -67,6 +67,9 @@ class DuckDuckGoSearcher:
     def search(self, query: str, max_results: int) -> list[WebResult]:
         self.last_errors = []
         
+        # Use a small sleep between distinct queries to avoid rate limiting
+        time.sleep(0.25)
+
         ddgs_results = self._search_with_ddgs(query=query, max_results=max_results)
         if ddgs_results:
             return ddgs_results
@@ -84,13 +87,14 @@ class DuckDuckGoSearcher:
             self.last_errors.append(f"ddgs_import_error:{exc.__class__.__name__}")
             return []
 
-        backends = ("lite", "html", "api")
+        backends = ("lite", "html") # Dropped "api" as it is often more restrictive
         seen_urls: set[str] = set()
 
         for backend in backends:
             try:
                 results: list[WebResult] = []
-                with DDGS() as ddgs:
+                # Use a tighter timeout for the library calls
+                with DDGS(timeout=self._timeout_seconds) as ddgs:
                     for item in ddgs.text(
                         query,
                         max_results=max_results,
@@ -98,8 +102,12 @@ class DuckDuckGoSearcher:
                         safesearch="moderate",
                     ):
                         title = str(item.get("title", "")).strip()
-                        url = str(item.get("href", "")).strip()
+                        raw_url = str(item.get("href", "")).strip()
                         snippet = str(item.get("body", "")).strip()
+                        
+                        # Fix 1: Always resolve redirect URLs
+                        url = self._resolve_result_url(raw_url)
+                        
                         if not (title and url):
                             continue
                         if url in seen_urls:
@@ -117,48 +125,13 @@ class DuckDuckGoSearcher:
                     return results
             except Exception as exc:
                 self.last_errors.append(f"ddgs:{backend}:{exc.__class__.__name__}")
-                time.sleep(0.15)
-                continue
-
-        query_variants = self._build_query_variants(query)
-        for variant in query_variants:
-            if variant == query:
-                continue
-            try:
-                results: list[WebResult] = []
-                with DDGS() as ddgs:
-                    for item in ddgs.text(
-                        variant,
-                        max_results=max_results,
-                        backend="lite",
-                        safesearch="moderate",
-                    ):
-                        title = str(item.get("title", "")).strip()
-                        url = str(item.get("href", "")).strip()
-                        snippet = str(item.get("body", "")).strip()
-                        if not (title and url):
-                            continue
-                        if url in seen_urls:
-                            continue
-                        seen_urls.add(url)
-                        results.append(
-                            WebResult(
-                                title=title,
-                                url=url,
-                                snippet=snippet,
-                                query_label=variant,
-                            )
-                        )
-                if results:
-                    return results
-            except Exception as exc:
-                self.last_errors.append(f"ddgs_variant:{exc.__class__.__name__}")
-                time.sleep(0.1)
+                time.sleep(0.5) # Increased backoff
                 continue
 
         return []
 
     def _build_query_variants(self, query: str) -> list[str]:
+        # Fix 4: Reduced query variants to avoid crushing the search layer
         base = query.strip().lower()
         variants = []
         
@@ -166,10 +139,6 @@ class DuckDuckGoSearcher:
             variants.append(f"{query} pricing")
         if "review" not in base and "reviews" not in base:
             variants.append(f"{query} reviews")
-        if "competitor" not in base and "alternative" not in base:
-            variants.append(f"{query} competitors")
-        if "vs" not in base and "versus" not in base:
-            variants.append(f"{query} vs competitors")
             
         return variants
 
@@ -179,8 +148,8 @@ class DuckDuckGoSearcher:
             search_url,
             headers={
                 "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
                 )
             },
         )
@@ -218,9 +187,14 @@ class DuckDuckGoSearcher:
             resolved = self._resolve_result_url(href)
             if not resolved or not resolved.startswith("http"):
                 continue
-            if resolved in seen_urls:
+            
+            # Fix 1: Canonicalize final URL (strip query params that are just tracking)
+            parsed = urlsplit(resolved)
+            canonical_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            
+            if canonical_url in seen_urls:
                 continue
-            seen_urls.add(resolved)
+            seen_urls.add(canonical_url)
 
             title = _normalize_whitespace(_strip_html(title_html)) or "Search result"
             snippet_window = html_text[match.end() : match.end() + 600]
@@ -240,7 +214,7 @@ class DuckDuckGoSearcher:
             results.append(
                 WebResult(
                     title=title,
-                    url=resolved,
+                    url=canonical_url,
                     snippet=cleaned_snippet or title,
                     query_label=query,
                 )
@@ -254,13 +228,16 @@ class DuckDuckGoSearcher:
         return results
 
     def _resolve_result_url(self, href: str) -> str:
-        if href.startswith("/l/?"):
-            parsed = urlsplit(href)
-            params = parse_qs(parsed.query)
-            target = params.get("uddg")
-            if target and target[0]:
-                return target[0]
-            return ""
+        # Fix 1: unwrap redirect properly
+        if "/l/?" in href:
+            try:
+                parsed = urlsplit(href)
+                params = parse_qs(parsed.query)
+                target = params.get("uddg")
+                if target and target[0]:
+                    return target[0]
+            except Exception:
+                pass
 
         if href.startswith("//"):
             return f"https:{href}"
@@ -283,8 +260,8 @@ class HtmlPageFetcher:
             url,
             headers={
                 "User-Agent": (
-                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36"
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
                 )
             },
         )
@@ -627,18 +604,12 @@ class MarketResearchService:
         geography = payload.geography.strip()
         deep_mode = payload.research_mode == "deep"
 
+        # Fix 4: Reduced query plan to avoid rate limits
         queries: list[tuple[str, str]] = [
             ("core", market),
             ("competitors", f"{market} competitors"),
             ("pricing", f"{market} pricing"),
             ("reviews", f"{market} reviews"),
-            ("complaints", f"{market} complaints"),
-            ("directory", f"{market} directory listings"),
-            ("forums", f"{market} reddit discussions"),
-            ("editorial", f"best {market} local lists"),
-            ("jobs", f"{market} jobs hiring"),
-            ("trends", f"{market} trends growth"),
-            ("public_data", f"{market} market size public data"),
         ]
 
         if geography and geography.lower() not in {"global", "worldwide"}:
@@ -647,16 +618,14 @@ class MarketResearchService:
         if deep_mode:
             queries.extend(
                 [
-                    ("menu_prices", f"{market} menu prices"),
-                    ("minimum_order", f"{market} minimum order"),
-                    ("delivery_fee", f"{market} delivery fee"),
-                    ("lead_time", f"{market} booking lead time"),
-                    ("event_types", f"{market} wedding corporate private party"),
-                    ("service_area", f"{market} service area locations"),
+                    ("directory", f"{market} directory listings"),
+                    ("trends", f"{market} trends growth"),
                 ]
             )
 
-        queries.extend(self._llm_generate_query_expansions(payload))
+        # Only add LLM expansions in deep mode to save on requests
+        if deep_mode:
+            queries.extend(self._llm_generate_query_expansions(payload))
 
         deduped: list[tuple[str, str]] = []
         seen: set[str] = set()
@@ -667,7 +636,7 @@ class MarketResearchService:
             seen.add(normalized)
             deduped.append((label, query))
 
-        return deduped[:20]
+        return deduped[:12] # Reduced from 20 to 12
 
     def _llm_generate_query_expansions(self, payload: MarketSearchRequest) -> list[tuple[str, str]]:
         if not self._llm_client.enabled:
@@ -1268,7 +1237,7 @@ class MarketResearchService:
             )
             if key in seen:
                 continue
-            seen.add(key)
+            seen.add(lowered := key) # actually I just need the key
             merged.append(item)
             if len(merged) >= limit:
                 break
@@ -1388,14 +1357,28 @@ class MarketResearchService:
         return "fetched_page" if source.fetched else "search_snippet"
 
     def _clean_entity_candidate(self, candidate: str) -> str:
-        cleaned = _normalize_whitespace(re.sub(r"[|:/_]+", " ", candidate))
+        # Fix 2: Stronger entity normalization
+        if not candidate:
+            return ""
+        
+        # Strip common search-engine and aggregator noise
+        noise_patterns = [
+            r"\|.*", r"\-.*", r":.*", 
+            r"\b(yelp|tripadvisor|g2|capterra|trustpilot|reddit|facebook|instagram|linkedin|twitter|youtube|duckduckgo|google|bing)\b.*",
+            r"\b(best|top|affordable|official|website|homepage|site|directory|listing|reviews?|pricing|prices?|competitors?|alternatives?)\b"
+        ]
+        
+        cleaned = candidate
+        for pattern in noise_patterns:
+            cleaned = re.sub(pattern, " ", cleaned, flags=re.I).strip()
+            
         cleaned = _normalize_whitespace(re.sub(r"[^A-Za-z0-9&+\- ]", " ", cleaned)).strip("- ")
-        if len(cleaned) < 3:
+        
+        if len(cleaned) < 2:
             return ""
+        
         tokens = [token for token in re.split(r"\s+", cleaned.lower()) if token]
-        if not tokens:
-            return ""
-        if len(tokens) > 6:
+        if not tokens or len(tokens) > 5:
             return ""
 
         meaningful = [
@@ -1419,24 +1402,44 @@ class MarketResearchService:
         if lowered in GENERIC_ENTITY_NAMES:
             return False
 
+        # Don't allow the market name itself to be an entity
         candidate_tokens = {token for token in re.findall(r"[a-z0-9]+", lowered)}
         market_tokens = {token for token in re.findall(r"[a-z0-9]+", market.lower())}
-        if candidate_tokens and market_tokens and candidate_tokens.issubset(market_tokens):
+        
+        if not candidate_tokens:
+            return False
+            
+        # If candidate is a subset of market or vice versa, it's likely too generic
+        if candidate_tokens.issubset(market_tokens) or market_tokens.issubset(candidate_tokens):
             return False
 
         return True
 
+    def _canonicalize_company_name(self, title: str, url: str) -> str:
+        # Fix 2: Canonicalize company name from title and URL
+        host = urlparse(url).netloc.replace("www.", "").strip().lower()
+        host_token = host.split(".")[0].replace("-", " ")
+        
+        # Prefer a cleaned version of the title if it starts with the host token
+        title_first_part = re.split(r"[|:\-]", title)[0].strip()
+        if host_token in title_first_part.lower() or title_first_part.lower() in host_token:
+            cleaned = self._clean_entity_candidate(title_first_part)
+            if cleaned:
+                return cleaned.title()
+                
+        cleaned_host = self._clean_entity_candidate(host_token)
+        if cleaned_host:
+            return cleaned_host.title()
+            
+        return ""
+
     def _infer_entity_from_source(self, source: RawSourceRecord, market: str) -> str:
-        host = urlparse(source.source_url).netloc.replace("www.", "").strip().lower()
-        host_token = self._clean_entity_candidate(host.split(".")[0].replace("-", " "))
-        if self._entity_allowed(host_token, market):
-            return host_token.title()
+        # Fix 1 & 2: Use canonicalization
+        canonical = self._canonicalize_company_name(source.source_title, source.source_url)
+        if canonical and self._entity_allowed(canonical, market):
+            return canonical
 
-        title_candidate = self._clean_entity_candidate(re.split(r"[|:\-]", source.source_title)[0].strip())
-        if self._entity_allowed(title_candidate, market):
-            return title_candidate
-
-        return f"{market.title()} competitor"
+        return f"{market.title()} signal"
 
     def _infer_positioning(self, text: str) -> str:
         if any(word in text for word in ("premium", "high-end", "luxury", "exclusive")):
