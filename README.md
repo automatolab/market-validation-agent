@@ -46,6 +46,28 @@ The worker writes:
 2. staged tracker line: `batch/tracker-additions/{id}.tsv`
 3. JSON completion payload to stdout
 
+## OpenCode Slash Commands
+
+This repo now includes project-local OpenCode slash commands in `.opencode/commands/`.
+
+Use them from OpenCode TUI as:
+
+- `/market-validation`
+- `/market-validation-batch`
+- `/market-validation-worker`
+- `/market-validation-merge`
+- `/market-validation-verify`
+- `/market-validation-pipeline`
+
+Examples:
+
+```text
+/market-validation-batch --dry-run
+/market-validation-batch --model "provider/model" --agent "general"
+/market-validation-worker --id 1 --market "ai qa agent for cnc shops" --report-num 001 --model "provider/model"
+/market-validation-pipeline
+```
+
 ## Batch Input Format
 
 `batch/batch-input.tsv` columns:
