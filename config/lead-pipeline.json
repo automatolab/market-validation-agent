@@ -1,0 +1,137 @@
+{
+  "market": "Brisket Supply Lead Gen",
+  "geography": "US-TX",
+  "target_product": "beef brisket",
+  "max_companies": 300,
+  "source_configs": [
+    {
+      "source_id": "overpass-austin-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "overpass_osm",
+      "query": "amenity=restaurant cuisine=bbq city=\"Austin\" state=\"TX\" keywords=\"brisket smokehouse\"",
+      "region": "Austin,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "overpass-dallas-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "overpass_osm",
+      "query": "amenity=restaurant cuisine=bbq city=\"Dallas\" state=\"TX\" keywords=\"brisket smokehouse\"",
+      "region": "Dallas,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "overpass-houston-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "overpass_osm",
+      "query": "amenity=restaurant cuisine=bbq city=\"Houston\" state=\"TX\" keywords=\"brisket smokehouse\"",
+      "region": "Houston,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "overpass-san-antonio-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "overpass_osm",
+      "query": "amenity=restaurant cuisine=bbq city=\"San Antonio\" state=\"TX\" keywords=\"brisket smokehouse\"",
+      "region": "San Antonio,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "duckduckgo-austin-brisket-menus",
+      "source_type": "search",
+      "provider": "duckduckgo",
+      "query": "Austin TX brisket restaurant menu catering",
+      "region": "Austin,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "duckduckgo-dallas-brisket-menus",
+      "source_type": "search",
+      "provider": "duckduckgo",
+      "query": "Dallas TX brisket restaurant menu catering",
+      "region": "Dallas,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "duckduckgo-houston-brisket-menus",
+      "source_type": "search",
+      "provider": "duckduckgo",
+      "query": "Houston TX brisket restaurant menu catering",
+      "region": "Houston,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "duckduckgo-fort-worth-brisket-menus",
+      "source_type": "search",
+      "provider": "duckduckgo",
+      "query": "Fort Worth TX brisket restaurant menu catering",
+      "region": "Fort Worth,TX,US",
+      "enabled": true
+    },
+    {
+      "source_id": "pytrends-us-tx-brisket-demand",
+      "source_type": "internal_feed",
+      "provider": "pytrends",
+      "query": "brisket supplier,beef brisket price,bbq catering",
+      "region": "US-TX",
+      "enabled": true
+    },
+    {
+      "source_id": "foursquare-texas-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "foursquare_places",
+      "auth_env": "FOURSQUARE_API_KEY",
+      "query": "bbq brisket restaurant",
+      "region": "Texas,US",
+      "enabled": false
+    },
+    {
+      "source_id": "here-texas-bbq-restaurants",
+      "source_type": "directory",
+      "provider": "here_places",
+      "auth_env": "HERE_API_KEY",
+      "query": "bbq brisket restaurant",
+      "region": "Texas,US",
+      "enabled": false
+    },
+    {
+      "source_id": "serpapi-texas-brisket-competitors",
+      "source_type": "search",
+      "provider": "serpapi",
+      "auth_env": "SERPAPI_API_KEY",
+      "query": "best brisket wholesale supplier Texas",
+      "region": "Texas,US",
+      "enabled": false
+    },
+    {
+      "source_id": "commoncrawl-brisket-menu-index",
+      "source_type": "internal_feed",
+      "provider": "commoncrawl",
+      "query": "bbq menu brisket catering",
+      "region": "US",
+      "enabled": false
+    }
+  ],
+  "qualification_hints": {
+    "must_include_keywords": [
+      "brisket",
+      "smoked brisket",
+      "bbq platter",
+      "catering"
+    ],
+    "exclude_keywords": [
+      "vegetarian-only",
+      "bakery",
+      "coffee-only"
+    ],
+    "min_evidence_links": 1
+  },
+  "email_template": {
+    "template_id": "brisket-outreach-v2-tx",
+    "subject_template": "Quick brisket supply question for {{company_name}}",
+    "body_template": "Hi {{contact_name_or_team}},\n\nI saw {{evidence_context}} and wanted to ask if your team is open to discussing brisket supply options for {{city_or_region}} this month.\n\nIf useful, I can share current pricing ranges, minimum order options, and delivery windows.\n\nBest,\n{{sender_name}}",
+    "tone": "professional"
+  },
+  "default_model": "provider/model",
+  "default_agent": "general"
+}

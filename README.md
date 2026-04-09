@@ -107,11 +107,36 @@ Recommended pattern:
 2. Fill in `market`, `target_product`, `source_configs`, and `email_template`
 3. Use those values when invoking staged workflows and prompts
 
+A ready-to-use brisket config is included at `config/lead-pipeline.json`.
+
+Suggested free/low-cost source setup for testing:
+
+- `foursquare_places` (free calls/month; key via `FOURSQUARE_API_KEY`)
+- `overpass_osm` (free, no key)
+- `here_places` (free tier; key via `HERE_API_KEY`)
+- `duckduckgo` (free, no key)
+- `serpapi` (small free tier; key via `SERPAPI_API_KEY`, optional)
+- `commoncrawl` (free bulk web index, optional)
+- `pytrends` (free trend signal ingestion, no key)
+
 Notes:
 
 - Keep provider/model defaults in config for consistency across runs.
 - Keep secrets (API keys, tokens) out of JSON config; use environment variables.
 - Source configs are operator-owned; prompts enforce configured-source-only behavior.
+- `config-check` warns when a source references an `auth_env` variable that is not set.
+
+Environment loading behavior:
+
+- CLI tools auto-load a local `.env` file when present (repo root preferred).
+- `auth_env` values in `source_configs` should reference variable names in `.env`.
+- Example variables: `FOURSQUARE_API_KEY`, `HERE_API_KEY`, `SERPAPI_API_KEY`, `OPENCODE_MODEL`, `OPENCODE_AGENT`.
+
+Quick setup:
+
+```bash
+cp .env_example .env
+```
 
 The worker writes:
 
@@ -132,6 +157,9 @@ Use them from OpenCode TUI as:
 - `/market-validation-verify`
 - `/market-validation-pipeline`
 - `/market-validation-store-output`
+- `/market-validation-config-check`
+- `/market-validation-stage-run`
+- `/market-validation-run`
 
 Examples:
 
@@ -141,6 +169,9 @@ Examples:
 /market-validation-worker --id 1 --market "ai qa agent for cnc shops" --report-num 001 --model "provider/model"
 /market-validation-pipeline
 /market-validation-store-output --input-file output/sample-stage.json
+/market-validation-config-check
+/market-validation-stage-run --stage research_ingest --run-id brisket-001
+/market-validation-run --run-id brisket-001
 ```
 
 ## Batch Input Format
@@ -243,6 +274,33 @@ You can override `run_id` or `stage` if needed:
 ```bash
 python store-output.py --input-file output/sample-stage.json --run-id brisket-001 --stage lead_qualify
 ```
+
+## Lead Pipeline Commands
+
+Validate config:
+
+```bash
+python lead-pipeline.py config-check --config config/lead-pipeline.json
+```
+
+Run one stage:
+
+```bash
+python lead-pipeline.py stage-run --stage research_ingest --run-id brisket-001
+```
+
+Run full pipeline:
+
+```bash
+python lead-pipeline.py run --run-id brisket-001
+```
+
+Optional flags:
+
+- `--start-stage` / `--end-stage`
+- `--messages-file` (for reply parse stage)
+- `--model` / `--agent`
+- `--config` / `--root`
 
 ## Install
 

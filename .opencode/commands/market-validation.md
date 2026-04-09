@@ -12,6 +12,9 @@ Interpret the first token as a subcommand:
 - `batch ...`: run `bash batch/batch-runner.sh ...` with remaining arguments.
 - `worker ...`: run `python -m market_validation.batch_worker ...` with remaining arguments.
 - `store ...`: run `python store-output.py ...` with remaining arguments.
+- `config-check ...`: run `python lead-pipeline.py config-check ...`.
+- `stage-run ...`: run `python lead-pipeline.py stage-run ...`.
+- `run ...`: run `python lead-pipeline.py run ...`.
 - `merge`: run `python merge-tracker.py`.
 - `verify`: run `python verify-pipeline.py`.
 - `pipeline`: run `python merge-tracker.py` then `python verify-pipeline.py`.
@@ -27,3 +30,4 @@ Execution rules:
    - if missing, infer and execute one explicit-flag worker command
 6. Prefer explicit-flag commands in all corrective suggestions.
 7. For `store`, pass arguments through exactly and summarize output file paths.
+8. For `config-check`, `stage-run`, and `run`, pass arguments through exactly and summarize stage/artifact results.

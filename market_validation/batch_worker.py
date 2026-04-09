@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from market_validation.environment import load_project_env
+
 CANONICAL_STATUSES = {
     "new",
     "scanning",
@@ -325,6 +327,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    load_project_env()
     parser = build_parser()
     args = parser.parse_args()
     exit_code = 0

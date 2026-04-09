@@ -4,16 +4,61 @@
   "target_product": "brisket",
   "source_configs": [
     {
-      "source_id": "google-search-brisket-restaurants-us",
-      "source_type": "search",
-      "query": "best brisket restaurant",
+      "source_id": "foursquare-places-brisket-us",
+      "source_type": "directory",
+      "provider": "foursquare_places",
+      "auth_env": "FOURSQUARE_API_KEY",
+      "query": "brisket restaurant",
       "region": "US",
       "enabled": true
     },
     {
-      "source_id": "yelp-bbq-us",
-      "source_type": "review_site",
-      "query": "bbq brisket",
+      "source_id": "overpass-osm-bbq-us",
+      "source_type": "directory",
+      "provider": "overpass_osm",
+      "query": "amenity=restaurant bbq",
+      "region": "US",
+      "enabled": true
+    },
+    {
+      "source_id": "here-places-brisket-us",
+      "source_type": "directory",
+      "provider": "here_places",
+      "auth_env": "HERE_API_KEY",
+      "query": "brisket restaurant",
+      "region": "US",
+      "enabled": true
+    },
+    {
+      "source_id": "duckduckgo-competitors-us",
+      "source_type": "search",
+      "provider": "duckduckgo",
+      "query": "brisket supplier near me",
+      "region": "US",
+      "enabled": true
+    },
+    {
+      "source_id": "serpapi-competitor-scan-us",
+      "source_type": "search",
+      "provider": "serpapi",
+      "auth_env": "SERPAPI_API_KEY",
+      "query": "best brisket wholesale supplier",
+      "region": "US",
+      "enabled": false
+    },
+    {
+      "source_id": "commoncrawl-competitor-pages",
+      "source_type": "internal_feed",
+      "provider": "commoncrawl",
+      "query": "bbq menu brisket",
+      "region": "US",
+      "enabled": false
+    },
+    {
+      "source_id": "pytrends-demand-us",
+      "source_type": "internal_feed",
+      "provider": "pytrends",
+      "query": "brisket supply",
       "region": "US",
       "enabled": true
     }
