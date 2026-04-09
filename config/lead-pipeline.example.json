@@ -1,0 +1,29 @@
+{
+  "market": "Brisket",
+  "geography": "US",
+  "target_product": "brisket",
+  "source_configs": [
+    {
+      "source_id": "google-search-brisket-restaurants-us",
+      "source_type": "search",
+      "query": "best brisket restaurant",
+      "region": "US",
+      "enabled": true
+    },
+    {
+      "source_id": "yelp-bbq-us",
+      "source_type": "review_site",
+      "query": "bbq brisket",
+      "region": "US",
+      "enabled": true
+    }
+  ],
+  "email_template": {
+    "template_id": "brisket-outreach-v1",
+    "subject_template": "Quick brisket supply question for {{company_name}}",
+    "body_template": "Hi {{contact_name_or_team}},\n\nI saw {{evidence_context}} and wanted to ask if you are open to discussing brisket supply options this month.\n\nIf helpful, I can share pricing and delivery windows.\n\nBest,\n{{sender_name}}",
+    "tone": "professional"
+  },
+  "default_model": "provider/model",
+  "default_agent": "general"
+}

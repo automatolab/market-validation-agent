@@ -254,3 +254,32 @@ def test_persist_stage_result_builds_markdown_views_from_pipeline_updates(tmp_pa
     dashboard_text = (tmp_path / result["dashboard_file"]).read_text(encoding="utf-8")
     assert "| call_ready | 1 |" in dashboard_text
     assert "Priority Queue" in dashboard_text
+
+
+def test_persist_worker_result_stage_updates_lead_state(tmp_path: Path) -> None:
+    payload = {
+        "result": "ok",
+        "stage": "worker_result",
+        "run_id": "worker-001",
+        "status": "completed",
+        "id": "42",
+        "report_num": "007",
+        "market": "Brisket market",
+        "target_customer": "Smoke House 42",
+        "score": 6.2,
+        "report": "reports/007-brisket-market-2026-04-09.md",
+        "error": None,
+    }
+
+    result = persist_stage_result(payload=payload, root=tmp_path)
+    leads = _read_jsonl(tmp_path / result["leads_file"])
+    assert len(leads) == 1
+
+    lead = leads[0]
+    assert lead["company_id"] == "42"
+    assert lead["company_name"] == "Smoke House 42"
+    assert lead["market"] == "Brisket market"
+    assert lead["status"] == "validated"
+    assert lead["last_stage"] == "worker_result"
+    assert lead["score"] == 6.2
+    assert lead["report"] == "reports/007-brisket-market-2026-04-09.md"

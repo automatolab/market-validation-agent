@@ -95,6 +95,24 @@ You can also use the installed script:
 market-output-store --input-file output/sample-stage.json
 ```
 
+## Configuration and Context
+
+Place market-specific context in config files (example template):
+
+- `config/lead-pipeline.example.json`
+
+Recommended pattern:
+
+1. Copy it to `config/lead-pipeline.json`
+2. Fill in `market`, `target_product`, `source_configs`, and `email_template`
+3. Use those values when invoking staged workflows and prompts
+
+Notes:
+
+- Keep provider/model defaults in config for consistency across runs.
+- Keep secrets (API keys, tokens) out of JSON config; use environment variables.
+- Source configs are operator-owned; prompts enforce configured-source-only behavior.
+
 The worker writes:
 
 1. report markdown: `reports/{###}-{market-slug}-{YYYY-MM-DD}.md`
@@ -113,6 +131,7 @@ Use them from OpenCode TUI as:
 - `/market-validation-merge`
 - `/market-validation-verify`
 - `/market-validation-pipeline`
+- `/market-validation-store-output`
 
 Examples:
 
@@ -121,6 +140,7 @@ Examples:
 /market-validation-batch --model "provider/model" --agent "general"
 /market-validation-worker --id 1 --market "ai qa agent for cnc shops" --report-num 001 --model "provider/model"
 /market-validation-pipeline
+/market-validation-store-output --input-file output/sample-stage.json
 ```
 
 ## Batch Input Format
@@ -134,6 +154,8 @@ Examples:
 ```bash
 bash batch/batch-runner.sh
 ```
+
+Default batch mode now auto-persists each worker JSON result into the file output store (`worker_result` stage), so lead JSONL + markdown dashboard/call sheet stay current.
 
 Use explicit OpenCode model/agent for this run:
 
@@ -186,6 +208,41 @@ Or set environment defaults:
 - `OPENCODE_AGENT`
 
 If both are set, CLI flags (`--model`, `--agent`) take precedence.
+
+### Worker + Auto Store Wrapper
+
+Run one worker and automatically persist its JSON output to the file store:
+
+```bash
+bash batch/worker-and-store.sh --id 1 --market "ai qa agent for cnc shops" --report-num 001
+```
+
+This writes/updates:
+
+- `output/runs/{run_id}/worker-result.json`
+- `output/leads/leads.jsonl`
+- `output/call-sheets/{YYYY-MM-DD}.md`
+- `output/dashboard/summary.md`
+
+## Store Output Command
+
+Persist any stage payload manually when needed:
+
+```bash
+python store-output.py --input-file output/sample-stage.json
+```
+
+Or via slash command:
+
+```text
+/market-validation-store-output --input-file output/sample-stage.json
+```
+
+You can override `run_id` or `stage` if needed:
+
+```bash
+python store-output.py --input-file output/sample-stage.json --run-id brisket-001 --stage lead_qualify
+```
 
 ## Install
 

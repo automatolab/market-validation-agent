@@ -15,6 +15,7 @@ KNOWN_STAGES = {
     "outreach_email",
     "reply_parse",
     "call_sheet_build",
+    "worker_result",
 }
 
 LEAD_STATUSES = {
@@ -377,6 +378,42 @@ def _apply_call_sheet_build(payload: dict[str, Any], index: dict[str, dict[str, 
     return touched
 
 
+def _apply_worker_result(payload: dict[str, Any], index: dict[str, dict[str, Any]], now_iso: str) -> int:
+    company_id = str(payload.get("id") or "").strip()
+    if not company_id:
+        return 0
+
+    execution_status = str(payload.get("status") or "").strip().lower()
+    market = str(payload.get("market") or "").strip()
+    target_customer = str(payload.get("target_customer") or "").strip()
+    report = str(payload.get("report") or "").strip()
+
+    lead = _upsert_lead(index, company_id, now_iso)
+    lead["market"] = market
+    lead["company_name"] = target_customer or market or f"item-{company_id}"
+    lead["report"] = report or None
+    lead["last_stage"] = "worker_result"
+
+    lead_status = str(payload.get("lead_status") or "").strip()
+    if lead_status:
+        lead["status"] = _normalize_status(lead_status)
+    elif execution_status == "failed":
+        lead["status"] = "monitor"
+    elif execution_status == "completed":
+        existing = str(lead.get("status") or "").strip()
+        if not existing or _normalize_status(existing) == "new":
+            lead["status"] = "validated"
+        else:
+            lead["status"] = _normalize_status(existing)
+
+    error_value = str(payload.get("error") or "").strip()
+    lead["last_error"] = error_value or None
+
+    score_value = _to_float(payload.get("score"))
+    lead["score"] = score_value
+    return 1
+
+
 def _apply_stage(stage: str, payload: dict[str, Any], index: dict[str, dict[str, Any]], now_iso: str) -> int:
     if stage == "research_ingest":
         return _apply_research_ingest(payload, index, now_iso)
@@ -388,6 +425,8 @@ def _apply_stage(stage: str, payload: dict[str, Any], index: dict[str, dict[str,
         return _apply_reply_parse(payload, index, now_iso)
     if stage == "call_sheet_build":
         return _apply_call_sheet_build(payload, index, now_iso)
+    if stage == "worker_result":
+        return _apply_worker_result(payload, index, now_iso)
     return 0
 
 

@@ -99,7 +99,7 @@ while IFS=$'\t' read -r id market geography profile template notes; do
   log_file="$LOGS_DIR/${report_num}-${id}.log"
   set +e
   worker_cmd=(
-    python -m market_validation.batch_worker
+    bash "$ROOT_DIR/batch/worker-and-store.sh"
     --id "$id"
     --market "$market"
     --geography "${geography:-global}"
