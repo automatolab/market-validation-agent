@@ -1,1 +1,1 @@
-"""Market validation engine package."""
+"""Prompt-driven market validation package."""

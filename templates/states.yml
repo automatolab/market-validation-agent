@@ -1,0 +1,17 @@
+states:
+  - id: new
+    label: new
+  - id: scanning
+    label: scanning
+  - id: validated
+    label: validated
+  - id: interviewing
+    label: interviewing
+  - id: test_ready
+    label: test_ready
+  - id: monitor
+    label: monitor
+  - id: rejected
+    label: rejected
+  - id: archived
+    label: archived

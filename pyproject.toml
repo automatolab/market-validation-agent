@@ -5,22 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "market-validation-agent"
 version = "0.1.0"
-description = "Evidence-backed market validation engine"
+description = "Prompt-driven market validation pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "duckduckgo-search>=6.3.0,<7.0.0",
-  "fastapi>=0.116.0,<1.0.0",
-  "pydantic>=2.9.0,<3.0.0",
-  "python-dotenv>=1.0.0,<2.0.0",
-  "uvicorn>=0.31.0,<1.0.0"
+  "python-dotenv>=1.0.0,<2.0.0"
 ]
 
 [project.optional-dependencies]
 dev = [
-  "httpx>=0.27.0,<1.0.0",
   "pytest>=8.3.0,<9.0.0"
 ]
+
+[project.scripts]
+market-merge-tracker = "market_validation.file_pipeline:main_merge_cli"
+market-verify-pipeline = "market_validation.file_pipeline:main_verify_cli"
+market-batch-worker = "market_validation.batch_worker:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
