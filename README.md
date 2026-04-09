@@ -111,7 +111,7 @@ A ready-to-use brisket config is included at `config/lead-pipeline.json`.
 
 Suggested free/low-cost source setup for testing:
 
-- `foursquare_places` (free calls/month; key via `FOURSQUARE_API_KEY`)
+- `foursquare_places` (free calls/month; key via `FOURSQUARE_PLACES_API_KEY`)
 - `overpass_osm` (free, no key)
 - `here_places` (free tier; key via `HERE_API_KEY`)
 - `duckduckgo` (free, no key)
@@ -126,11 +126,18 @@ Notes:
 - Source configs are operator-owned; prompts enforce configured-source-only behavior.
 - `config-check` warns when a source references an `auth_env` variable that is not set.
 
+Foursquare Places auth details (`/v3/places/search`):
+
+- Use header `Authorization: <FOURSQUARE_PLACES_API_KEY>` (raw key, no `Bearer ` prefix).
+- Set `X-Places-Api-Version: 1970-01-01`.
+- Recommended endpoint: `https://api.foursquare.com/v3/places/search`.
+- These fields are already included in `config/lead-pipeline.example.json` and `config/lead-pipeline.json`.
+
 Environment loading behavior:
 
 - CLI tools auto-load a local `.env` file when present (repo root preferred).
 - `auth_env` values in `source_configs` should reference variable names in `.env`.
-- Example variables: `FOURSQUARE_API_KEY`, `HERE_API_KEY`, `SERPAPI_API_KEY`, `OPENCODE_MODEL`, `OPENCODE_AGENT`.
+- Example variables: `FOURSQUARE_PLACES_API_KEY`, `HERE_API_KEY`, `SERPAPI_API_KEY`, `OPENCODE_MODEL`, `OPENCODE_AGENT`.
 
 Quick setup:
 

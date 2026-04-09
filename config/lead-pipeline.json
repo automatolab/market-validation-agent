@@ -80,7 +80,11 @@
       "source_id": "foursquare-texas-bbq-restaurants",
       "source_type": "directory",
       "provider": "foursquare_places",
-      "auth_env": "FOURSQUARE_API_KEY",
+      "auth_env": "FOURSQUARE_PLACES_API_KEY",
+      "auth_header": "Authorization",
+      "auth_scheme": "raw",
+      "endpoint": "https://api.foursquare.com/v3/places/search",
+      "api_version": "1970-01-01",
       "query": "bbq brisket restaurant",
       "region": "Texas,US",
       "enabled": false

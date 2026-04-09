@@ -22,6 +22,10 @@ STAGE_SEQUENCE = (
 )
 
 ALLOWED_SOURCE_TYPES = {"search", "review_site", "directory", "internal_feed"}
+ALLOWED_AUTH_SCHEMES = {"raw", "bearer", "none"}
+PROVIDERS_REQUIRING_AUTH_ENV = {"foursquare_places", "here_places", "serpapi"}
+FOURSQUARE_PLACES_SEARCH_ENDPOINT = "https://api.foursquare.com/v3/places/search"
+FOURSQUARE_PLACES_API_VERSION = "1970-01-01"
 
 
 @dataclass
@@ -180,18 +184,73 @@ def validate_config(config: dict[str, Any], root: Path) -> ConfigValidationResul
                 errors.append(f"source_configs[{idx}].source_type must be one of: {allowed}")
 
             enabled_value = source.get("enabled")
+            enabled = False
             if not isinstance(enabled_value, bool):
                 errors.append(f"source_configs[{idx}].enabled must be boolean")
             elif enabled_value:
+                enabled = True
                 enabled_count += 1
 
+            provider = str(source.get("provider") or "").strip()
+
             auth_env = source.get("auth_env")
+            auth_env_name = ""
             if auth_env is not None:
                 if not isinstance(auth_env, str) or not auth_env.strip():
                     errors.append(f"source_configs[{idx}].auth_env must be a non-empty string when provided")
-                elif os.getenv(auth_env.strip()) is None:
+                else:
+                    auth_env_name = auth_env.strip()
+                if auth_env_name and os.getenv(auth_env_name) is None:
                     warnings.append(
-                        f"source_configs[{idx}] expects env var '{auth_env.strip()}', but it is not set in current environment"
+                        f"source_configs[{idx}] expects env var '{auth_env_name}', but it is not set in current environment"
+                    )
+
+            auth_scheme = source.get("auth_scheme")
+            if auth_scheme is not None:
+                if not isinstance(auth_scheme, str) or not auth_scheme.strip():
+                    errors.append(f"source_configs[{idx}].auth_scheme must be a non-empty string when provided")
+                elif auth_scheme.strip().lower() not in ALLOWED_AUTH_SCHEMES:
+                    allowed = ", ".join(sorted(ALLOWED_AUTH_SCHEMES))
+                    errors.append(f"source_configs[{idx}].auth_scheme must be one of: {allowed}")
+
+            if enabled and provider in PROVIDERS_REQUIRING_AUTH_ENV and not auth_env_name:
+                errors.append(f"source_configs[{idx}] provider '{provider}' requires auth_env when enabled")
+
+            if provider == "foursquare_places":
+                auth_header = str(source.get("auth_header") or "Authorization").strip()
+                if auth_header.lower() != "authorization":
+                    errors.append("foursquare_places requires auth_header 'Authorization'")
+
+                auth_scheme_value = str(source.get("auth_scheme") or "raw").strip().lower()
+                if auth_scheme_value != "raw":
+                    errors.append(
+                        "foursquare_places for /v3/places/search must use auth_scheme 'raw' (no Bearer prefix)"
+                    )
+
+                endpoint_value = source.get("endpoint")
+                if endpoint_value is None:
+                    warnings.append(
+                        f"source_configs[{idx}] provider 'foursquare_places' should set endpoint to "
+                        f"{FOURSQUARE_PLACES_SEARCH_ENDPOINT}"
+                    )
+                elif not isinstance(endpoint_value, str) or not endpoint_value.strip():
+                    errors.append(f"source_configs[{idx}].endpoint must be a non-empty string when provided")
+                elif endpoint_value.strip() != FOURSQUARE_PLACES_SEARCH_ENDPOINT:
+                    warnings.append(
+                        f"source_configs[{idx}] endpoint '{endpoint_value.strip()}' differs from recommended "
+                        f"{FOURSQUARE_PLACES_SEARCH_ENDPOINT}"
+                    )
+
+                api_version = str(source.get("api_version") or "").strip()
+                if not api_version:
+                    warnings.append(
+                        f"source_configs[{idx}] provider 'foursquare_places' should set api_version to "
+                        f"{FOURSQUARE_PLACES_API_VERSION}"
+                    )
+                elif api_version != FOURSQUARE_PLACES_API_VERSION:
+                    warnings.append(
+                        f"source_configs[{idx}] api_version '{api_version}' differs from recommended "
+                        f"{FOURSQUARE_PLACES_API_VERSION}"
                     )
 
         if enabled_count == 0:

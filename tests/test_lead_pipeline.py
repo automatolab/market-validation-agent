@@ -21,6 +21,7 @@ def _base_config() -> dict[str, object]:
             {
                 "source_id": "google-brisket-us",
                 "source_type": "search",
+                "provider": "duckduckgo",
                 "query": "brisket restaurant",
                 "region": "US",
                 "enabled": True,
@@ -89,6 +90,51 @@ def test_validate_config_rejects_bad_source_type_and_duplicate_id(tmp_path: Path
     result = lead_pipeline.validate_config(config, tmp_path)
     assert any("Duplicate source_id" in item for item in result.errors)
     assert any("source_type must be one of" in item for item in result.errors)
+
+
+def test_validate_config_requires_auth_env_for_enabled_foursquare(tmp_path: Path) -> None:
+    _write_required_modes(tmp_path)
+    config = _base_config()
+    config["source_configs"] = [
+        {
+            "source_id": "foursquare-us",
+            "source_type": "directory",
+            "provider": "foursquare_places",
+            "query": "brisket",
+            "region": "US",
+            "enabled": True,
+            "auth_scheme": "raw",
+            "auth_header": "Authorization",
+            "api_version": "1970-01-01",
+            "endpoint": "https://api.foursquare.com/v3/places/search",
+        }
+    ]
+
+    result = lead_pipeline.validate_config(config, tmp_path)
+    assert any("requires auth_env" in item for item in result.errors)
+
+
+def test_validate_config_rejects_foursquare_bearer_scheme(tmp_path: Path) -> None:
+    _write_required_modes(tmp_path)
+    config = _base_config()
+    config["source_configs"] = [
+        {
+            "source_id": "foursquare-us",
+            "source_type": "directory",
+            "provider": "foursquare_places",
+            "query": "brisket",
+            "region": "US",
+            "enabled": False,
+            "auth_env": "FOURSQUARE_PLACES_API_KEY",
+            "auth_scheme": "bearer",
+            "auth_header": "Authorization",
+            "api_version": "1970-01-01",
+            "endpoint": "https://api.foursquare.com/v3/places/search",
+        }
+    ]
+
+    result = lead_pipeline.validate_config(config, tmp_path)
+    assert any("must use auth_scheme 'raw'" in item for item in result.errors)
 
 
 def test_load_config_uses_root_relative_and_fallback(tmp_path: Path) -> None:
