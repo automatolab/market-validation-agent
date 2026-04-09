@@ -66,3 +66,18 @@ def test_verify_pipeline_detects_missing_report_and_pending_additions(tmp_path: 
     assert any("report link missing" in item for item in result.errors)
     assert result.warnings
     assert any("pending tracker additions" in item for item in result.warnings)
+
+
+def test_verify_pipeline_accepts_lead_pipeline_statuses(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "data" / "validation-tracker.md",
+        "# Market Validation Tracker\n\n"
+        "| # | Date | Market | Target Customer | Status | Score | Report | Notes |\n"
+        "|---|------|--------|-----------------|--------|-------|--------|-------|\n"
+        "| 1 | 2026-04-10 | Brisket supply | Restaurant owner | call_ready | N/A | [001](reports/001-brisket-2026-04-10.md) | queued for sales call |\n",
+    )
+    _write(tmp_path / "reports" / "001-brisket-2026-04-10.md", "# report")
+
+    result = verify_pipeline(tmp_path)
+
+    assert result.errors == []

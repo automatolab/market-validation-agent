@@ -21,6 +21,7 @@ dev = [
 market-merge-tracker = "market_validation.file_pipeline:main_merge_cli"
 market-verify-pipeline = "market_validation.file_pipeline:main_verify_cli"
 market-batch-worker = "market_validation.batch_worker:main"
+market-output-store = "market_validation.output_store:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

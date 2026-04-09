@@ -1,17 +1,43 @@
 states:
   - id: new
     label: new
+    group: market_validation
   - id: scanning
     label: scanning
+    group: market_validation
   - id: validated
     label: validated
+    group: market_validation
   - id: interviewing
     label: interviewing
+    group: market_validation
   - id: test_ready
     label: test_ready
+    group: market_validation
   - id: monitor
     label: monitor
+    group: market_validation
   - id: rejected
     label: rejected
+    group: market_validation
   - id: archived
     label: archived
+    group: market_validation
+  - id: qualified
+    label: qualified
+    group: lead_pipeline
+  - id: emailed
+    label: emailed
+    group: lead_pipeline
+  - id: replied_interested
+    label: replied_interested
+    group: lead_pipeline
+  - id: replied_not_now
+    label: replied_not_now
+    group: lead_pipeline
+  - id: do_not_contact
+    label: do_not_contact
+    group: lead_pipeline
+  - id: call_ready
+    label: call_ready
+    group: lead_pipeline

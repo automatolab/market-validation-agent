@@ -18,6 +18,12 @@ CANONICAL_STATUSES = {
     "monitor",
     "rejected",
     "archived",
+    "qualified",
+    "emailed",
+    "replied_interested",
+    "replied_not_now",
+    "do_not_contact",
+    "call_ready",
 }
 
 
@@ -67,7 +73,7 @@ def build_opencode_prompt(args: argparse.Namespace, root: Path) -> str:
         "Return strict JSON with keys:\n"
         "{\n"
         '  "target_customer": "string",\n'
-        '  "status": "new|scanning|validated|interviewing|test_ready|monitor|rejected|archived",\n'
+        '  "status": "new|scanning|validated|interviewing|test_ready|monitor|rejected|archived|qualified|emailed|replied_interested|replied_not_now|do_not_contact|call_ready",\n'
         '  "score": number|null,\n'
         '  "verdict": "string",\n'
         '  "notes": "string",\n'

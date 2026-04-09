@@ -15,6 +15,12 @@ CANONICAL_STATUSES = (
     "monitor",
     "rejected",
     "archived",
+    "qualified",
+    "emailed",
+    "replied_interested",
+    "replied_not_now",
+    "do_not_contact",
+    "call_ready",
 )
 
 TRACKER_HEADER = "| # | Date | Market | Target Customer | Status | Score | Report | Notes |"
@@ -298,4 +304,3 @@ def main_verify_cli() -> None:
         print(f"WARN: {message}")
     if result.errors:
         raise SystemExit(1)
-

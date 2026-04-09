@@ -12,6 +12,23 @@ Validate market opportunities with evidence-first reasoning. Treat each market i
 - Keep reports actionable: risks, unknowns, and next experiments.
 - Write staged tracker rows to `batch/tracker-additions/` and merge later.
 
+## Source Configuration Rules
+
+- Do not discover new data sources on your own.
+- Use only operator-configured sources from the ingestion registry.
+- If no configured source can satisfy the task, return a failed JSON payload with `failure_mode: "missing_source_config"`.
+
+## JSON Contract Rules
+
+- Return exactly one JSON object and nothing else.
+- Do not use markdown fences.
+- Include machine-readable failure details (`result`, `failure_mode`, and `errors`) in all workflows.
+
+## Evidence Link Rules
+
+- Every qualification claim must include at least one evidence URL.
+- If any claim has no evidence link, fail the item with `failure_mode: "missing_evidence_links"`.
+
 ## Canonical Statuses
 
 - `new`
@@ -22,6 +39,16 @@ Validate market opportunities with evidence-first reasoning. Treat each market i
 - `monitor`
 - `rejected`
 - `archived`
+
+## Lead Pipeline Statuses
+
+- `new`
+- `qualified`
+- `emailed`
+- `replied_interested`
+- `replied_not_now`
+- `do_not_contact`
+- `call_ready`
 
 ## Output Contract Per Item
 

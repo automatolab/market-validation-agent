@@ -20,6 +20,11 @@ Business logic is prompt-driven; code is intentionally thin and deterministic.
 - `modes/validate.md` - single-item validation contract
 - `modes/auto-pipeline.md` - full item pipeline contract
 - `modes/batch.md` - batch orchestration contract
+- `modes/research-ingest.md` - configured-source ingestion contract
+- `modes/lead-qualify.md` - evidence-linked company qualification contract
+- `modes/outreach-email.md` - template-driven outreach draft contract
+- `modes/reply-parse.md` - inbound reply parsing/status contract
+- `modes/call-sheet-build.md` - call sheet ranking contract
 - `batch/batch-prompt.md` - worker prompt contract
 - `batch/batch-runner.sh` - deterministic batch orchestrator
 - `market_validation/batch_worker.py` - OpenCode-backed worker executor
@@ -39,6 +44,56 @@ Each worker invocation builds one prompt payload from:
 - runtime item metadata (market, geography, profile, report number, date)
 
 Then it calls `opencode run` and expects strict JSON output.
+
+For lead-generation workflows (for example brisket supply), the prompt contracts support a staged pipeline:
+
+1. `research-ingest`
+2. `lead-qualify`
+3. `outreach-email`
+4. `reply-parse`
+5. `call-sheet-build`
+
+Hard guarantees in these contracts:
+
+- JSON-only outputs
+- configured-source only ingestion (no autonomous source discovery)
+- evidence URLs required for every qualification claim
+- lead statuses include `new`, `qualified`, `emailed`, `replied_interested`, `replied_not_now`, `do_not_contact`, `call_ready`
+
+## File-Based Output Store (No DB Required)
+
+Stage JSON payloads can be persisted directly to files and materialized into markdown views:
+
+- `output/runs/{run_id}/{stage}.json` - per-stage canonical payloads
+- `output/leads/leads.jsonl` - latest lead state per company
+- `output/call-sheets/{YYYY-MM-DD}.md` - call sheet for human follow-up
+- `output/dashboard/summary.md` - status and priority summary
+
+Persist a stage payload from a file:
+
+```bash
+python store-output.py --input-file output/sample-stage.json
+```
+
+Or from stdin:
+
+```bash
+python store-output.py <<'JSON'
+{
+  "result": "ok",
+  "stage": "lead_qualify",
+  "run_id": "brisket-001",
+  "market": "Brisket",
+  "qualified_companies": []
+}
+JSON
+```
+
+You can also use the installed script:
+
+```bash
+market-output-store --input-file output/sample-stage.json
+```
 
 The worker writes:
 

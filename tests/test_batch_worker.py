@@ -36,7 +36,7 @@ def test_extract_first_json_object_handles_fenced_json() -> None:
 def test_run_worker_writes_report_and_tracker_row(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     model_payload = {
         "target_customer": "Small CNC shops",
-        "status": "validated",
+        "status": "qualified",
         "score": 7.42,
         "verdict": "Strong initial signal",
         "notes": "clear pain + willingness to pay",
@@ -52,7 +52,7 @@ def test_run_worker_writes_report_and_tracker_row(tmp_path: Path, monkeypatch: p
 
     tracker_row = (tmp_path / "batch" / "tracker-additions" / "10.tsv").read_text(encoding="utf-8")
     assert tracker_row == (
-        "1\t2026-04-09\tAI QA agent\tSmall CNC shops\tvalidated\t7.42/10\t"
+        "1\t2026-04-09\tAI QA agent\tSmall CNC shops\tqualified\t7.42/10\t"
         "[001](reports/001-ai-qa-agent-2026-04-09.md)\tclear pain + willingness to pay\n"
     )
 
@@ -118,3 +118,20 @@ def test_main_exits_nonzero_and_emits_failed_json(
     assert payload["market"] == "test market"
     assert "opencode unavailable" in payload["error"]
 
+
+def test_run_worker_accepts_replied_interested_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    model_payload = {
+        "target_customer": "Restaurant owner",
+        "status": "replied_interested",
+        "score": 8.1,
+        "verdict": "Asked for follow-up call",
+        "notes": "requested pricing discussion",
+        "report_markdown": "# Reply\n\nInterested.",
+    }
+
+    monkeypatch.setattr(worker, "invoke_opencode", lambda **_: model_payload)
+    result = worker.run_worker(_args(tmp_path, market="Brisket suppliers", report_num="002"))
+
+    assert result["status"] == "completed"
+    tracker_row = (tmp_path / "batch" / "tracker-additions" / "10.tsv").read_text(encoding="utf-8")
+    assert "\treplied_interested\t" in tracker_row
