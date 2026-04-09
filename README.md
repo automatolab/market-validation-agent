@@ -110,6 +110,10 @@ python -m market_validation.batch_worker \
   --report-num 001
 ```
 
+Use explicit flags for worker invocation. This keeps execution deterministic and makes failures easier to diagnose.
+
+OpenCode router inputs can still be flexible: shorthand positional input can be normalized by the router into an explicit-flag command before execution.
+
 Optional OpenCode flags:
 
 ```bash

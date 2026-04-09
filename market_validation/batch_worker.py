@@ -75,6 +75,23 @@ def build_opencode_prompt(args: argparse.Namespace, root: Path) -> str:
         "}\n"
     )
 
+    response_rules = (
+        "Response rules:\n"
+        "- Return exactly one JSON object and nothing else.\n"
+        "- No markdown fences, no preface text, no trailing commentary.\n"
+        "- `status` must be one canonical value.\n"
+        "- Use `score: null` when evidence confidence is low.\n"
+        "- Keep `notes` concise, evidence-grounded, and decision-useful.\n"
+    )
+
+    decision_policy = (
+        "Decision policy:\n"
+        "- Use `scanning` when signals are mixed or evidence is thin.\n"
+        "- Use `validated` only when demand + willingness-to-pay have credible support.\n"
+        "- Use `rejected` when evidence indicates weak demand, strong structural blockers, or no clear wedge.\n"
+        "- Do not overstate certainty; call out unknowns explicitly.\n"
+    )
+
     task = (
         f"Item:\n"
         f"- id: {args.id}\n"
@@ -88,17 +105,28 @@ def build_opencode_prompt(args: argparse.Namespace, root: Path) -> str:
 
     report_shape = (
         "`report_markdown` should include:\n"
-        "- Title\n"
-        "- Date / Market / Target Customer / Geography\n"
-        "- Market Summary\n"
-        "- Source Coverage\n"
-        "- Competitor / Pricing / Demand observations\n"
-        "- Risks\n"
-        "- Unknowns\n"
-        "- Next Validation Experiments\n"
+        "- # Title\n"
+        "- Date / Market / Target Customer / Geography block\n"
+        "- ## Market Summary\n"
+        "- ## Source Coverage (quality + breadth)\n"
+        "- ## Competitor / Pricing / Demand observations\n"
+        "- ## Risks\n"
+        "- ## Unknowns\n"
+        "- ## Next Validation Experiments\n"
+        "- Prefer specific evidence statements over generic advice.\n"
     )
 
-    sections = [header, shared, validate_mode, batch_contract, contract, task, report_shape]
+    sections = [
+        header,
+        shared,
+        validate_mode,
+        batch_contract,
+        contract,
+        response_rules,
+        decision_policy,
+        task,
+        report_shape,
+    ]
     return "\n\n".join(section for section in sections if section)
 
 

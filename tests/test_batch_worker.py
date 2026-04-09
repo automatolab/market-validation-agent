@@ -117,3 +117,4 @@ def test_main_exits_nonzero_and_emits_failed_json(
     assert payload["id"] == "55"
     assert payload["market"] == "test market"
     assert "opencode unavailable" in payload["error"]
+

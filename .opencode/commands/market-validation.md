@@ -18,6 +18,10 @@ Interpret the first token as a subcommand:
 Execution rules:
 
 1. Always run from repo root.
-2. Pass arguments through exactly for `batch` and `worker`.
+2. Pass arguments through exactly for `batch`; for `worker`, pass through exactly when required flags are present.
 3. Summarize key output lines (processed, failures, warnings) in plain language.
 4. If a command fails, report the failure reason and suggest the exact next corrective command.
+5. For `worker`, keep the Python command contract strict but make router-level input flexible:
+   - if required flags are present, pass through exactly
+   - if missing, infer and execute one explicit-flag worker command
+6. Prefer explicit-flag commands in all corrective suggestions.
