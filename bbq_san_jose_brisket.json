@@ -1,0 +1,427 @@
+{
+  "companies": [
+    {
+      "company_name": "Smoking Pig BBQ",
+      "website": "https://www.smokingpigbbq.net/",
+      "location": "1144 N 4th St, San Jose, CA 95112",
+      "phone": "(408) 380-4784",
+      "hours": "Mon-Sun 11:00 AM - 8:00 PM",
+      "ratings": {"yelp": "3.9", "google": "4.3", "tripadvisor": "4.2"},
+      "reviews_count": 3397,
+      "menu_items": [
+        {"item": "Beef Brisket Sammy", "price": "$21.84", "description": "Beef brisket sandwich"},
+        {"item": "Brisket (1 meat meal)", "price": "$24.15", "description": "Served with 2 sides"}
+      ],
+      "description": "Veteran-owned, slow-smoked Southern-style BBQ. Specializes in brisket, ribs, pulled pork, and Louisiana hot links.",
+      "evidence_url": "https://www.yelp.com/biz/smoking-pig-bbq-san-jose"
+    },
+    {
+      "company_name": "Smoking Pig BBQ - Coleman",
+      "website": "https://www.smokingpigbbq.net/",
+      "location": "530 Newhall Dr, San Jose, CA 95110",
+      "phone": "(408) 289-1510",
+      "hours": "Mon-Thu 11:00 AM - 8:00 PM, Fri-Sat 11:00 AM - 9:00 PM, Sun 11:00 AM - 8:00 PM",
+      "ratings": {"yelp": "3.9", "google": "4.3"},
+      "reviews_count": 3397,
+      "menu_items": [
+        {"item": "Beef Brisket Sammy", "price": "$21.84", "description": "Beef brisket sandwich"},
+        {"item": "Brisket (1 meat meal)", "price": "$24.15", "description": "Served with 2 sides"}
+      ],
+      "description": "Second location of Smoking Pig BBQ with full bar and outdoor seating.",
+      "evidence_url": "https://www.smokingpigbbq.net/"
+    },
+    {
+      "company_name": "Mesquite & Oak",
+      "website": "https://www.mesquiteandoak.com/",
+      "location": "856 N 13th St, San Jose, CA 95112",
+      "phone": "(669) 306-6873",
+      "hours": "Tue-Sat 10:00 AM - 4:00 PM, Sun 10:00 AM - 4:00 PM, Mon Closed",
+      "ratings": {"yelp": "4.5", "google": "4.6"},
+      "reviews_count": 710,
+      "menu_items": [
+        {"item": "Brisket", "price": "$17.55", "description": "By the pound - hand-cut, smoked brisket"},
+        {"item": "Big Brisket Sandwich", "price": "$14.90", "description": "Brisket sandwich with side"},
+        {"item": "Brisket Plate", "price": "~$20", "description": "6oz brisket with 2 sides and cornbread"},
+        {"item": "Smoked Brisket Taco", "price": "$9.00", "description": "Smoked brisket taco"}
+      ],
+      "description": "Texas-style BBQ, carves meat to order. Known for exceptional brisket and dino beef ribs. No sugar in brisket and beef ribs (keto-friendly).",
+      "evidence_url": "https://www.yelp.com/biz/mesquite-and-oak-san-jose"
+    },
+    {
+      "company_name": "The Barbeque Pit",
+      "website": "https://www.thebarbequepit.com/",
+      "location": "1349 Blossom Hill Rd, San Jose, CA 95118",
+      "phone": "(408) 440-2968",
+      "hours": "Daily 7:00 AM - 9:00 PM",
+      "ratings": {"yelp": "4.2", "google": "4.0"},
+      "reviews_count": 183,
+      "menu_items": [
+        {"item": "Brisket Plate", "price": "~$20", "description": "Served with 2 sides"},
+        {"item": "Brisket Sandwich", "price": "~$14", "description": "Hand-cut, smoked brisket on bread"}
+      ],
+      "description": "Family-run restaurant serving authentic American BBQ. Award-winning brisket. Open for breakfast, lunch, and dinner.",
+      "evidence_url": "https://www.yelp.com/biz/the-barbeque-pit-san-jose"
+    },
+    {
+      "company_name": "Sam's Bar-B-Que",
+      "website": "http://www.samsbbq.com/",
+      "location": "1110 S Bascom Ave, San Jose, CA 95128",
+      "phone": "(408) 297-9151",
+      "hours": "Mon-Sat 11:00 AM - 9:00 PM, Sun 11:00 AM - 8:00 PM",
+      "ratings": {"tripadvisor": "4.0", "yelp": "4.0"},
+      "reviews_count": 500,
+      "menu_items": [
+        {"item": "Beef Brisket - USDA Choice", "price": "$16.95", "description": "1/2 lb, smoked 14 hours, Texas style"},
+        {"item": "Bar-B-Que Beef", "price": "$10.95", "description": "USDA Choice brisket sandwich, smoked 14 hours"},
+        {"item": "Rib & Brisket Combo", "price": "$24.95", "description": "1/4 rack ribs + brisket"}
+      ],
+      "description": "Legendary Texas-style BBQ since 1992. Known for exceptional 14-hour smoked brisket, baby back ribs, and Carolina pulled pork.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "South Winchester BBQ",
+      "website": "https://www.southwinchesterbarbecue.com/",
+      "location": "1362 S Winchester Blvd, San Jose, CA 95128",
+      "phone": "(408) 376-0485",
+      "hours": "Daily 7:00 AM - 9:00 PM (or sold out)",
+      "ratings": {"yelp": "4.2", "google": "4.2", "tripadvisor": "4.2"},
+      "reviews_count": 1152,
+      "menu_items": [
+        {"item": "Smoked Brisket Sandwich", "price": "~$14", "description": "Smoked brisket with chimichurri and provolone"},
+        {"item": "Brisket Plate", "price": "~$20", "description": "Served with sides"}
+      ],
+      "description": "Voted best BBQ in Silicon Valley. Known for excellent brisket, tri-tip, and traditional BBQ items. Also serves breakfast.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "Sauced BBQ & Spirits - Santana Row",
+      "website": "https://saucedsbbq.com/",
+      "location": "3055 Olin Ave Ste 1005, San Jose, CA 95128",
+      "phone": "(408) 564-8048",
+      "hours": "Mon-Tue 5:00 PM - 9:30 PM, Wed-Thu 11:30 AM - 9:30 PM, Fri 11:30 AM - 10:30 PM, Sat 11:30 AM - 10:30 PM, Sun 11:30 AM - 9:30 PM",
+      "ratings": {"google": "4.2", "yelp": "3.4", "facebook": "4.1", "foursquare": "5.6"},
+      "reviews_count": 557,
+      "menu_items": [
+        {"item": "Sliced Brisket Plate", "price": "~$22", "description": "Sliced brisket with sides"},
+        {"item": "Chopped Brisket", "price": "~$18", "description": "Chopped brisket"},
+        {"item": "BBQ Brisket Melt", "price": "~$16", "description": "Brisket melt sandwich"},
+        {"item": "Brisket Chili", "price": "~$12", "description": "Brisket chili"}
+      ],
+      "description": "Southern BBQ at Santana Row. Known for brisket burnt ends, creative sides, and fun family atmosphere.",
+      "evidence_url": "https://www.restaurantji.com/ca/san-jose/sauced-bbq-and-spirits-san-jose-santana-row-/"
+    },
+    {
+      "company_name": "Armadillo Willy's Texas BBQ",
+      "website": "https://www.armadillowillys.com/",
+      "location": "878 Blossom Hill Rd, San Jose, CA 95123",
+      "phone": "(408) 224-7427",
+      "hours": "Daily 11:00 AM - 8:00 PM",
+      "ratings": {"google": "4.2", "tripadvisor": "3.8", "yelp": "3.8"},
+      "reviews_count": 572,
+      "menu_items": [
+        {"item": "Certified Angus Beef Prime Brisket", "price": "$6.95 (sandwich) / $15.95 (plate)", "description": "USDA Prime, top 1% of beef, hand-rubbed with Willy's BBQ rub"},
+        {"item": "Prime Brisket Plate", "price": "$15.95", "description": "Served with choice of 2 sides"}
+      ],
+      "description": "Texas-inspired chain since 1983. 100% wood-fired BBQ. Known for authentic Texas-style brisket and ribs.",
+      "evidence_url": "https://www.yelp.com/biz/armadillo-willys-texas-bbq-san-jose"
+    },
+    {
+      "company_name": "Henry's World Famous Hi-Life",
+      "website": "https://www.henrys-hilife.com/",
+      "location": "301 W Saint John St, San Jose, CA 95113",
+      "phone": "(408) 295-5414",
+      "hours": "Wed-Fri 12:00 PM - 2:30 PM & 4:00 PM - 8:00 PM, Sat 3:00 PM - 9:00 PM",
+      "ratings": {"yelp": "4.2", "tripadvisor": "4.2", "google": "4.2"},
+      "reviews_count": 380,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$18", "description": "Served with steakhouse sides"}
+      ],
+      "description": "San Jose institution since 1960. Famous for steaks and BBQ in rustic setting with covered deck.",
+      "evidence_url": "https://www.gayot.com/restaurants/best-sanjose-ca-top10-bbq_51sj.html"
+    },
+    {
+      "company_name": "Famous Dave's Bar-B-Que",
+      "website": "https://www.famousdaves.com/",
+      "location": "61 Curtner Ave, San Jose, CA 95125",
+      "phone": "(408) 292-7444",
+      "hours": "Daily 11:00 AM - 9:00 PM",
+      "ratings": {"yelp": "3.9", "tripadvisor": "3.9"},
+      "reviews_count": 83,
+      "menu_items": [
+        {"item": "Beef Brisket", "price": "~$18", "description": "Signature smoked brisket"}
+      ],
+      "description": "Legendary BBQ chain since 1994. Known for ribs, brisket, and classic BBQ fare.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Blue Rock BBQ",
+      "website": "https://www.bluerockbbq.com/",
+      "location": "3001 Meridian Ave, San Jose, CA 95124",
+      "phone": "(408) 978-2583",
+      "hours": "Daily 11:00 AM - 8:00 PM",
+      "ratings": {"yelp": "4.0", "google": "4.3"},
+      "reviews_count": 400,
+      "menu_items": [
+        {"item": "Brisket Plate", "price": "~$20", "description": "Served with 2 sides"}
+      ],
+      "description": "Voted best BBQ in Silicon Valley. Known for quality meats and great food combos.",
+      "evidence_url": "https://bbqrevolt.com/best-bbq/san-jose/"
+    },
+    {
+      "company_name": "Jon Jon's Barbeque",
+      "website": "https://jonjonsbbq.com/",
+      "location": "1305 Oakland Rd, San Jose, CA 95112",
+      "phone": "(408) 297-5799",
+      "hours": "Mon-Fri 10:00 AM - 5:00 PM, Sat 10:00 AM - 7:00 PM, Sun Closed",
+      "ratings": {"yelp": "4.0", "tripadvisor": "3.9"},
+      "reviews_count": 591,
+      "menu_items": [
+        {"item": "Brisket", "price": "~$18", "description": "Served as part of sampler platters or individual"},
+        {"item": "Brisket Sandwich", "price": "~$12", "description": "Sliced brisket on bun"}
+      ],
+      "description": "Family-owned BBQ joint since 1979. Known for flavorful hot links, ribs, and brisket.",
+      "evidence_url": "https://www.yelp.com/biz/jon-jons-barbeque-san-jose"
+    },
+    {
+      "company_name": "TAOB Pit Stop",
+      "website": "https://taobpitstop.com/",
+      "location": "San Jose, CA",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"tripadvisor": "4.3"},
+      "reviews_count": 16,
+      "menu_items": [
+        {"item": "BBQ with Brisket", "price": "~$18", "description": "Various BBQ plates"}
+      ],
+      "description": "Local BBQ spot known for great sides including potato salad and chili.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Malibu Grill & BBQ",
+      "website": "https://www.malibugrillbbq.com/",
+      "location": "5735 Camden Ave, San Jose, CA 95124",
+      "phone": "(408) 448-7300",
+      "hours": "Mon 12:00 PM - 8:30 PM, Wed-Sat 12:00 PM - 8:30 PM, Sun 10:00 AM - 8:00 PM, Tue Closed",
+      "ratings": {"yelp": "4.7", "tripadvisor": "4.7"},
+      "reviews_count": 9,
+      "menu_items": [
+        {"item": "BBQ Plates with Brisket", "price": "~$18-22", "description": "Various BBQ plates available"}
+      ],
+      "description": "Local favorite for over 25 years. Known for exceptional BBQ, great for sports watching.",
+      "evidence_url": "https://www.malibugrillbbq.com/"
+    },
+    {
+      "company_name": "JC's BBQ & Deli",
+      "website": null,
+      "location": "San Jose, CA",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"tripadvisor": "3.9"},
+      "reviews_count": 8,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$15", "description": "Home-style BBQ"}
+      ],
+      "description": "Home-style BBQ place with friendly service and good prices.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "The Art of BBQ Catering",
+      "website": "https://theartofbbq.com/",
+      "location": "San Jose, CA (Catering Only)",
+      "phone": null,
+      "hours": "By appointment",
+      "ratings": {"yelp": "4.6"},
+      "reviews_count": 394,
+      "menu_items": [
+        {"item": "Brisket Catering", "price": "Varies", "description": "Catered BBQ brisket services"}
+      ],
+      "description": "Premium BBQ catering service in San Jose area.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "Smoked Out BBQ",
+      "website": "https://smokedoutbbq.com/",
+      "location": "807 Aldo Ave, Santa Clara, CA 95054",
+      "phone": null,
+      "hours": "Check schedule",
+      "ratings": {"yelp": "4.7"},
+      "reviews_count": 281,
+      "menu_items": [
+        {"item": "Brisket Plate", "price": "~$20", "description": "Smoked brisket with sides"}
+      ],
+      "description": "Top-rated BBQ food truck in Santa Clara. Known for exceptional brisket.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "C.J BBQ",
+      "website": null,
+      "location": "461 Blossom Hill Rd, San Jose, CA 95123",
+      "phone": "(408) 229-9612",
+      "hours": "Sun 12:30 PM - 8:00 PM, Mon-Thu 11:30 AM - 8:00 PM",
+      "ratings": {"yelp": "4.0"},
+      "reviews_count": 50,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$16", "description": "Korean-style BBQ"}
+      ],
+      "description": "Local Korean BBQ spot serving brisket and various Korean BBQ options.",
+      "evidence_url": "https://sanjoseinsider.org/best-bbq-in-san-jose-california"
+    },
+    {
+      "company_name": "Horn Barbecue",
+      "website": null,
+      "location": "San Jose, CA",
+      "phone": "(510) 225-6101",
+      "hours": "Sun 11:00 AM - 5:00 PM, Mon-Thu Closed, Fri-Sat Closed",
+      "ratings": {"facebook": "4.4"},
+      "reviews_count": 131,
+      "menu_items": [
+        {"item": "Prime Brisket", "price": "~$18", "description": "Smoked prime brisket"},
+        {"item": "Spare Ribs", "price": "~$20", "description": "Award-winning spare ribs"}
+      ],
+      "description": "Known for incredible smoked meats. Featured on various BBQ lists.",
+      "evidence_url": "https://restaurantguru.com/Horn-Barbecue-San-Jose"
+    },
+    {
+      "company_name": "L&L Hawaiian Barbecue",
+      "website": "https://www.hawaiianbbq.com/",
+      "location": "5730 Cottle Road Ste 120, San Jose, CA 95123",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.0"},
+      "reviews_count": 109,
+      "menu_items": [
+        {"item": "BBQ Chicken", "price": "~$12", "description": "Hawaiian-style BBQ chicken"},
+        {"item": "BBQ Beef", "price": "~$14", "description": "Hawaiian-style BBQ beef (brisket)"}
+      ],
+      "description": "Hawaiian BBQ chain. Offers BBQ beef (brisket) plates.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "Ono Hawaiian BBQ",
+      "website": null,
+      "location": "San Jose, CA",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.3"},
+      "reviews_count": 4,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$14", "description": "Hawaiian-style BBQ brisket"}
+      ],
+      "description": "Local Hawaiian BBQ spot with consistently good food.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Yummy Tofu and BBQ",
+      "website": null,
+      "location": "1310 Saratoga Ave, San Jose, CA 95129",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.1"},
+      "reviews_count": 470,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$15", "description": "Korean BBQ with brisket"}
+      ],
+      "description": "Korean restaurant with BBQ options. Good selection of food, casual setting, great value.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "Olioli Hawaiian BBQ",
+      "website": null,
+      "location": "1657 N Capitol Ave, San Jose, CA 95131",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.5"},
+      "reviews_count": 193,
+      "menu_items": [
+        {"item": "BBQ Plate", "price": "~$13", "description": "Hawaiian BBQ plates"}
+      ],
+      "description": "Highly rated Hawaiian BBQ spot in San Jose.",
+      "evidence_url": "https://www.yelp.com/search?find_loc=San+Jose%2C+CA"
+    },
+    {
+      "company_name": "Q Pot Korean BBQ & Hot Pot",
+      "website": "https://www.qpotkorean.com/",
+      "location": "San Jose, CA (Multiple locations)",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.1", "tripadvisor": "4.1"},
+      "reviews_count": 28,
+      "menu_items": [
+        {"item": "Korean BBQ Brisket", "price": "$27.99", "description": "All-you-can-eat Korean BBQ, $3 per person additional"}
+      ],
+      "description": "Korean BBQ and hot pot. Offers all-you-can-eat options with brisket.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Gen Korean BBQ",
+      "website": "https://www.genkbq.com/",
+      "location": "San Jose, CA",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "3.8", "tripadvisor": "3.8"},
+      "reviews_count": 68,
+      "menu_items": [
+        {"item": "Korean BBQ Brisket", "price": "~$28", "description": "All-you-can-eat Korean BBQ"}
+      ],
+      "description": "Korean BBQ chain. Offers brisket as part of all-you-can-eat menu.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Gyu-Kaku Japanese BBQ - San Jose",
+      "website": "https://www.gyu-kaku.com/",
+      "location": "San Jose, CA (Downtown)",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"opentable": "4.2", "google": "4.2"},
+      "reviews_count": 161,
+      "menu_items": [
+        {"item": "Kalbi (Beef Short Rib)", "price": "~$15-25", "description": "Japanese BBQ"},
+        {"item": "Harami (Skirt Meat)", "price": "~$15-25", "description": "Japanese BBQ"}
+      ],
+      "description": "World's #1 Japanese BBQ brand. Offers Japanese-style grilled meats.",
+      "evidence_url": "https://www.opentable.com/cuisine/best-barbecue-restaurants-san-jose-ca"
+    },
+    {
+      "company_name": "YakiniQ",
+      "website": null,
+      "location": "San Jose, CA",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.5", "tripadvisor": "4.5"},
+      "reviews_count": 11,
+      "menu_items": [
+        {"item": "All-You-Can-Eat BBQ", "price": "$25", "description": "Korean BBQ, fresh and delicious"}
+      ],
+      "description": "All-you-can-eat Korean BBQ for $25. Incredible value, great for groups.",
+      "evidence_url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+    },
+    {
+      "company_name": "Baekjeong San Jose",
+      "website": "https://www.baekjeong.com/",
+      "location": "2855 Stevens Creek Blvd, Santa Clara, CA 95050",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {"yelp": "4.0", "tripadvisor": "3.3"},
+      "reviews_count": 1795,
+      "menu_items": [
+        {"item": "Korean BBQ Brisket", "price": "~$28", "description": "All-you-can-eat Korean BBQ"}
+      ],
+      "description": "Korean BBQ restaurant. Known for quality meats.",
+      "evidence_url": "https://www.yelp.com/biz/baekjeong-san-jose"
+    },
+    {
+      "company_name": "Texas Smokehouse BBQ",
+      "website": null,
+      "location": "1091 S Capitol Ave, San Jose, CA 95127",
+      "phone": null,
+      "hours": "Call for hours",
+      "ratings": {},
+      "reviews_count": 0,
+      "menu_items": [
+        {"item": "BBQ Brisket", "price": "~$16", "description": "Texas-style smoked brisket"}
+      ],
+      "description": "Local Texas-style BBQ spot.",
+      "evidence_url": "http://places.singleplatform.com/texas-smokehouse-bbq/menu"
+    }
+  ]
+}

@@ -78,16 +78,17 @@ def gather_companies(
     db_path: str | None = None,
 ) -> dict[str, Any]:
     root_path = Path(root).resolve()
+    search_term = product or market
 
     try:
         result = subprocess.run(
             [
                 "opencode", "run", "--dangerously-skip-permissions", "--dir", str(root_path),
-                f"""Find BBQ restaurants in {geography} that serve brisket.
-For each restaurant, gather as much info as possible:
+                f"""Find businesses in {geography} that offer {search_term}.
+For each business, gather as much info as possible:
 - Company name, website, address, phone
 - Hours of operation
-- Menu items with brisket and prices
+- Products/services offered with {search_term} and prices
 - Ratings (Yelp, Google, etc) and number of reviews
 - Any other relevant info
 
@@ -95,26 +96,25 @@ Return JSON with detailed data:
 {{
   "companies": [
     {{
-      "company_name": "Restaurant Name",
+      "company_name": "Business Name",
       "website": "https://...",
       "location": "Full Address",
       "phone": "555-123-4567",
       "hours": "Mon-Fri 11am-8pm",
       "ratings": {{"yelp": "4.5", "google": "4.6"}},
       "reviews_count": 500,
-      "menu_items": [
-        {{"item": "Brisket Plate", "price": "$18.95", "description": "1/2 lb sliced brisket with 2 sides"}},
-        {{"item": "Brisket Sandwich", "price": "$14.95", "description": "Sliced brisket on brioche bun"}}
+      "products": [
+        {{"item": "Product Name", "price": "$18.95", "description": "Description"}}
       ],
-      "description": "Texas-style BBQ known for brisket",
-      "evidence_url": "https://yelp.com/..."
+      "description": "Business description",
+      "evidence_url": "https://example.com/..."
     }}
   ]
 }}
 
-Search multiple sources: Yelp, Google Maps, TripAdvisor, restaurant websites.
-Return as many restaurants as possible (aim for 20+).
-Search for: "brisket BBQ {geography}", "best BBQ restaurants {geography}", "Texas BBQ {geography}"""
+Search multiple sources: Yelp, Google Maps, Yellow Pages, business websites.
+Return as many businesses as possible (aim for 20+).
+Search for: "{search_term} {geography}", "best {market} businesses {geography}"""
             ],
             capture_output=True,
             text=True,
@@ -226,7 +226,12 @@ Companies: {json.dumps(company_list, indent=2)}"""
         if json_start < 0:
             return {"result": "failed", "error": "No JSON in output"}
 
-        data = json.loads(output[json_start:])
+        json_text = output[json_start:]
+        json_end = json_text.rfind("}")
+        if json_end > 0:
+            json_text = json_text[:json_end+1]
+
+        data = json.loads(json_text)
         qualified_count = 0
 
         for q in data.get("results", []):
