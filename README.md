@@ -60,14 +60,17 @@ Hard guarantees in these contracts:
 - evidence URLs required for every qualification claim
 - lead statuses include `new`, `qualified`, `emailed`, `replied_interested`, `replied_not_now`, `do_not_contact`, `call_ready`
 
-## File-Based Output Store (No DB Required)
+## File + DB Output Store
 
-Stage JSON payloads can be persisted directly to files and materialized into markdown views:
+Stage JSON payloads are persisted to files, materialized into markdown views, and mirrored to SQLite for structured querying:
 
 - `output/runs/{run_id}/{stage}.json` - per-stage canonical payloads
 - `output/leads/leads.jsonl` - latest lead state per company
 - `output/call-sheets/{YYYY-MM-DD}.md` - call sheet for human follow-up
 - `output/dashboard/summary.md` - status and priority summary
+- `output/market-validation.sqlite3` - relational store for leads, source evidence, drafts, replies, call sheets, and call notes
+
+Database path defaults to `output/market-validation.sqlite3` and can be overridden with `MARKET_DB_PATH`.
 
 Persist a stage payload from a file:
 
@@ -261,6 +264,30 @@ This writes/updates:
 - `output/leads/leads.jsonl`
 - `output/call-sheets/{YYYY-MM-DD}.md`
 - `output/dashboard/summary.md`
+- `output/market-validation.sqlite3`
+
+## Call Notes Commands
+
+Store and read human call notes in the database (for call sheets and follow-up context):
+
+```bash
+python call-notes.py add \
+  --root . \
+  --company-id smoke-house-3 \
+  --author "caller-a" \
+  --note "Purchasing manager asked for pricing and Friday callback" \
+  --next-action "Call Friday afternoon"
+```
+
+```bash
+python call-notes.py list --root . --company-id smoke-house-3 --limit 20
+```
+
+Installed script equivalent:
+
+```bash
+market-call-notes list --root . --limit 20
+```
 
 ## Store Output Command
 

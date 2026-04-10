@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from market_validation.environment import load_project_env
+from market_validation.db_store import persist_pipeline_state_to_db
 
 KNOWN_STAGES = {
     "research_ingest",
@@ -579,6 +580,12 @@ def persist_stage_result(payload: dict[str, Any], root: str | Path = ".") -> dic
     _write_call_sheet(call_sheet_file, all_leads, now_iso)
     _write_dashboard_summary(paths["dashboard_file"], all_leads, now_iso)
 
+    db_result = persist_pipeline_state_to_db(
+        payload=payload_to_write,
+        leads=all_leads,
+        root=root_path,
+    )
+
     return {
         "result": "ok",
         "run_id": run_id,
@@ -587,8 +594,11 @@ def persist_stage_result(payload: dict[str, Any], root: str | Path = ".") -> dic
         "leads_file": _relative(paths["leads_file"], root_path),
         "call_sheet_file": _relative(call_sheet_file, root_path),
         "dashboard_file": _relative(paths["dashboard_file"], root_path),
+        "database_file": db_result["database_file"],
         "lead_count": len(all_leads),
         "leads_updated": leads_updated,
+        "db_leads_upserted": db_result["leads_upserted"],
+        "db_stage_rows_inserted": db_result["stage_rows_inserted"],
     }
 
 

@@ -9,3 +9,4 @@ __pycache__/
 .env
 
 graphify-out/
+output/*.sqlite3
