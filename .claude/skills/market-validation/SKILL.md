@@ -11,8 +11,11 @@ The Market Validation Agent is a tool for discovering companies in a market, qua
 **Database:** `output/market-research.sqlite3`
 
 **Key Modules:**
-- `market_validation/research.py` - Database operations (CRUD)
+- `market_validation/agent.py` - **DEEP RESEARCH AGENT** (main agent for research)
+- `market_validation/research_manager.py` - Database operations (CRUD)
+- `market_validation/research.py` - Database layer (low-level CRUD)
 - `market_validation/research_runner.py` - Pipeline (gather, qualify)
+- `market_validation/company_enrichment.py` - Find emails, contacts, phones
 - `market_validation/dashboard_export.py` - Reports and call sheets
 - `market_validation/email_sender.py` - Email sending (SMTP)
 - `market_validation/gmail_inbox.py` - Reply tracking (Gmail API)
@@ -62,6 +65,25 @@ result = qualify_companies(
     product="beef brisket"
 )
 print(f"Qualified {result['qualified']} companies")
+```
+
+### Enrich with Contact Information
+
+```python
+from market_validation.company_enrichment import enrich_research_companies, enrich_company_contact
+
+# Enrich all qualified companies in a research
+result = enrich_research_companies(research_id="abc12345")
+print(f"Found {result['emails_found']} emails, {result['contacts_added']} contacts")
+
+# Or enrich a single company
+contact_info = enrich_company_contact(
+    company_name="Smoke House BBQ",
+    website="https://smokehouse.com",
+    location="San Jose, CA"
+)
+print(f"Emails: {contact_info['emails_found']}")
+print(f"Contacts: {contact_info['contacts']}")
 ```
 
 ### View Results
@@ -200,11 +222,79 @@ new → qualified → emailed → replied_interested
 
 ## Tips for Claude Code
 
-1. **Always use the research module** for database operations, not direct SQL
-2. **Check if module imports work** before using functions: `python -c "from market_validation.research import ..."`
-3. **Database is at `output/market-research.sqlite3`** - relative to project root
-4. **Run gather before qualify** - companies must have status='new' to be qualified
-5. **Use qualified status filter** for call sheets - only shows relevant companies
+1. **Use the ResearchAgent class** for dynamic, AI-driven research workflows
+2. **Let the agent suggest next actions** - it analyzes current state and recommends what to do
+3. **Call `agent.suggest_next_actions()`** to get AI recommendations for the research
+4. **The agent can decide to**: enrich contacts, generate outreach, make calls, research topics, etc.
+5. **Database is at `output/market-research.sqlite3`** - relative to project root
+
+## Dynamic Research Workflow
+
+```python
+from market_validation.agent import Agent
+
+# Create the deep research agent
+agent = Agent()
+
+# ADAPTIVE RESEARCH - agent decides what to search based on goal
+result = agent.adaptive_research(
+    goal="Find BBQ restaurants in San Jose that serve brisket and might buy wholesale brisket",
+    market="BBQ restaurants",
+    geography="San Jose, CA"
+)
+print(result["initial_findings"])
+print(result["recommended_next_steps"])
+
+# MARKET INTELLIGENCE - understand the market
+intel = agent.research_market_intelligence(
+    market="wholesale brisket",
+    geography="San Jose, CA"
+)
+print(intel["intelligence"]["key_trends"])
+print(intel["intelligence"]["opportunities"])
+print(intel["intelligence"]["recommended_search_queries"])
+
+# DEEP RESEARCH on a single company
+deep = agent.research_company_deep(
+    company_name="Jackie's Place",
+    location="San Jose, CA",
+    focus_areas=["contacts", "decision_makers", "social", "news"]
+)
+print(deep["data"]["contacts"])
+print(deep["data"]["news"])
+print(deep["data"]["social_media"])
+```
+
+## Agent Capabilities
+
+The `Agent` class is the **MAIN AGENT** for deep research:
+
+1. **adaptive_research()** - Give it a GOAL, it figures out the strategy
+2. **research_market_intelligence()** - Market size, trends, opportunities
+3. **research_company_deep()** - Multi-phase deep dive on ONE company
+4. **analyze_gaps()** - What info is missing and how to find it
+5. **batch_research()** - Research multiple companies
+
+### Why Agent?
+
+Unlike static pipelines, this agent:
+- **Adapts** search strategies based on what it finds
+- **Digs deeper** when initial searches are insufficient  
+- **Tries alternatives** when one approach fails
+- **Thinks strategically** about what information is most valuable
+- **Works for ANY market** - not just BBQ/restaurants
+
+### Research Philosophy
+
+The agent follows this research approach:
+
+1. **Surface Search** - Get basic info (website, phone, address)
+2. **Decision Maker Hunt** - Find owners, managers, purchasing
+3. **Verification** - Cross-reference multiple sources
+4. **Gap Analysis** - What info is still missing?
+5. **Deep Dive** - If important gaps exist, dig deeper
+6. **Alternative Strategies** - If stuck, try different angles
+7. **Synthesis** - Combine findings into actionable insights
 
 ## Testing New Changes
 

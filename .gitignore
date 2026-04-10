@@ -7,6 +7,5 @@ __pycache__/
 
 # Environment variables (credentials and secrets)
 .env
-
-graphify-out/
 output/*.sqlite3
+cache/

@@ -8,9 +8,10 @@ For a given market/product/geography, the system:
 
 1. **Discovers Companies** - Web search for businesses using free sources (Yelp, Google, YellowPages)
 2. **Qualifies Leads** - AI assessment of relevance + volume estimation (e.g., "300+ lbs/week brisket")
-3. **Tracks Companies** - Stores contacts, notes, status, and priority scores
-4. **Generates Call Sheets** - Prioritized list of companies to contact
-5. **Handles Email Outreach** - Send templated emails, track replies (optional: requires SMTP + Gmail API)
+3. **Enriches Contacts** - Finds emails, phone numbers, and key personnel from websites
+4. **Tracks Companies** - Stores contacts, notes, status, and priority scores
+5. **Generates Call Sheets** - Prioritized list with phones, emails, and contacts
+6. **Handles Email Outreach** - Send templated emails, track replies (optional: requires SMTP + Gmail API)
 
 ## Quick Start
 
@@ -77,6 +78,86 @@ from market_validation.dashboard_export import (
     export_markdown_call_sheet,
     export_markdown_dashboard,
 )
+```
+
+### company_enrichment.py - Contact Enrichment
+```python
+from market_validation.company_enrichment import (
+    enrich_company_contact,      # Enrich single company
+    enrich_research_companies,   # Enrich all in research
+)
+```
+
+### research_manager.py - Database Operations
+```python
+from market_validation.research_manager import ResearchManager
+
+# Manages research data in the database
+manager = ResearchManager(research_id="abc12345")
+manager.suggest_next_actions()      # AI suggests what to do next
+manager.get_call_sheet()           # Get prioritized list
+manager.add_call_note(...)         # Save call notes
+manager.export_markdown()          # Export to markdown
+```
+
+### agent.py - Deep Research Agent (MAIN)
+```python
+from market_validation.agent import Agent
+
+# Does the actual research work
+agent = Agent()
+
+# Adaptive research - agent figures out what to search
+result = agent.adaptive_research(
+    goal="Find BBQ restaurants in San Jose that might buy brisket",
+    market="BBQ restaurants",
+    geography="San Jose, CA"
+)
+
+# Market intelligence - understand the market
+intel = agent.research_market_intelligence(
+    market="brisket",
+    geography="San Jose, CA"
+)
+
+# Deep research on a single company
+deep = agent.research_company_deep(
+    company_name="Smoke House BBQ",
+    location="San Jose, CA",
+    focus_areas=["contacts", "decision_makers", "pricing"]
+)
+```
+
+**The Agent is the main research engine.** It:
+- Adapts search strategies based on findings
+- Digs deeper when info is insufficient
+- Tries multiple approaches
+- Works for ANY market/product/geography
+
+## Complete Workflow
+
+```python
+from market_validation.research import create_research
+from market_validation.research_runner import gather_companies, qualify_companies
+from market_validation.company_enrichment import enrich_research_companies
+from market_validation.dashboard_export import export_markdown_call_sheet
+
+# 1. Create research
+r = create_research("Brisket SJ", "brisket", "beef brisket", "San Jose, CA")
+rid = r["research_id"]
+
+# 2. Gather companies (web search)
+gather_companies(rid, "brisket", "beef brisket", "San Jose, CA")
+
+# 3. Qualify leads (AI assessment + volume)
+qualify_companies(rid, "brisket", "beef brisket")
+
+# 4. Enrich with contact info (emails, phones, contacts)
+enrich_research_companies(rid)
+
+# 5. Generate call sheet
+call_sheet = export_markdown_call_sheet(status_filter="qualified")
+print(call_sheet)
 ```
 
 ### email_sender.py - Email Outreach

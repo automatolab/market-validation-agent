@@ -41,11 +41,16 @@ def get_call_sheet_from_db(
             c.why_now,
             c.volume_estimate,
             c.volume_unit,
+            c.volume_tier,
             c.updated_at,
             c.notes,
             c.phone,
+            c.email,
+            c.website,
             c.location,
-            (SELECT COUNT(*) FROM call_notes cn WHERE cn.company_id = c.id) as notes_count
+            c.hours,
+            (SELECT COUNT(*) FROM call_notes cn WHERE cn.company_id = c.id) as notes_count,
+            (SELECT COUNT(*) FROM contacts ct WHERE ct.company_id = c.id) as contacts_count
         FROM companies c
         """
 
@@ -167,10 +172,15 @@ def export_markdown_call_sheet(
     db_path: str | None = None,
     status_filter: str | None = None,
     limit: int = 50,
+    include_contacts: bool = True,
 ) -> str:
     data = get_call_sheet_from_db(root=root, db_path=db_path, status_filter=status_filter, limit=limit)
     if data["result"] != "ok":
         return f"# Error: {data.get('error', 'Unknown')}"
+
+    from market_validation.research import _connect, _ensure_schema, resolve_db_path
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
 
     now = _iso_now()
     lines = [
@@ -179,17 +189,59 @@ def export_markdown_call_sheet(
         f"Generated: {now}",
         f"Total: {data['count']} companies",
         "",
-        "| Score | Company | Status | Volume | Phone |",
-        "|-------|---------|--------|--------|-------|",
+        "| # | Company | Phone | Email | Volume Est. |",
+        "|----|---------|-------|-------|------------|",
     ]
 
-    for company in data["call_sheet"]:
-        score = company.get("priority_score", 0) or 0
+    for i, company in enumerate(data["call_sheet"], 1):
         name = company.get("company_name") or "-"
-        status = company.get("status") or "-"
-        volume = f"{company.get('volume_estimate', '')} {company.get('volume_unit', '')}".strip() or "-"
         phone = company.get("phone") or "-"
-        lines.append(f"| {score:>3} | {name[:30]:<30} | {status:<12} | {volume:<15} | {phone} |")
+        email = company.get("email") or "-"
+        volume = f"{company.get('volume_estimate', '')} {company.get('volume_unit', '')}".strip() or "-"
+        lines.append(f"| {i} | {name[:28]:<28} | {phone:<15} | {email:<25} | {volume:<20} |")
+
+    if include_contacts:
+        lines.append("")
+        lines.append("## Contacts")
+        lines.append("")
+
+        with _connect(db_file) as conn:
+            _ensure_schema(conn)
+            conn.row_factory = None
+
+            for company in data["call_sheet"]:
+                company_id = company.get("company_id")
+                name = company.get("company_name") or "-"
+                website = company.get("website") or "-"
+
+                contacts = conn.execute(
+                    """SELECT name, title FROM contacts WHERE company_id = ?""",
+                    (company_id,)
+                ).fetchall()
+
+                lines.append(f"### {name}")
+                if website:
+                    lines.append(f"Website: {website}")
+                lines.append(f"Phone: {company.get('phone') or '-'}")
+                lines.append(f"Email: {company.get('email') or '-'}")
+                if contacts:
+                    lines.append("Contacts:")
+                    for c in contacts:
+                        lines.append(f"  - {c[0]} ({c[1] or 'unknown title'})")
+                else:
+                    lines.append("Contacts: Not found")
+                lines.append("")
+
+    lines.append("## Notes")
+    lines.append("")
+    for company in data["call_sheet"]:
+        name = company.get("company_name") or "-"
+        notes = company.get("notes") or "No notes"
+        if len(notes) > 100:
+            notes = notes[:97] + "..."
+        lines.append(f"### {name}")
+        lines.append(notes)
+        lines.append("")
 
     return "\n".join(lines)
 
