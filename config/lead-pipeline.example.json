@@ -2,77 +2,12 @@
   "market": "Brisket",
   "geography": "US",
   "target_product": "brisket",
-  "source_configs": [
-    {
-      "source_id": "foursquare-places-brisket-us",
-      "source_type": "directory",
-      "provider": "foursquare_places",
-      "auth_env": "FOURSQUARE_PLACES_API_KEY",
-      "auth_header": "Authorization",
-      "auth_scheme": "raw",
-      "endpoint": "https://api.foursquare.com/v3/places/search",
-      "api_version": "1970-01-01",
-      "query": "brisket restaurant",
-      "region": "US",
-      "enabled": true
-    },
-    {
-      "source_id": "overpass-osm-bbq-us",
-      "source_type": "directory",
-      "provider": "overpass_osm",
-      "query": "amenity=restaurant bbq",
-      "region": "US",
-      "enabled": true
-    },
-    {
-      "source_id": "here-places-brisket-us",
-      "source_type": "directory",
-      "provider": "here_places",
-      "auth_env": "HERE_API_KEY",
-      "query": "brisket restaurant",
-      "region": "US",
-      "enabled": true
-    },
-    {
-      "source_id": "duckduckgo-competitors-us",
-      "source_type": "search",
-      "provider": "duckduckgo",
-      "query": "brisket supplier near me",
-      "region": "US",
-      "enabled": true
-    },
-    {
-      "source_id": "serpapi-competitor-scan-us",
-      "source_type": "search",
-      "provider": "serpapi",
-      "auth_env": "SERPAPI_API_KEY",
-      "query": "best brisket wholesale supplier",
-      "region": "US",
-      "enabled": false
-    },
-    {
-      "source_id": "commoncrawl-competitor-pages",
-      "source_type": "internal_feed",
-      "provider": "commoncrawl",
-      "query": "bbq menu brisket",
-      "region": "US",
-      "enabled": false
-    },
-    {
-      "source_id": "pytrends-demand-us",
-      "source_type": "internal_feed",
-      "provider": "pytrends",
-      "query": "brisket supply",
-      "region": "US",
-      "enabled": true
-    }
-  ],
+  "max_companies": 100,
+  "auto_discover_sources": true,
   "email_template": {
     "template_id": "brisket-outreach-v1",
     "subject_template": "Quick brisket supply question for {{company_name}}",
     "body_template": "Hi {{contact_name_or_team}},\n\nI saw {{evidence_context}} and wanted to ask if you are open to discussing brisket supply options this month.\n\nIf helpful, I can share pricing and delivery windows.\n\nBest,\n{{sender_name}}",
     "tone": "professional"
-  },
-  "default_model": "provider/model",
-  "default_agent": "general"
+  }
 }

@@ -1,0 +1,392 @@
+{
+  "result": "ok",
+  "stage": "lead_qualify",
+  "run_id": "brisket-sj-002",
+  "market": "Brisket",
+  "market_demand": {
+    "demand_level": "medium",
+    "demand_score": 21.2,
+    "demand_basis": "Google Trends 'brisket' interest avg 38.64 in US-CA region, 'buy brisket' trending rising with 92 interest in San Francisco-Oakland-San Jose"
+  },
+  "qualified_companies": [
+    {
+      "company_id": "company-001",
+      "company_name": "Smoking Pig BBQ",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.95,
+      "estimated_monthly_volume": {
+        "value": 2500,
+        "unit": "lb",
+        "basis": "High volume tier: 3397 reviews, #1 ranked San Jose BBQ. Baseline 2500 lb x 1.0x medium demand = 2500 lb"
+      },
+      "volume_tier": "high",
+      "claims": [
+        {
+          "claim": "Known for beef brisket",
+          "evidence_links": ["https://www.yelp.com/biz/smoking-pig-bbq-san-jose"],
+          "evidence_excerpt": "Known for beef brisket, ribs, chicken, pulled pork"
+        }
+      ],
+      "notes": "Top-rated BBQ in San Jose with highest review count, clearly specializes in brisket"
+    },
+    {
+      "company_id": "company-002",
+      "company_name": "Mesquite & Oak",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.92,
+      "estimated_monthly_volume": {
+        "value": 1500,
+        "unit": "lb",
+        "basis": "Medium-high volume tier: 710 reviews. Baseline 1500 lb x 1.0x medium demand = 1500 lb"
+      },
+      "volume_tier": "medium-high",
+      "claims": [
+        {
+          "claim": "Known for brisket - some of the best brisket in south bay",
+          "evidence_links": ["https://www.yelp.com/biz/mesquite-and-oak-san-jose", "https://www.tripadvisor.co.uk/ShowUserReviews-g33020-d14933851-r939796194-Mesquite_and_Oak_Barbecue_Restaurant-San_Jose_California.html"],
+          "evidence_excerpt": "Go for the brisket - Some of the best brisket I have found in the south bay"
+        }
+      ],
+      "notes": "Strong brisket reputation with explicit customer validation"
+    },
+    {
+      "company_id": "company-003",
+      "company_name": "The Barbeque Pit",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.88,
+      "estimated_monthly_volume": {
+        "value": 750,
+        "unit": "lb",
+        "basis": "Medium volume tier: 183 reviews. Baseline 750 lb x 1.0x medium demand = 750 lb"
+      },
+      "volume_tier": "medium",
+      "claims": [
+        {
+          "claim": "Award-Winning Brisket - most tender brisket ever",
+          "evidence_links": ["https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html", "https://www.yelp.com/biz/the-barbeque-pit-san-jose"],
+          "evidence_excerpt": "Award-Winning Brisket and BBQ - The most tender brisket I have ever had"
+        }
+      ],
+      "notes": "Explicitly markets brisket as award-winning"
+    },
+    {
+      "company_id": "company-004",
+      "company_name": "Macpark BBQ",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.75,
+      "estimated_monthly_volume": {
+        "value": 350,
+        "unit": "lb",
+        "basis": "Low volume tier: no review count available. Baseline 350 lb x 1.0x medium demand = 350 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "Offers brisket",
+          "evidence_links": ["https://www.opentable.com/r/macpark-bbq-san-jose"],
+          "evidence_excerpt": "Offers brisket, ribs, turkey"
+        }
+      ],
+      "notes": "Texas BBQ concept, brisket on menu"
+    },
+    {
+      "company_id": "company-005",
+      "company_name": "Sam's Bar-B-Que",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.9,
+      "estimated_monthly_volume": {
+        "value": 750,
+        "unit": "lb",
+        "basis": "Medium volume tier: no review count, but well-known brand. Baseline 750 lb x 1.0x medium demand = 750 lb"
+      },
+      "volume_tier": "medium",
+      "claims": [
+        {
+          "claim": "Known for exceptional brisket",
+          "evidence_links": ["https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html", "https://familydestinationsguide.com/rustic-bbq-brisket-california/"],
+          "evidence_excerpt": "Known for exceptional brisket - serves the best brisket you'll ever taste"
+        }
+      ],
+      "notes": "Strong reputation for brisket, featured in travel guides"
+    },
+    {
+      "company_id": "company-006",
+      "company_name": "Armadillo Willy's",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.8,
+      "estimated_monthly_volume": {
+        "value": 350,
+        "unit": "lb",
+        "basis": "Low volume tier: no review count. Baseline 350 lb x 1.0x medium demand = 350 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "Smoky brisket - melt-in-your-mouth tender",
+          "evidence_links": ["https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"],
+          "evidence_excerpt": "The smoky brisket was melt-in-your-mouth tender, boasting a perfect bark and juicy flavor"
+        }
+      ],
+      "notes": "Texas BBQ chain, brisket specifically praised"
+    },
+    {
+      "company_id": "company-009",
+      "company_name": "YakiniQ SJ",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.85,
+      "estimated_monthly_volume": {
+        "value": 750,
+        "unit": "lb",
+        "basis": "Medium volume tier: 1103 reviews. Baseline 750 lb x 1.0x medium demand = 750 lb"
+      },
+      "volume_tier": "medium",
+      "claims": [
+        {
+          "claim": "Korean BBQ offering beef brisket",
+          "evidence_links": ["https://www.yelp.com/biz/iquelyniq-sj-san-jose"],
+          "evidence_excerpt": "Korean BBQ - Offers beef brisket, pork belly, boneless short rib"
+        }
+      ],
+      "notes": "Popular Korean BBQ with brisket on menu, high review count"
+    },
+    {
+      "company_id": "company-010",
+      "company_name": "Q Pot Korean BBQ & Hot Pot",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.7,
+      "estimated_monthly_volume": {
+        "value": 300,
+        "unit": "lb",
+        "basis": "Low volume tier: 28 reviews. Baseline 300 lb x 1.0x medium demand = 300 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "Korean BBQ restaurant with brisket available",
+          "evidence_links": ["https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"],
+          "evidence_excerpt": "Barbecue, Asian - The BBQ is $27.99"
+        }
+      ],
+      "notes": "All-you-can-eat Korean BBQ, brisket included in standard service"
+    },
+    {
+      "company_id": "company-011",
+      "company_name": "Gen Korean BBQ",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.7,
+      "estimated_monthly_volume": {
+        "value": 350,
+        "unit": "lb",
+        "basis": "Low volume tier: 68 reviews. Baseline 350 lb x 1.0x medium demand = 350 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "All-you-can-eat Korean BBQ",
+          "evidence_links": ["https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"],
+          "evidence_excerpt": "All you can eat dinner is $25"
+        }
+      ],
+      "notes": "All-you-can-eat Korean BBQ, brisket included in AYCE concept"
+    },
+    {
+      "company_id": "company-013",
+      "company_name": "Sauced BBQ & Spirits",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.75,
+      "estimated_monthly_volume": {
+        "value": 300,
+        "unit": "lb",
+        "basis": "Low volume tier: no review count. Baseline 300 lb x 1.0x medium demand = 300 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "Offers brisket burnt ends, sliced brisket plate, BBQ brisket melt",
+          "evidence_links": ["https://www.restaurantji.com/ca/san-jose/sauced-bbq-and-spirits-san-jose-santana-row-/"],
+          "evidence_excerpt": "Offers brisket burnt ends, sliced brisket plate, BBQ brisket melt"
+        }
+      ],
+      "notes": "Multiple brisket menu items explicitly listed"
+    },
+    {
+      "company_id": "company-014",
+      "company_name": "Horn Barbecue",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.85,
+      "estimated_monthly_volume": {
+        "value": 500,
+        "unit": "lb",
+        "basis": "Medium volume tier: 131 votes. Baseline 500 lb x 1.0x medium demand = 500 lb"
+      },
+      "volume_tier": "medium",
+      "claims": [
+        {
+          "claim": "Offers prime brisket - incredibly tender and seasoned perfectly",
+          "evidence_links": ["https://restaurantguru.com/Horn-Barbecue-San-Jose"],
+          "evidence_excerpt": "Offers prime brisket that is incredibly tender and seasoned perfectly"
+        }
+      ],
+      "notes": "Premium brisket positioning with prime designation"
+    },
+    {
+      "company_id": "company-016",
+      "company_name": "Willy Billy's BBQ",
+      "status": "qualified",
+      "qualification": "qualified",
+      "confidence": 0.8,
+      "estimated_monthly_volume": {
+        "value": 350,
+        "unit": "lb",
+        "basis": "Low volume tier: no review count. Baseline 350 lb x 1.0x medium demand = 350 lb"
+      },
+      "volume_tier": "low",
+      "claims": [
+        {
+          "claim": "Offers brisket (Regular $18, Large $25)",
+          "evidence_links": ["https://www.willybillysmokedmeat.com/"],
+          "evidence_excerpt": "Offers brisket (Regular $18, Large $25), pulled beef, halal meats"
+        }
+      ],
+      "notes": "Halal BBQ with brisket as explicit menu item with pricing"
+    },
+    {
+      "company_id": "company-006",
+      "company_name": "Henry's Hi-Life",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.4,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records - focus appears to be on steaks"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "380 reviews, BBQ restaurant but no brisket specifically mentioned in sources"
+    },
+    {
+      "company_id": "company-007",
+      "company_name": "South Winchester BBQ",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "Local BBQ setting but no specific brisket evidence"
+    },
+    {
+      "company_id": "company-012",
+      "company_name": "TAOB Pit Stop",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "16 reviews, BBQ but no brisket evidence"
+    },
+    {
+      "company_id": "company-015",
+      "company_name": "CJ BBQ",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records - just basic listing"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "Incomplete data - only location and hours provided"
+    },
+    {
+      "company_id": "company-017",
+      "company_name": "Jon Jon's Barbeque",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention - known for ribs and hot links"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "Family-owned, known for meats but no brisket specific mention"
+    },
+    {
+      "company_id": "company-018",
+      "company_name": "Jackie's Place",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "Hidden gem BBQ but no specific brisket evidence"
+    },
+    {
+      "company_id": "company-019",
+      "company_name": "Malibu Grill & BBQ",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "No brisket mention in source records"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "High rating (4.7) but no brisket-specific evidence"
+    },
+    {
+      "company_id": "company-020",
+      "company_name": "Ono Hawaiian BBQ",
+      "status": "new",
+      "qualification": "uncertain",
+      "confidence": 0.3,
+      "estimated_monthly_volume": {
+        "value": 0,
+        "unit": "lb",
+        "basis": "Hawaiian BBQ - not traditional brisket focus"
+      },
+      "volume_tier": "unknown",
+      "claims": [],
+      "notes": "Hawaiian BBQ concept - may use different proteins"
+    }
+  ],
+  "warnings": [
+    "8 companies have no brisket-specific evidence and are marked as new/uncertain",
+    "Korean BBQ restaurants included as they explicitly offer beef brisket",
+    "Volume estimates are baseline approximations based on review counts and demand multiplier"
+  ],
+  "errors": [],
+  "failure_mode": "none"
+}

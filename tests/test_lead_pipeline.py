@@ -52,8 +52,7 @@ def test_validate_config_success(tmp_path: Path) -> None:
     _write_required_modes(tmp_path)
     result = lead_pipeline.validate_config(_base_config(), tmp_path)
     assert result.errors == []
-    assert result.warnings
-    assert any("TEST_SOURCE_API_KEY" in item for item in result.warnings)
+    assert result.warnings == []
 
 
 def test_validate_config_detects_missing_fields(tmp_path: Path) -> None:
@@ -92,49 +91,30 @@ def test_validate_config_rejects_bad_source_type_and_duplicate_id(tmp_path: Path
     assert any("source_type must be one of" in item for item in result.errors)
 
 
-def test_validate_config_requires_auth_env_for_enabled_foursquare(tmp_path: Path) -> None:
+def test_validate_config_allows_free_sources(tmp_path: Path) -> None:
     _write_required_modes(tmp_path)
     config = _base_config()
     config["source_configs"] = [
         {
-            "source_id": "foursquare-us",
+            "source_id": "yelp-free",
             "source_type": "directory",
-            "provider": "foursquare_places",
+            "provider": "yelp",
             "query": "brisket",
             "region": "US",
             "enabled": True,
-            "auth_scheme": "raw",
-            "auth_header": "Authorization",
-            "api_version": "1970-01-01",
-            "endpoint": "https://api.foursquare.com/v3/places/search",
-        }
-    ]
-
-    result = lead_pipeline.validate_config(config, tmp_path)
-    assert any("requires auth_env" in item for item in result.errors)
-
-
-def test_validate_config_rejects_foursquare_bearer_scheme(tmp_path: Path) -> None:
-    _write_required_modes(tmp_path)
-    config = _base_config()
-    config["source_configs"] = [
+        },
         {
-            "source_id": "foursquare-us",
-            "source_type": "directory",
-            "provider": "foursquare_places",
-            "query": "brisket",
+            "source_id": "duckduckgo-free",
+            "source_type": "search",
+            "provider": "duckduckgo",
+            "query": "BBQ restaurant Texas",
             "region": "US",
-            "enabled": False,
-            "auth_env": "FOURSQUARE_PLACES_API_KEY",
-            "auth_scheme": "bearer",
-            "auth_header": "Authorization",
-            "api_version": "1970-01-01",
-            "endpoint": "https://api.foursquare.com/v3/places/search",
+            "enabled": True,
         }
     ]
 
     result = lead_pipeline.validate_config(config, tmp_path)
-    assert any("must use auth_scheme 'raw'" in item for item in result.errors)
+    assert result.errors == []
 
 
 def test_load_config_uses_root_relative_and_fallback(tmp_path: Path) -> None:

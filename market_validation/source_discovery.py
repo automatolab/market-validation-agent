@@ -10,24 +10,71 @@ from market_validation.environment import load_project_env
 
 MARKET_SOURCE_TEMPLATES = {
     "restaurant": [
+        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography} restaurant directory"},
         {"source_type": "directory", "provider": "yelp", "query": "{query} {geography}"},
-        {"source_type": "directory", "provider": "google_maps", "query": "{query} {geography}"},
-        {"source_type": "search", "provider": "duckduckgo", "query": "{query} restaurant {geography}"},
+        {"source_type": "directory", "provider": "tripadvisor", "query": "{query} {geography}"},
+        {"source_type": "directory", "provider": "overpass_osm", "query": "amenity=restaurant;cuisine=bbq;city={geography}"},
+        {"source_type": "search", "provider": "bing", "query": "{query} {geography} BBQ restaurant"},
+        {"source_type": "directory", "provider": "yellowpages", "query": "{query} {geography}"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} restaurant opening"},
+        {"source_type": "internal_feed", "provider": "pytrends", "query": "{query} demand trends {geography}"},
     ],
     "retail": [
-        {"source_type": "search", "provider": "duckduckgo", "query": "{query} store {geography}"},
+        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography} store directory"},
+        {"source_type": "directory", "provider": "overpass_osm", "query": "shop;city={geography}"},
+        {"source_type": "search", "provider": "bing", "query": "{query} {geography} retail store"},
         {"source_type": "directory", "provider": "yelp", "query": "{query} {geography}"},
+        {"source_type": "directory", "provider": "yellowpages", "query": "{query} {geography}"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} retail"},
+        {"source_type": "internal_feed", "provider": "pytrends", "query": "{query} demand trends {geography}"},
+    ],
+    "tech": [
+        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography} technology company"},
+        {"source_type": "search", "provider": "linkedin", "query": "{query} {geography} company"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} startup funding"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} technology news"},
+        {"source_type": "directory", "provider": "crunchbase", "query": "{query} {geography}"},
+        {"source_type": "internal_feed", "provider": "pytrends", "query": "{query} technology trends {geography}"},
+    ],
+    "healthcare": [
+        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography} hospital clinic"},
+        {"source_type": "directory", "provider": "yelp", "query": "{query} {geography} healthcare"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} healthcare news"},
+        {"source_type": "directory", "provider": "healthgrades", "query": "{query} {geography}"},
+        {"source_type": "internal_feed", "provider": "pytrends", "query": "{query} healthcare demand {geography}"},
     ],
     "default": [
-        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography}"},
+        {"source_type": "search", "provider": "duckduckgo", "query": "{query} {geography} business directory"},
+        {"source_type": "search", "provider": "bing", "query": "{query} {geography}"},
+        {"source_type": "directory", "provider": "overpass_osm", "query": "amenity=restaurant;city={geography}"},
+        {"source_type": "directory", "provider": "yellowpages", "query": "{query} {geography}"},
+        {"source_type": "news", "provider": "news", "query": "{query} {geography} news"},
+        {"source_type": "internal_feed", "provider": "pytrends", "query": "{query} demand trends {geography}"},
     ],
 }
 
 
 def _detect_market_type(market: str, target_product: str) -> str:
     combined = f"{market} {target_product}".lower()
-    restaurant_keywords = ["restaurant", "food", "cafe", "bbq", "grill", "pizza", "sandwich", "deli", "catering", "brisket"]
-    retail_keywords = ["store", "shop", "retail", "outlet", "supermarket", "grocery"]
+    restaurant_keywords = [
+        "restaurant", "food", "cafe", "coffee", "bbq", "grill", "pizza",
+        "sandwich", "deli", "catering", "brisket", "steakhouse", "burger",
+        "taco", "sushi", "asian", "mexican", "italian", "bakery", "dessert",
+        "pub", "bar", "diner", "eatery"
+    ]
+    retail_keywords = [
+        "store", "shop", "retail", "outlet", "supermarket", "grocery",
+        "clothing", "furniture", "electronics", "hardware", "pharmacy",
+        "boutique", "market"
+    ]
+    tech_keywords = [
+        "software", "saas", "tech", "app", "platform", "cloud", "ai",
+        "ml", "data", "cyber", "security", "fintech", "healthtech"
+    ]
+    healthcare_keywords = [
+        "hospital", "clinic", "medical", "health", "doctor", "dental",
+        "pharma", "biotech", "wellness", "therapy", "rehab"
+    ]
 
     for kw in restaurant_keywords:
         if kw in combined:
@@ -35,6 +82,12 @@ def _detect_market_type(market: str, target_product: str) -> str:
     for kw in retail_keywords:
         if kw in combined:
             return "retail"
+    for kw in tech_keywords:
+        if kw in combined:
+            return "tech"
+    for kw in healthcare_keywords:
+        if kw in combined:
+            return "healthcare"
     return "default"
 
 
@@ -42,7 +95,7 @@ def discover_sources(
     market: str,
     geography: str,
     target_product: str | None = None,
-    max_sources: int = 5,
+    max_sources: int = 8,
 ) -> list[dict[str, Any]]:
     target_product = target_product or market
     market_type = _detect_market_type(market, target_product)
@@ -59,6 +112,7 @@ def discover_sources(
             "region": geography,
             "enabled": True,
             "auto_discovered": True,
+            "api_required": False,
         })
     return discovered
 
@@ -67,26 +121,34 @@ def discover_sources_with_websearch(
     market: str,
     geography: str,
     target_product: str | None = None,
-    max_results: int = 10,
+    max_results: int = 15,
     root: str | Path = ".",
 ) -> dict[str, Any]:
-    from websearch import websearch
+    try:
+        from websearch import websearch
+        has_websearch = True
+    except ImportError:
+        has_websearch = False
 
     target_product = target_product or market
 
     queries = [
-        f"{target_product} {geography} directory listings",
+        f"{target_product} {geography} restaurant directory",
         f"best {target_product} {geography} review site",
-        f"{target_product} {geography} yellow pages",
+        f"{target_product} {geography} business listing",
+        f"top rated {target_product} {geography}",
+        f"{target_product} {geography} company",
+        f"{target_product} industry news {geography}",
     ]
 
     all_results = []
-    for query in queries[:3]:
-        try:
-            results = websearch(query=query, numResults=5)
-            all_results.extend(results)
-        except Exception:
-            pass
+    if has_websearch:
+        for query in queries[:5]:
+            try:
+                results = websearch(query=query, numResults=8)
+                all_results.extend(results)
+            except Exception:
+                pass
 
     sources = []
     seen_providers = set()
@@ -98,21 +160,39 @@ def discover_sources_with_websearch(
         provider = "unknown"
         if "yelp.com" in url:
             provider = "yelp"
-        elif "google.com/maps" in url or "google.com/search" in url:
-            provider = "google_maps"
         elif "tripadvisor.com" in url:
             provider = "tripadvisor"
+        elif "yellowpages.com" in url:
+            provider = "yellowpages"
         elif "facebook.com" in url:
             provider = "facebook"
         elif "bing.com" in url:
             provider = "bing"
         elif "duckduckgo" in url:
             provider = "duckduckgo"
+        elif "google.com/search" in url or "maps.google" in url:
+            provider = "google_search"
+        elif "news.google" in url or "news.ycombinator" in url:
+            provider = "news"
+        elif "linkedin.com" in url:
+            provider = "linkedin"
+        elif "crunchbase.com" in url:
+            provider = "crunchbase"
+        elif "healthgrades.com" in url:
+            provider = "healthgrades"
+        elif "manta.com" in url or "merchantcircle.com" in url:
+            provider = "business_directory"
+        else:
+            continue
 
         if provider in seen_providers:
             continue
 
-        source_type = "directory" if provider in ("yelp", "tripadvisor", "google_maps") else "search"
+        source_type = "directory"
+        if provider in ("facebook", "news", "linkedin", "crunchbase", "healthgrades"):
+            source_type = "directory"
+        elif provider in ("yelp", "tripadvisor", "yellowpages", "business_directory"):
+            source_type = "directory"
 
         sources.append({
             "source_id": f"web-{provider}-{len(sources)+1}",
@@ -122,6 +202,7 @@ def discover_sources_with_websearch(
             "region": geography,
             "enabled": True,
             "auto_discovered": True,
+            "api_required": False,
             "discovered_url": url,
             "discovered_title": title,
         })
@@ -137,16 +218,17 @@ def discover_sources_with_websearch(
         "target_product": target_product,
         "sources_discovered": len(sources),
         "sources": sources,
+        "market_type_detected": _detect_market_type(market, target_product),
     }
 
 
 def build_parser() -> Any:
     import argparse
-    parser = argparse.ArgumentParser(description="Auto-discover data sources for market validation")
-    parser.add_argument("--market", required=True, help="Market name (e.g., Brisket)")
+    parser = argparse.ArgumentParser(description="Auto-discover data sources for market research (no API keys required)")
+    parser.add_argument("--market", required=True, help="Market name (e.g., Brisket, SaaS, Healthcare)")
     parser.add_argument("--geography", required=True, help="Geographic region (e.g., US, Austin TX)")
     parser.add_argument("--target-product", default=None, help="Product/service to search for")
-    parser.add_argument("--max-sources", type=int, default=5, help="Max sources to discover")
+    parser.add_argument("--max-sources", type=int, default=8, help="Max sources to discover")
     parser.add_argument("--use-websearch", action="store_true", help="Use web search for discovery")
     parser.add_argument("--root", default=".", help="Repository root path")
     parser.add_argument("--output-json", action="store_true", help="Output as JSON for pipeline use")
@@ -184,10 +266,11 @@ def main() -> None:
             "target_product": args.target_product or args.market,
             "sources_discovered": len(sources),
             "sources": sources,
+            "market_type_detected": _detect_market_type(args.market, args.target_product or args.market),
         }
 
     if args.output_json:
         print(json.dumps(result, ensure_ascii=True))
     else:
         print(json.dumps(result, ensure_ascii=True, indent=2))
-        print(f"\nDiscovered {result['sources_discovered']} sources. Add these to your config/source_configs to run research_ingest.")
+        print(f"\nDiscovered {result['sources_discovered']} sources for {result.get('market_type_detected', 'default')} market.")

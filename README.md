@@ -1,38 +1,92 @@
-# Market Validation Agent
+# Market Research Agent
 
-Prompt-driven market validation pipeline designed for OpenCode workflows.
+General-purpose market research platform that discovers companies, qualifies leads, and tracks outreach - no API keys required.
 
-## What This Repo Is
+## What This Repo Does
 
-This is a **mode-first** architecture:
+1. **Create Research Projects** - Define what market/product/geography to research
+2. **Auto-Discover Sources** - Find relevant data sources (directories, news, social, trends)
+3. **Gather Companies** - Discover businesses using free web sources
+4. **Qualify Leads** - Assess relevance and estimate volume using AI + Google Trends
+5. **Track Outreach** - Manage contacts, emails, and call notes
+6. **Generate Reports** - Export findings as markdown
 
-1. prompts define behavior (`modes/*.md`)
-2. each market item is processed by an isolated worker (`market_validation/batch_worker.py`)
-3. workers stage tracker rows (`batch/tracker-additions/*.tsv`)
-4. staged rows are merged into a canonical tracker (`data/validation-tracker.md`)
-5. integrity checks run before review (`verify-pipeline.py`)
+## Quick Start
 
-Business logic is prompt-driven; code is intentionally thin and deterministic.
+```bash
+# Create and run a research project
+market-research-run run \
+  --name "San Jose BBQ Restaurants" \
+  --market "Brisket Supply" \
+  --product "beef brisket" \
+  --geography "San Jose, CA"
 
-## Project Layout
+# List all researches
+market-research list
 
-- `modes/_shared.md` - global market-validation rules
-- `modes/validate.md` - single-item validation contract
-- `modes/auto-pipeline.md` - full item pipeline contract
-- `modes/batch.md` - batch orchestration contract
-- `modes/research-ingest.md` - configured-source ingestion contract
-- `modes/lead-qualify.md` - evidence-linked company qualification contract
-- `modes/outreach-email.md` - template-driven outreach draft contract
-- `modes/reply-parse.md` - inbound reply parsing/status contract
-- `modes/call-sheet-build.md` - call sheet ranking contract
-- `batch/batch-prompt.md` - worker prompt contract
-- `batch/batch-runner.sh` - deterministic batch orchestrator
-- `market_validation/batch_worker.py` - OpenCode-backed worker executor
-- `market_validation/file_pipeline.py` - merge + verify core
-- `merge-tracker.py` - merge CLI wrapper
-- `verify-pipeline.py` - verify CLI wrapper
-- `templates/states.yml` - canonical statuses
-- `data/validation-tracker.md` - canonical tracker
+# View research details
+market-research get <research_id>
+
+# Export as markdown
+market-research export <research_id> --output report.md
+```
+
+## Auto-Detected Market Types
+
+The system auto-detects your market type and discovers appropriate sources:
+
+| Market Type | Keywords | Sources |
+|-------------|----------|---------|
+| **Restaurant** | restaurant, BBQ, cafe, catering, brisket | Yelp, TripAdvisor, YellowPages, OSM |
+| **Retail** | store, shop, outlet, grocery | Bing, Yelp, YellowPages |
+| **Tech** | software, SaaS, AI, platform | LinkedIn, News, Crunchbase |
+| **Healthcare** | hospital, clinic, medical | Healthgrades, News |
+| **Default** | (all others) | Bing, DuckDuckGo, OSM |
+
+## Architecture
+
+```
+Research Project (UUID-based)
+├── Sources (auto-discovered)
+├── Companies (discovered + qualified)
+│   ├── Claims (evidence-backed)
+│   ├── Contacts (found/added)
+│   └── Outreach (emails, calls)
+├── Market Demand Data (Google Trends)
+└── Call Notes
+```
+
+## Key Commands
+
+```bash
+# Research management
+market-research create --name "..." --market "..." --geography "..."
+market-research list
+market-research get <id>
+market-research export <id>
+
+# Source discovery
+market-source-discover --market "SaaS" --geography "US"
+
+# Market trends
+python -m market_validation.market_trends --keyword "brisket" --geography "US-CA"
+
+# Lead pipeline (legacy)
+market-lead-pipeline run --config config/lead-pipeline.json
+
+# Call notes
+market-call-notes add --company-id <id> --author "Sales" --note "..."
+market-call-notes list --company-id <id>
+```
+
+## Free Data Sources (No API Keys)
+
+- **Web Search**: DuckDuckGo, Bing
+- **Directories**: Yelp, TripAdvisor, YellowPages, OpenStreetMap
+- **News**: Hacker News, Google News
+- **Social**: LinkedIn (search), Facebook
+- **Trends**: Google Trends (pytrends)
+- **Data**: Crunchbase, Healthgrades
 
 ## OpenCode-Driven Workflow
 
@@ -56,9 +110,30 @@ For lead-generation workflows (for example brisket supply), the prompt contracts
 Hard guarantees in these contracts:
 
 - JSON-only outputs
-- configured-source only ingestion (no autonomous source discovery)
+- free-source only ingestion (auto-discovery uses DuckDuckGo, Yelp, TripAdvisor, YellowPages, Bing - no API keys required)
 - evidence URLs required for every qualification claim
 - lead statuses include `new`, `qualified`, `emailed`, `replied_interested`, `replied_not_now`, `do_not_contact`, `call_ready`
+
+## Quick Start (No API Keys Needed)
+
+```bash
+# Install
+pip install -e .
+
+# Auto-discover sources and run pipeline
+market-lead-pipeline run \
+  --config <(echo '{
+    "market": "Brisket",
+    "geography": "US",
+    "target_product": "brisket",
+    "auto_discover_sources": true,
+    "email_template": {"template_id": "v1", "subject_template": "Subject", "body_template": "Body", "tone": "professional"}
+  }') \
+  --run-id brisket-001
+
+# Or discover sources first
+market-source-discover --market Brisket --geography "Austin TX"
+```
 
 ## File + DB Output Store
 
@@ -112,41 +187,11 @@ Recommended pattern:
 
 A ready-to-use brisket config is included at `config/lead-pipeline.json`.
 
-Suggested free/low-cost source setup for testing:
-
-- `foursquare_places` (free calls/month; key via `FOURSQUARE_PLACES_API_KEY`)
-- `overpass_osm` (free, no key)
-- `here_places` (free tier; key via `HERE_API_KEY`)
-- `duckduckgo` (free, no key)
-- `serpapi` (small free tier; key via `SERPAPI_API_KEY`, optional)
-- `commoncrawl` (free bulk web index, optional)
-- `pytrends` (free trend signal ingestion, no key)
-
 Notes:
 
 - Keep provider/model defaults in config for consistency across runs.
-- Keep secrets (API keys, tokens) out of JSON config; use environment variables.
 - Source configs are operator-owned; prompts enforce configured-source-only behavior.
-- `config-check` warns when a source references an `auth_env` variable that is not set.
-
-Foursquare Places auth details (`/v3/places/search`):
-
-- Use header `Authorization: <FOURSQUARE_PLACES_API_KEY>` (raw key, no `Bearer ` prefix).
-- Set `X-Places-Api-Version: 1970-01-01`.
-- Recommended endpoint: `https://api.foursquare.com/v3/places/search`.
-- These fields are already included in `config/lead-pipeline.example.json` and `config/lead-pipeline.json`.
-
-Environment loading behavior:
-
-- CLI tools auto-load a local `.env` file when present (repo root preferred).
-- `auth_env` values in `source_configs` should reference variable names in `.env`.
-- Example variables: `FOURSQUARE_PLACES_API_KEY`, `HERE_API_KEY`, `SERPAPI_API_KEY`, `OPENCODE_MODEL`, `OPENCODE_AGENT`.
-
-Quick setup:
-
-```bash
-cp .env_example .env
-```
+- Auto-discovery uses free sources: DuckDuckGo, Yelp, TripAdvisor, Bing, YellowPages (no API keys needed).
 
 The worker writes:
 

@@ -23,9 +23,9 @@ STAGE_SEQUENCE = (
 
 ALLOWED_SOURCE_TYPES = {"search", "review_site", "directory", "internal_feed"}
 ALLOWED_AUTH_SCHEMES = {"raw", "bearer", "none"}
-PROVIDERS_REQUIRING_AUTH_ENV = {"foursquare_places", "here_places", "serpapi"}
-FOURSQUARE_PLACES_SEARCH_ENDPOINT = "https://api.foursquare.com/v3/places/search"
-FOURSQUARE_PLACES_API_VERSION = "1970-01-01"
+PROVIDERS_REQUIRING_AUTH_ENV = set()
+FOURSQUARE_PLACES_SEARCH_ENDPOINT = ""
+FOURSQUARE_PLACES_API_VERSION = ""
 
 
 @dataclass
@@ -44,6 +44,34 @@ def _slug(value: str) -> str:
     lowered = value.strip().lower()
     slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
     return slug or "market"
+
+
+def _normalize_geo_code(geography: str) -> str:
+    geo = geography.strip().upper()
+    if geo in ("US", "USA", "UNITED STATES"):
+        return "US"
+    state_mappings = {
+        "CA": "US-CA", "CALIFORNIA": "US-CA",
+        "TX": "US-TX", "TEXAS": "US-TX",
+        "NY": "US-NY", "NEW YORK": "US-NY",
+        "FL": "US-FL", "FLORIDA": "US-FL",
+        "WA": "US-WA", "WASHINGTON": "US-WA",
+        "OR": "US-OR", "OREGON": "US-OR",
+        "NV": "US-NV", "NEVADA": "US-NV",
+        "AZ": "US-AZ", "ARIZONA": "US-AZ",
+        "CO": "US-CO", "COLORADO": "US-CO",
+    }
+    for name, code in state_mappings.items():
+        if geo == name or geo.endswith(f", {name}") or geo.endswith(f" {name}"):
+            return code
+    if "," in geo:
+        parts = geo.split(",")
+        if len(parts) >= 2:
+            state = parts[-1].strip()
+            for name, code in state_mappings.items():
+                if state == name:
+                    return code
+    return "US"
 
 
 def _iso_now() -> str:
@@ -159,9 +187,14 @@ def validate_config(config: dict[str, Any], root: Path) -> ConfigValidationResul
         errors.append("'max_companies' must be a positive integer")
 
     source_configs = config.get("source_configs")
-    if not isinstance(source_configs, list) or not source_configs:
-        errors.append("'source_configs' must be a non-empty list")
-    else:
+    auto_discover = config.get("auto_discover_sources", False)
+    if not isinstance(source_configs, list) or (not source_configs and not auto_discover):
+        if not auto_discover:
+            errors.append("'source_configs' must be a non-empty list (or set 'auto_discover_sources: true')")
+    if not isinstance(source_configs, list):
+        source_configs = []
+    
+    if source_configs or auto_discover:
         seen_source_ids: set[str] = set()
         enabled_count = 0
         for idx, source in enumerate(source_configs):
@@ -192,69 +225,16 @@ def validate_config(config: dict[str, Any], root: Path) -> ConfigValidationResul
                 enabled_count += 1
 
             provider = str(source.get("provider") or "").strip()
-
-            auth_env = source.get("auth_env")
-            auth_env_name = ""
-            if auth_env is not None:
-                if not isinstance(auth_env, str) or not auth_env.strip():
-                    errors.append(f"source_configs[{idx}].auth_env must be a non-empty string when provided")
-                else:
-                    auth_env_name = auth_env.strip()
-                if auth_env_name and os.getenv(auth_env_name) is None:
+            api_required = source.get("api_required", False)
+            if api_required:
+                auth_env = source.get("auth_env")
+                if auth_env and not os.getenv(str(auth_env).strip()):
                     warnings.append(
-                        f"source_configs[{idx}] expects env var '{auth_env_name}', but it is not set in current environment"
+                        f"source_configs[{idx}] provider '{provider}' may need env var '{auth_env}' for full functionality"
                     )
 
-            auth_scheme = source.get("auth_scheme")
-            if auth_scheme is not None:
-                if not isinstance(auth_scheme, str) or not auth_scheme.strip():
-                    errors.append(f"source_configs[{idx}].auth_scheme must be a non-empty string when provided")
-                elif auth_scheme.strip().lower() not in ALLOWED_AUTH_SCHEMES:
-                    allowed = ", ".join(sorted(ALLOWED_AUTH_SCHEMES))
-                    errors.append(f"source_configs[{idx}].auth_scheme must be one of: {allowed}")
-
-            if enabled and provider in PROVIDERS_REQUIRING_AUTH_ENV and not auth_env_name:
-                errors.append(f"source_configs[{idx}] provider '{provider}' requires auth_env when enabled")
-
-            if provider == "foursquare_places":
-                auth_header = str(source.get("auth_header") or "Authorization").strip()
-                if auth_header.lower() != "authorization":
-                    errors.append("foursquare_places requires auth_header 'Authorization'")
-
-                auth_scheme_value = str(source.get("auth_scheme") or "raw").strip().lower()
-                if auth_scheme_value != "raw":
-                    errors.append(
-                        "foursquare_places for /v3/places/search must use auth_scheme 'raw' (no Bearer prefix)"
-                    )
-
-                endpoint_value = source.get("endpoint")
-                if endpoint_value is None:
-                    warnings.append(
-                        f"source_configs[{idx}] provider 'foursquare_places' should set endpoint to "
-                        f"{FOURSQUARE_PLACES_SEARCH_ENDPOINT}"
-                    )
-                elif not isinstance(endpoint_value, str) or not endpoint_value.strip():
-                    errors.append(f"source_configs[{idx}].endpoint must be a non-empty string when provided")
-                elif endpoint_value.strip() != FOURSQUARE_PLACES_SEARCH_ENDPOINT:
-                    warnings.append(
-                        f"source_configs[{idx}] endpoint '{endpoint_value.strip()}' differs from recommended "
-                        f"{FOURSQUARE_PLACES_SEARCH_ENDPOINT}"
-                    )
-
-                api_version = str(source.get("api_version") or "").strip()
-                if not api_version:
-                    warnings.append(
-                        f"source_configs[{idx}] provider 'foursquare_places' should set api_version to "
-                        f"{FOURSQUARE_PLACES_API_VERSION}"
-                    )
-                elif api_version != FOURSQUARE_PLACES_API_VERSION:
-                    warnings.append(
-                        f"source_configs[{idx}] api_version '{api_version}' differs from recommended "
-                        f"{FOURSQUARE_PLACES_API_VERSION}"
-                    )
-
-        if enabled_count == 0:
-            warnings.append("All source_configs are disabled; research-ingest will fail with missing_source_config")
+        if enabled_count == 0 and not auto_discover:
+            warnings.append("All source_configs are disabled; research-ingest will fail with missing_source_config (set auto_discover_sources: true to auto-discover)")
 
     template = config.get("email_template")
     if not isinstance(template, dict):
@@ -352,23 +332,57 @@ def build_stage_payload(
     market = str(config.get("market") or "").strip()
 
     if stage == "research_ingest":
+        source_configs = config.get("source_configs", [])
+        auto_discover = config.get("auto_discover_sources", False)
+        
+        if auto_discover and not source_configs:
+            from market_validation.source_discovery import discover_sources
+            source_configs = discover_sources(
+                market=market,
+                geography=str(config.get("geography") or "").strip(),
+                target_product=str(config.get("target_product") or "").strip(),
+                max_sources=config.get("max_discovered_sources", 5),
+            )
+        
         return {
             "run_id": run_id,
             "stage": stage,
             "market": market,
             "geography": str(config.get("geography") or "").strip(),
             "max_companies": int(config.get("max_companies", 100)),
-            "source_configs": config.get("source_configs", []),
+            "source_configs": source_configs,
         }
 
     if stage == "lead_qualify":
         research = _load_stage_output(root, run_id, "research_ingest")
+        market_demand_data = {"demand_level": "unknown", "demand_score": 0, "keywords": {}}
+        
+        try:
+            from market_validation.market_trends import get_market_demand_report
+            geography_raw = str(config.get("geography") or "").strip()
+            geo_code = _normalize_geo_code(geography_raw)
+            trends_result = get_market_demand_report(
+                target_product=str(config.get("target_product") or "").strip(),
+                geography=geo_code,
+            )
+            if trends_result.get("result") == "ok" and not trends_result.get("skipped"):
+                market_demand_data = {
+                    "demand_level": trends_result.get("demand_level", "unknown"),
+                    "demand_score": trends_result.get("market_demand_score", 0),
+                    "keywords": trends_result.get("keywords", {}),
+                    "geography_used": geo_code,
+                }
+        except Exception:
+            pass
+        
         return {
             "run_id": run_id,
             "stage": stage,
             "market": market,
             "target_product": str(config.get("target_product") or "").strip(),
+            "geography": str(config.get("geography") or "").strip(),
             "companies": research.get("companies", []),
+            "market_demand_data": market_demand_data,
         }
 
     if stage == "outreach_email":

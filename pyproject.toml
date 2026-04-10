@@ -9,7 +9,9 @@ description = "Prompt-driven market validation pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "python-dotenv>=1.0.0,<2.0.0"
+  "python-dotenv>=1.0.0,<2.0.0",
+  "pytrends>=4.9.0,<5.0.0",
+  "beautifulsoup4>=4.12.0,<5.0.0"
 ]
 
 [project.optional-dependencies]
@@ -32,6 +34,8 @@ market-source-discover = "market_validation.source_discovery:main"
 market-email-send = "market_validation.email_sender:main"
 market-email-fetch = "market_validation.gmail_inbox:main"
 market-dashboard = "market_validation.dashboard_export:main"
+market-research = "market_validation.research:main"
+market-research-run = "market_validation.research_runner:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

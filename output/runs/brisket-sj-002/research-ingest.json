@@ -1,0 +1,319 @@
+{
+  "companies": [
+    {
+      "company_id": "company-001",
+      "company_name": "Smoking Pig BBQ",
+      "location": "1144 N 4th St, San Jose, CA 95112",
+      "source_records": [
+        {
+          "excerpt": "Smoking Pig BBQ - 3.9 (3397 reviews) - 1144 N 4th St, San Jose, California - Barbeque - Known for beef brisket, ribs, chicken, pulled pork",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-yelp-2",
+          "url": "https://www.yelp.com/biz/smoking-pig-bbq-san-jose"
+        },
+        {
+          "excerpt": "Smoking Pig BBQ Company - 4.2 rating - 626 reviews - American, Barbecue - Excellent ribs and brunswick stew",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": "https://smokingpigbbq.net/"
+    },
+    {
+      "company_id": "company-002",
+      "company_name": "Mesquite & Oak",
+      "location": "856 N 13th St, San Jose, CA 95112",
+      "source_records": [
+        {
+          "excerpt": "Mesquite & Oak - 4.5 (710 reviews) - 856 N 13th St, San Jose, California - Barbeque - Known for brisket, big brisket sandwich, smoked brisket taco",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-yelp-2",
+          "url": "https://www.yelp.com/biz/mesquite-and-oak-san-jose"
+        },
+        {
+          "excerpt": "Go for the brisket - Some of the best brisket I have found in the south bay, just the right combo of fat and meat",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.co.uk/ShowUserReviews-g33020-d14933851-r939796194-Mesquite_and_Oak_Barbecue_Restaurant-San_Jose_California.html"
+        }
+      ],
+      "website": "https://mesquiteandoak.com/"
+    },
+    {
+      "company_id": "company-003",
+      "company_name": "The Barbeque Pit",
+      "location": "1349 Blossom Hill Rd, San Jose, CA 95118",
+      "source_records": [
+        {
+          "excerpt": "The Barbeque Pit - 4.2 rating - Award-Winning Brisket and BBQ - The most tender brisket I have ever had",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        },
+        {
+          "excerpt": "The Barbeque Pit - 4.2 (183 reviews) - 1349 Blossom Hill Rd, San Jose, California - Barbeque, American, Beer Bar",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-yelp-2",
+          "url": "https://www.yelp.com/biz/the-barbeque-pit-san-jose"
+        }
+      ],
+      "website": "https://thebarbequepit.com/"
+    },
+    {
+      "company_id": "company-004",
+      "company_name": "Macpark BBQ",
+      "location": "181 E Tasman Dr., Suite 50, San Jose, CA 95134",
+      "source_records": [
+        {
+          "excerpt": "Macpark BBQ - 3.5 rating - 181 E Tasman Dr., Suite 50, San Jose, CA 95134 - Bringing mouthwatering flavors of Texas BBQ to the Bay Area - Offers brisket, ribs, turkey",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-yelp-2",
+          "url": "https://www.opentable.com/r/macpark-bbq-san-jose"
+        }
+      ],
+      "website": "http://www.macparkbbq.com/"
+    },
+    {
+      "company_id": "company-005",
+      "company_name": "Sam's Bar-B-Que",
+      "location": "1110 S Bascom Ave, San Jose, CA 95128",
+      "source_records": [
+        {
+          "excerpt": "Sam's Bar-B-Que - 4.3 rating - American, Barbecue - Known for exceptional brisket",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        },
+        {
+          "excerpt": "This Rustic BBQ Joint In California Serves Up The Best Brisket Youll Ever Taste - Sam's Bar-B-Que in San Jose serves exceptional brisket that stands proudly by any standard",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-bing-5",
+          "url": "https://familydestinationsguide.com/rustic-bbq-brisket-california/"
+        }
+      ],
+      "website": "http://www.samsbbq.com/"
+    },
+    {
+      "company_id": "company-006",
+      "company_name": "Henry's Hi-Life",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Henry's Hi-Life - 4.2 rating - 380 reviews - Barbecue - Steaks are awesome and enjoyed with sides of salad, baked potato, mushrooms",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-007",
+      "company_name": "South Winchester BBQ",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "South Winchester BBQ - 4.2 rating - Really good smoked barbecue in a local's setting",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-008",
+      "company_name": "Armadillo Willy's",
+      "location": "878 Blossom Hill Rd, San Jose, CA 95123",
+      "source_records": [
+        {
+          "excerpt": "Armadillo Willy's Texas BBQ - 3.8 rating - Quick Bites, American - The smoky brisket was melt-in-your-mouth tender, boasting a perfect bark and juicy flavor",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-009",
+      "company_name": "YakiniQ SJ",
+      "location": "1783 W San Carlos St, San Jose, CA 95128",
+      "source_records": [
+        {
+          "excerpt": "YakiniQ SJ - 3.8 (1103 reviews) - Korean BBQ - Offers beef brisket, pork belly, boneless short rib",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-yelp-2",
+          "url": "https://www.yelp.com/biz/iquelyniq-sj-san-jose"
+        }
+      ],
+      "website": "https://yakiniq.net/"
+    },
+    {
+      "company_id": "company-010",
+      "company_name": "Q Pot Korean BBQ & Hot Pot",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Q Pot Korean BBQ & Hot Pot - 4.1 rating - 28 reviews - Barbecue, Asian - The BBQ is $27.99",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-011",
+      "company_name": "Gen Korean BBQ",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Gen Korean BBQ - 3.8 rating - 68 reviews - Barbecue, Asian - All you can eat dinner is $25",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-012",
+      "company_name": "TAOB Pit Stop",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "TAOB Pit Stop - 4.3 rating - 16 reviews - Barbecue - The potato salad and chili are amazing",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-013",
+      "company_name": "Sauced BBQ & Spirits",
+      "location": "3055 Olin Ave #1005, San Jose, CA 95128",
+      "source_records": [
+        {
+          "excerpt": "Sauced BBQ & Spirits - 3.4 rating - Barbeque, Burgers - Offers brisket burnt ends, sliced brisket plate, BBQ brisket melt",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-bing-5",
+          "url": "https://www.restaurantji.com/ca/san-jose/sauced-bbq-and-spirits-san-jose-santana-row-/"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-014",
+      "company_name": "Horn Barbecue",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Horn Barbecue - 4.4 rating - 131 votes - Offers prime brisket that is incredibly tender and seasoned perfectly",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-bing-5",
+          "url": "https://restaurantguru.com/Horn-Barbecue-San-Jose"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-015",
+      "company_name": "CJ BBQ",
+      "location": "461 Blossom Hill Rd, San Jose, CA 95123",
+      "source_records": [
+        {
+          "excerpt": "CJ BBQ - 461 Blossom Hill Rd, San Jose, CA 95123 - Open Sunday 12:30-8 PM",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://sanjoseinsider.org/best-bbq-in-san-jose-california"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-016",
+      "company_name": "Willy Billy's BBQ",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Willy Billy's BBQ - Slow-Smoked Halal BBQ - Offers brisket (Regular $18, Large $25), pulled beef, halal meats",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-bing-5",
+          "url": "https://www.willybillysmokedmeat.com/"
+        }
+      ],
+      "website": "https://www.willybillysmokedmeat.com/"
+    },
+    {
+      "company_id": "company-017",
+      "company_name": "Jon Jon's Barbeque",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Jon Jon's Barbeque - Family-Owned BBQ Joint - Known for mouthwatering meats, flavorful hot links, juicy ribs",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-bing-5",
+          "url": "https://jon-jons.res-menu.com/"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-018",
+      "company_name": "Jackie's Place",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Jackie's Place - 3.8 rating - Hidden gem that brings the heart of BBQ to San Jose",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-019",
+      "company_name": "Malibu Grill & BBQ",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Malibu Grill & BBQ - 4.7 rating - Exceptional BBQ in San Jose",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    },
+    {
+      "company_id": "company-020",
+      "company_name": "Ono Hawaiian BBQ",
+      "location": "San Jose, CA",
+      "source_records": [
+        {
+          "excerpt": "Ono Hawaiian BBQ - 4.3 rating - Good BBQ - Consistently good",
+          "fetched_at": "2026-04-10T00:00:00Z",
+          "source_id": "auto-tripadvisor-3",
+          "url": "https://www.tripadvisor.com/Restaurants-g33020-c6-San_Jose_California.html"
+        }
+      ],
+      "website": null
+    }
+  ],
+  "errors": [],
+  "failure_mode": "none",
+  "market": "Brisket",
+  "result": "ok",
+  "run_id": "brisket-sj-002",
+  "stage": "research_ingest",
+  "stored_at": "2026-04-10T17:39:48Z",
+  "warnings": [
+    "Auto-discovered sources used - 5 sources queried",
+    "Some companies missing website URLs - these are local/unverified establishments"
+  ]
+}
