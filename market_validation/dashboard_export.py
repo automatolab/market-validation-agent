@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from market_validation.db_store import _connect, _ensure_schema, resolve_db_path
+from market_validation.research import _connect, _ensure_schema, resolve_db_path
 
 CALL_SHEET_EXPORT_STATUSES = ("call_ready", "replied_interested", "qualified")
 
@@ -32,47 +32,48 @@ def get_call_sheet_from_db(
 
         query = """
         SELECT 
-            l.company_id,
-            l.company_name,
-            l.status,
-            l.priority_score,
-            l.priority_tier,
-            l.next_action,
-            l.why_now,
-            l.estimated_monthly_volume_lb,
-            l.last_stage,
-            l.updated_at,
-            cse.notes_for_caller,
-            (SELECT COUNT(*) FROM call_notes cn WHERE cn.company_id = l.company_id) as notes_count
-        FROM leads l
-        LEFT JOIN call_sheet_entries cse ON l.company_id = cse.company_id
+            c.id as company_id,
+            c.company_name,
+            c.status,
+            c.priority_score,
+            c.priority_tier,
+            c.next_action,
+            c.why_now,
+            c.volume_estimate,
+            c.volume_unit,
+            c.updated_at,
+            c.notes,
+            c.phone,
+            c.location,
+            (SELECT COUNT(*) FROM call_notes cn WHERE cn.company_id = c.id) as notes_count
+        FROM companies c
         """
 
         conditions = []
         params = []
 
         if status_filter:
-            conditions.append("l.status = ?")
+            conditions.append("c.status = ?")
             params.append(status_filter)
         else:
             placeholders = ",".join(["?" for _ in CALL_SHEET_EXPORT_STATUSES])
-            conditions.append(f"l.status IN ({placeholders})")
+            conditions.append(f"c.status IN ({placeholders})")
             params.extend(list(CALL_SHEET_EXPORT_STATUSES))
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
-        query += " ORDER BY CASE l.status WHEN 'call_ready' THEN 1 WHEN 'replied_interested' THEN 2 WHEN 'qualified' THEN 3 END, l.priority_score DESC LIMIT ?"
+        query += " ORDER BY c.priority_score DESC LIMIT ?"
         params.append(limit)
 
         rows = conn.execute(query, params).fetchall()
 
-    leads = [dict(row) for row in rows]
+    companies = [dict(row) for row in rows]
     return {
         "result": "ok",
         "database_file": str(db_file.relative_to(root_path)) if db_file.parent == root_path else str(db_file),
-        "count": len(leads),
-        "call_sheet": leads,
+        "count": len(companies),
+        "call_sheet": companies,
     }
 
 
@@ -89,32 +90,31 @@ def get_dashboard_summary_from_db(
         conn.row_factory = sqlite3.Row
 
         status_counts = conn.execute("""
-            SELECT status, COUNT(*) as count FROM leads GROUP BY status
+            SELECT status, COUNT(*) as count FROM companies GROUP BY status
         """).fetchall()
 
-        total_leads = sum(row["count"] for row in status_counts)
+        total_companies = sum(row["count"] for row in status_counts)
 
         placeholders = ",".join(["?" for _ in CALL_SHEET_EXPORT_STATUSES])
         priority_queue = conn.execute(f"""
-            SELECT company_id, company_name, status, priority_score, priority_tier, next_action
-            FROM leads
+            SELECT id, company_name, status, priority_score, priority_tier, next_action
+            FROM companies
             WHERE status IN ({placeholders})
-            ORDER BY CASE status WHEN 'call_ready' THEN 1 WHEN 'replied_interested' THEN 2 WHEN 'qualified' THEN 3 END,
-                     priority_score DESC
+            ORDER BY priority_score DESC
             LIMIT 20
         """, list(CALL_SHEET_EXPORT_STATUSES)).fetchall()
 
         recent_activity = conn.execute("""
-            SELECT run_id, stage, result, stored_at
-            FROM stage_events
-            ORDER BY stored_at DESC
+            SELECT id as event_id, 'company_added' as stage, company_name as description, created_at
+            FROM companies
+            ORDER BY created_at DESC
             LIMIT 10
         """).fetchall()
 
     return {
         "result": "ok",
         "database_file": str(db_file.relative_to(root_path)) if db_file.parent == root_path else str(db_file),
-        "total_leads": total_leads,
+        "total_companies": total_companies,
         "status_counts": {row["status"]: row["count"] for row in status_counts},
         "priority_queue": [dict(row) for row in priority_queue],
         "recent_activity": [dict(row) for row in recent_activity],
@@ -134,9 +134,9 @@ def export_call_notes_for_company(
         _ensure_schema(conn)
         conn.row_factory = sqlite3.Row
 
-        lead = conn.execute("""
-            SELECT company_id, company_name, status, priority_tier, next_action, why_now
-            FROM leads WHERE company_id = ?
+        company = conn.execute("""
+            SELECT id, company_name, status, priority_tier, next_action, notes
+            FROM companies WHERE id = ?
         """, (company_id,)).fetchone()
 
         notes = conn.execute("""
@@ -146,28 +146,18 @@ def export_call_notes_for_company(
             ORDER BY created_at DESC
         """, (company_id,)).fetchall()
 
-        outreach = conn.execute("""
-            SELECT subject, body, template_id, created_at
-            FROM outreach_drafts
+        contacts = conn.execute("""
+            SELECT id, name, title, email, phone, source
+            FROM contacts
             WHERE company_id = ?
             ORDER BY created_at DESC
-            LIMIT 5
-        """, (company_id,)).fetchall()
-
-        replies = conn.execute("""
-            SELECT intent, summary, structured_json, created_at
-            FROM reply_updates
-            WHERE company_id = ?
-            ORDER BY created_at DESC
-            LIMIT 5
         """, (company_id,)).fetchall()
 
     return {
         "result": "ok",
-        "company": dict(lead) if lead else None,
+        "company": dict(company) if company else None,
         "call_notes": [dict(row) for row in notes],
-        "outreach_emails": [dict(row) for row in outreach],
-        "replies": [dict(row) for row in replies],
+        "contacts": [dict(row) for row in contacts],
     }
 
 
@@ -187,19 +177,19 @@ def export_markdown_call_sheet(
         f"# Call Sheet",
         "",
         f"Generated: {now}",
-        f"Total: {data['count']} leads",
+        f"Total: {data['count']} companies",
         "",
-        "| Priority | Company | Status | Next Action | Notes |",
-        "|----------|---------|--------|-------------|-------|",
+        "| Score | Company | Status | Volume | Phone |",
+        "|-------|---------|--------|--------|-------|",
     ]
 
-    for lead in data["call_sheet"]:
-        tier = lead.get("priority_tier") or "-"
-        name = lead.get("company_name") or lead.get("company_id") or "-"
-        status = lead.get("status") or "-"
-        action = lead.get("next_action") or "-"
-        notes = lead.get("notes_for_caller") or "-"
-        lines.append(f"| {tier} | {name} | {status} | {action} | {notes} |")
+    for company in data["call_sheet"]:
+        score = company.get("priority_score", 0) or 0
+        name = company.get("company_name") or "-"
+        status = company.get("status") or "-"
+        volume = f"{company.get('volume_estimate', '')} {company.get('volume_unit', '')}".strip() or "-"
+        phone = company.get("phone") or "-"
+        lines.append(f"| {score:>3} | {name[:30]:<30} | {status:<12} | {volume:<15} | {phone} |")
 
     return "\n".join(lines)
 

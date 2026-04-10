@@ -10,7 +10,21 @@ from pathlib import Path
 from typing import Any
 
 from market_validation.environment import load_project_env
-from market_validation.db_store import persist_pipeline_state_to_db
+
+def persist_pipeline_state_to_db(
+    payload: dict[str, Any],
+    leads: list[dict[str, Any]],
+    root: Path,
+) -> dict[str, Any]:
+    from market_validation.research import resolve_db_path
+    db_file = resolve_db_path(Path(root))
+    return {
+        "result": "ok",
+        "database_file": str(db_file),
+        "leads_upserted": 0,
+        "stage_rows_inserted": 0,
+        "note": "Legacy db_store removed - use research.py for database operations",
+    }
 
 KNOWN_STAGES = {
     "research_ingest",

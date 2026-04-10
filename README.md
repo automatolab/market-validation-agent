@@ -1,394 +1,208 @@
-# Market Research Agent
+# Market Validation Agent
 
-General-purpose market research platform that discovers companies, qualifies leads, and tracks outreach - no API keys required.
+General-purpose market research platform that discovers companies, qualifies leads, and tracks outreach - **no API keys required** for data gathering.
 
-## What This Repo Does
+## What This System Does
 
-1. **Create Research Projects** - Define what market/product/geography to research
-2. **Auto-Discover Sources** - Find relevant data sources (directories, news, social, trends)
-3. **Gather Companies** - Discover businesses using free web sources
-4. **Qualify Leads** - Assess relevance and estimate volume using AI + Google Trends
-5. **Track Outreach** - Manage contacts, emails, and call notes
-6. **Generate Reports** - Export findings as markdown
+For a given market/product/geography, the system:
+
+1. **Discovers Companies** - Web search for businesses using free sources (Yelp, Google, YellowPages)
+2. **Qualifies Leads** - AI assessment of relevance + volume estimation (e.g., "300+ lbs/week brisket")
+3. **Tracks Companies** - Stores contacts, notes, status, and priority scores
+4. **Generates Call Sheets** - Prioritized list of companies to contact
+5. **Handles Email Outreach** - Send templated emails, track replies (optional: requires SMTP + Gmail API)
 
 ## Quick Start
 
 ```bash
-# Create and run a research project
-market-research-run run \
-  --name "San Jose BBQ Restaurants" \
-  --market "Brisket Supply" \
+# 1. Install
+pip install -e .
+
+# 2. Create a research project
+python -m market_validation.research create \
+  --name "San Jose BBQ" \
+  --market "brisket" \
   --product "beef brisket" \
   --geography "San Jose, CA"
 
-# List all researches
-market-research list
-
-# View research details
-market-research get <research_id>
-
-# Export as markdown
-market-research export <research_id> --output report.md
+# 3. Run the full pipeline
+python -m market_validation.research_runner run \
+  --name "San Jose BBQ" \
+  --market "brisket" \
+  --product "beef brisket" \
+  --geography "San Jose, CA"
 ```
-
-## Auto-Detected Market Types
-
-The system auto-detects your market type and discovers appropriate sources:
-
-| Market Type | Keywords | Sources |
-|-------------|----------|---------|
-| **Restaurant** | restaurant, BBQ, cafe, catering, brisket | Yelp, TripAdvisor, YellowPages, OSM |
-| **Retail** | store, shop, outlet, grocery | Bing, Yelp, YellowPages |
-| **Tech** | software, SaaS, AI, platform | LinkedIn, News, Crunchbase |
-| **Healthcare** | hospital, clinic, medical | Healthgrades, News |
-| **Default** | (all others) | Bing, DuckDuckGo, OSM |
 
 ## Architecture
 
 ```
-Research Project (UUID-based)
-├── Sources (auto-discovered)
-├── Companies (discovered + qualified)
-│   ├── Claims (evidence-backed)
-│   ├── Contacts (found/added)
-│   └── Outreach (emails, calls)
-├── Market Demand Data (Google Trends)
-└── Call Notes
+Research Project
+├── researches (UUID-based research sessions)
+├── companies (discovered businesses with qualification data)
+├── contacts (people at each company)
+└── call_notes (human call notes)
 ```
 
-## Key Commands
+## Key Modules
+
+### research.py - Database Operations
+```python
+from market_validation.research import (
+    create_research,
+    get_research,
+    list_researches,
+    add_company,
+    update_company,
+    add_contact,
+    add_call_note,
+    search_companies,
+    export_markdown,
+)
+```
+
+### research_runner.py - Full Pipeline
+```python
+from market_validation.research_runner import (
+    run_market_research,   # Create + discover sources + trends
+    gather_companies,       # Web search for businesses
+    qualify_companies,       # AI assessment + volume estimation
+)
+```
+
+### dashboard_export.py - Reports
+```python
+from market_validation.dashboard_export import (
+    get_dashboard_summary_from_db,
+    get_call_sheet_from_db,
+    export_markdown_call_sheet,
+    export_markdown_dashboard,
+)
+```
+
+### email_sender.py - Email Outreach
+```python
+from market_validation.email_sender import (
+    send_email,
+    send_templated_email,
+    send_batch_emails,
+)
+# Requires: SMTP_USER, SMTP_PASSWORD, FROM_EMAIL env vars
+```
+
+### gmail_inbox.py - Reply Tracking
+```python
+from market_validation.gmail_inbox import (
+    fetch_email_replies,
+    fetch_and_build_replies,
+)
+# Requires: credentials.json from Google Cloud Console
+```
+
+## Database
+
+**Location:** `output/market-research.sqlite3`
+
+**Schema:**
+```sql
+researches: id, name, market, product, geography, status
+companies: id, research_id, company_name, website, location, phone,
+           status, priority_score, priority_tier, volume_estimate,
+           volume_unit, notes, menu_items, ratings, reviews_count, raw_data
+contacts: id, company_id, name, title, email, phone, source
+call_notes: id, company_id, author, note, meeting_at, next_action
+```
+
+## CLI Commands
 
 ```bash
 # Research management
-market-research create --name "..." --market "..." --geography "..."
-market-research list
-market-research get <id>
-market-research export <id>
+python -m market_validation.research list
+python -m market_validation.research get <id>
+python -m market_validation.research export <id> --output report.md
 
-# Source discovery
-market-source-discover --market "SaaS" --geography "US"
+# Pipeline
+python -m market_validation.research_runner gather <id> --market X --product Y --geography Z
+python -m market_validation.research_runner qualify <id> --market X --product Y
 
-# Market trends
-python -m market_validation.market_trends --keyword "brisket" --geography "US-CA"
-
-# Lead pipeline (legacy)
-market-lead-pipeline run --config config/lead-pipeline.json
-
-# Call notes
-market-call-notes add --company-id <id> --author "Sales" --note "..."
-market-call-notes list --company-id <id>
+# Dashboard
+python -m market_validation.dashboard_export call-sheet --status qualified
+python -m market_validation.dashboard_export summary
 ```
 
-## Free Data Sources (No API Keys)
+## Example Workflow: Brisket Supply
 
-- **Web Search**: DuckDuckGo, Bing
-- **Directories**: Yelp, TripAdvisor, YellowPages, OpenStreetMap
-- **News**: Hacker News, Google News
-- **Social**: LinkedIn (search), Facebook
-- **Trends**: Google Trends (pytrends)
-- **Data**: Crunchbase, Healthgrades
+```python
+from market_validation.research import create_research, search_companies
+from market_validation.research_runner import gather_companies, qualify_companies
 
-## OpenCode-Driven Workflow
+# 1. Create research
+r = create_research("Brisket SJ", "brisket", "beef brisket", "San Jose, CA")
+research_id = r["research_id"]
 
-Each worker invocation builds one prompt payload from:
+# 2. Gather companies (web search)
+gather = gather_companies(research_id, "brisket", "beef brisket", "San Jose, CA")
+print(f"Found {gather['companies_added']} companies")
 
-- `modes/_shared.md`
-- `modes/validate.md`
-- `batch/batch-prompt.md`
-- runtime item metadata (market, geography, profile, report number, date)
+# 3. Qualify (AI assessment + volume)
+qualify = qualify_companies(research_id, "brisket", "beef brisket")
+print(f"Qualified {qualify['qualified']} companies")
 
-Then it calls `opencode run` and expects strict JSON output.
+# 4. View results
+companies = search_companies(research_id=research_id, status="qualified", limit=10)
+for c in companies["companies"]:
+    print(f"{c['company_name']}: {c['priority_score']} score, {c['volume_estimate']} {c['volume_unit']}")
+```
 
-For lead-generation workflows (for example brisket supply), the prompt contracts support a staged pipeline:
+## Data Sources (No API Keys Required)
 
-1. `research-ingest`
-2. `lead-qualify`
-3. `outreach-email`
-4. `reply-parse`
-5. `call-sheet-build`
+| Source | Purpose |
+|--------|---------|
+| DuckDuckGo | Web search |
+| Bing | Web search |
+| Yelp | Restaurant/business discovery |
+| YellowPages | Business directories |
+| OpenStreetMap | Location data |
+| Google Trends | Market demand data |
 
-Hard guarantees in these contracts:
+## Optional: Email Integration
 
-- JSON-only outputs
-- free-source only ingestion (auto-discovery uses DuckDuckGo, Yelp, TripAdvisor, YellowPages, Bing - no API keys required)
-- evidence URLs required for every qualification claim
-- lead statuses include `new`, `qualified`, `emailed`, `replied_interested`, `replied_not_now`, `do_not_contact`, `call_ready`
+For automated email sending and reply tracking:
 
-## Quick Start (No API Keys Needed)
-
+**SMTP (send only):**
 ```bash
-# Install
-pip install -e .
-
-# Auto-discover sources and run pipeline
-market-lead-pipeline run \
-  --config <(echo '{
-    "market": "Brisket",
-    "geography": "US",
-    "target_product": "brisket",
-    "auto_discover_sources": true,
-    "email_template": {"template_id": "v1", "subject_template": "Subject", "body_template": "Body", "tone": "professional"}
-  }') \
-  --run-id brisket-001
-
-# Or discover sources first
-market-source-discover --market Brisket --geography "Austin TX"
+export SMTP_HOST=smtp.gmail.com
+export SMTP_PORT=587
+export SMTP_USER=your-email@gmail.com
+export SMTP_PASSWORD=app-password
+export FROM_EMAIL=your-email@gmail.com
 ```
 
-## File + DB Output Store
-
-Stage JSON payloads are persisted to files, materialized into markdown views, and mirrored to SQLite for structured querying:
-
-- `output/runs/{run_id}/{stage}.json` - per-stage canonical payloads
-- `output/leads/leads.jsonl` - latest lead state per company
-- `output/call-sheets/{YYYY-MM-DD}.md` - call sheet for human follow-up
-- `output/dashboard/summary.md` - status and priority summary
-- `output/market-validation.sqlite3` - relational store for leads, source evidence, drafts, replies, call sheets, and call notes
-
-Database path defaults to `output/market-validation.sqlite3` and can be overridden with `MARKET_DB_PATH`.
-
-Persist a stage payload from a file:
-
-```bash
-python store-output.py --input-file output/sample-stage.json
-```
-
-Or from stdin:
-
-```bash
-python store-output.py <<'JSON'
-{
-  "result": "ok",
-  "stage": "lead_qualify",
-  "run_id": "brisket-001",
-  "market": "Brisket",
-  "qualified_companies": []
-}
-JSON
-```
-
-You can also use the installed script:
-
-```bash
-market-output-store --input-file output/sample-stage.json
-```
-
-## Configuration and Context
-
-Place market-specific context in config files (example template):
-
-- `config/lead-pipeline.example.json`
-
-Recommended pattern:
-
-1. Copy it to `config/lead-pipeline.json`
-2. Fill in `market`, `target_product`, `source_configs`, and `email_template`
-3. Use those values when invoking staged workflows and prompts
-
-A ready-to-use brisket config is included at `config/lead-pipeline.json`.
-
-Notes:
-
-- Keep provider/model defaults in config for consistency across runs.
-- Source configs are operator-owned; prompts enforce configured-source-only behavior.
-- Auto-discovery uses free sources: DuckDuckGo, Yelp, TripAdvisor, Bing, YellowPages (no API keys needed).
-
-The worker writes:
-
-1. report markdown: `reports/{###}-{market-slug}-{YYYY-MM-DD}.md`
-2. staged tracker line: `batch/tracker-additions/{id}.tsv`
-3. JSON completion payload to stdout
-
-## OpenCode Slash Commands
-
-This repo now includes project-local OpenCode slash commands in `.opencode/commands/`.
-
-Use them from OpenCode TUI as:
-
-- `/market-validation`
-- `/market-validation-batch`
-- `/market-validation-worker`
-- `/market-validation-merge`
-- `/market-validation-verify`
-- `/market-validation-pipeline`
-- `/market-validation-store-output`
-- `/market-validation-config-check`
-- `/market-validation-stage-run`
-- `/market-validation-run`
-
-Examples:
-
-```text
-/market-validation-batch --dry-run
-/market-validation-batch --model "provider/model" --agent "general"
-/market-validation-worker --id 1 --market "ai qa agent for cnc shops" --report-num 001 --model "provider/model"
-/market-validation-pipeline
-/market-validation-store-output --input-file output/sample-stage.json
-/market-validation-config-check
-/market-validation-stage-run --stage research_ingest --run-id brisket-001
-/market-validation-run --run-id brisket-001
-```
-
-## Batch Input Format
-
-`batch/batch-input.tsv` columns:
-
-`id<TAB>market<TAB>geography<TAB>profile<TAB>template<TAB>notes`
-
-## Run Batch Pipeline
-
-```bash
-bash batch/batch-runner.sh
-```
-
-Default batch mode now auto-persists each worker JSON result into the file output store (`worker_result` stage), so lead JSONL + markdown dashboard/call sheet stay current.
-
-Use explicit OpenCode model/agent for this run:
-
-```bash
-bash batch/batch-runner.sh --model "provider/model" --agent "general"
-```
-
-Dry-run mode:
-
-```bash
-bash batch/batch-runner.sh --dry-run
-```
-
-## Merge and Verify
-
-```bash
-python merge-tracker.py
-python verify-pipeline.py
-```
-
-## Worker (Single Item)
-
-```bash
-python -m market_validation.batch_worker \
-  --id 1 \
-  --market "ai qa agent for cnc shops" \
-  --geography "US" \
-  --profile "saas" \
-  --report-num 001
-```
-
-Use explicit flags for worker invocation. This keeps execution deterministic and makes failures easier to diagnose.
-
-OpenCode router inputs can still be flexible: shorthand positional input can be normalized by the router into an explicit-flag command before execution.
-
-Optional OpenCode flags:
-
-```bash
-python -m market_validation.batch_worker \
-  --id 1 \
-  --market "ai qa agent for cnc shops" \
-  --report-num 001 \
-  --model "provider/model" \
-  --agent "general"
-```
-
-Or set environment defaults:
-
-- `OPENCODE_MODEL`
-- `OPENCODE_AGENT`
-
-If both are set, CLI flags (`--model`, `--agent`) take precedence.
-
-### Worker + Auto Store Wrapper
-
-Run one worker and automatically persist its JSON output to the file store:
-
-```bash
-bash batch/worker-and-store.sh --id 1 --market "ai qa agent for cnc shops" --report-num 001
-```
-
-This writes/updates:
-
-- `output/runs/{run_id}/worker-result.json`
-- `output/leads/leads.jsonl`
-- `output/call-sheets/{YYYY-MM-DD}.md`
-- `output/dashboard/summary.md`
-- `output/market-validation.sqlite3`
-
-## Call Notes Commands
-
-Store and read human call notes in the database (for call sheets and follow-up context):
-
-```bash
-python call-notes.py add \
-  --root . \
-  --company-id smoke-house-3 \
-  --author "caller-a" \
-  --note "Purchasing manager asked for pricing and Friday callback" \
-  --next-action "Call Friday afternoon"
-```
-
-```bash
-python call-notes.py list --root . --company-id smoke-house-3 --limit 20
-```
-
-Installed script equivalent:
-
-```bash
-market-call-notes list --root . --limit 20
-```
-
-## Store Output Command
-
-Persist any stage payload manually when needed:
-
-```bash
-python store-output.py --input-file output/sample-stage.json
-```
-
-Or via slash command:
-
-```text
-/market-validation-store-output --input-file output/sample-stage.json
-```
-
-You can override `run_id` or `stage` if needed:
-
-```bash
-python store-output.py --input-file output/sample-stage.json --run-id brisket-001 --stage lead_qualify
-```
-
-## Lead Pipeline Commands
-
-Validate config:
-
-```bash
-python lead-pipeline.py config-check --config config/lead-pipeline.json
-```
-
-Run one stage:
-
-```bash
-python lead-pipeline.py stage-run --stage research_ingest --run-id brisket-001
-```
-
-Run full pipeline:
-
-```bash
-python lead-pipeline.py run --run-id brisket-001
-```
-
-Optional flags:
-
-- `--start-stage` / `--end-stage`
-- `--messages-file` (for reply parse stage)
-- `--model` / `--agent`
-- `--config` / `--root`
-
-## Install
-
-```bash
-pip install -e .[dev]
-```
-
-## Tests
-
-```bash
-pytest
-```
+**Gmail API (read replies):**
+1. Create project at https://console.cloud.google.com
+2. Enable Gmail API
+3. Download credentials.json to project root
+4. First run will prompt for authorization
+
+## Free vs Paid Features
+
+| Feature | Free | Requires |
+|---------|------|----------|
+| Company discovery | ✅ | Nothing |
+| Lead qualification | ✅ | Nothing |
+| Volume estimation | ✅ | Nothing |
+| Call sheets | ✅ | Nothing |
+| Email sending | ✅ | SMTP credentials |
+| Reply tracking | ✅ | Gmail API credentials |
+| Market trends | ✅ | pytrends (free) |
+
+## Market Types
+
+The system auto-detects market types and adjusts discovery:
+
+| Type | Keywords | Best Sources |
+|------|----------|--------------|
+| Restaurant | restaurant, BBQ, cafe, catering | Yelp, TripAdvisor, YellowPages |
+| Retail | store, shop, outlet | Bing, Yelp, YellowPages |
+| Tech | software, SaaS, platform | LinkedIn, News, Crunchbase |
+| Healthcare | hospital, clinic, medical | Healthgrades, News |
+| Default | anything else | DuckDuckGo, Bing, OSM |
