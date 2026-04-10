@@ -17,6 +17,10 @@ dev = [
   "pytest>=8.3.0,<9.0.0"
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["market_validation*"]
+
 [project.scripts]
 market-merge-tracker = "market_validation.file_pipeline:main_merge_cli"
 market-verify-pipeline = "market_validation.file_pipeline:main_verify_cli"
