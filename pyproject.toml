@@ -24,6 +24,10 @@ market-batch-worker = "market_validation.batch_worker:main"
 market-output-store = "market_validation.output_store:main"
 market-lead-pipeline = "market_validation.lead_pipeline:main"
 market-call-notes = "market_validation.db_store:main"
+market-source-discover = "market_validation.source_discovery:main"
+market-email-send = "market_validation.email_sender:main"
+market-email-fetch = "market_validation.gmail_inbox:main"
+market-dashboard = "market_validation.dashboard_export:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
