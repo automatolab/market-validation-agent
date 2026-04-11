@@ -1,11 +1,11 @@
 # Graph Report - market_validation  (2026-04-10)
 
 ## Corpus Check
-- 16 files · ~16,974 words
+- 17 files · ~19,492 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 232 nodes · 441 edges · 16 communities detected
+- 244 nodes · 459 edges · 17 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
@@ -43,66 +43,70 @@ Cohesion: 0.12
 Nodes (2): main(), ResearchManager
 
 ### Community 4 - "Community 4"
-Cohesion: 0.17
-Nodes (19): approve_all_emails(), approve_email(), build_parser(), export_email_queue_markdown(), get_email_queue(), _get_smtp_connection(), _iso_now(), main() (+11 more)
+Cohesion: 0.15
+Nodes (21): approve_all_emails(), approve_email(), build_parser(), delete_email(), export_email_queue_markdown(), get_email_queue(), _get_smtp_connection(), _iso_now() (+13 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.25
 Nodes (16): ensure_tracker_file(), extract_report_target(), main_merge_cli(), main_verify_cli(), merge_tracker_additions(), MergeResult, _move_to_merged(), normalize_status() (+8 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.39
-Nodes (16): add_call_note(), add_company(), add_contact(), build_parser(), _connect(), create_research(), _ensure_schema(), export_markdown() (+8 more)
+Cohesion: 0.42
+Nodes (15): add_call_note(), add_company(), build_parser(), _connect(), create_research(), delete_company(), _ensure_schema(), export_markdown() (+7 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.27
 Nodes (13): build_opencode_prompt(), build_parser(), _ensure_output_dirs(), _extract_first_json_object(), fallback_report_markdown(), format_score(), invoke_opencode(), main() (+5 more)
 
 ### Community 8 - "Community 8"
+Cohesion: 0.35
+Nodes (10): _escape_html(), generate_html(), _html_template(), _iso_now(), _load_data(), main(), _make_handler(), Dashboard HTML generator and optional local server.  Modes: - Static HTML: gener (+2 more)
+
+### Community 9 - "Community 9"
 Cohesion: 0.38
 Nodes (9): build_parser(), build_reply_payload(), _decode_email_body(), _extract_headers(), fetch_and_build_replies(), fetch_email_replies(), _get_gmail_service(), _iso_now() (+1 more)
 
-### Community 9 - "Community 9"
+### Community 10 - "Community 10"
 Cohesion: 0.5
 Nodes (8): build_parser(), export_call_notes_for_company(), export_markdown_call_sheet(), export_markdown_dashboard(), get_call_sheet_from_db(), get_dashboard_summary_from_db(), _iso_now(), main()
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
 Cohesion: 0.6
 Nodes (5): build_parser(), gather_companies(), main(), qualify_companies(), run_market_research()
 
-### Community 11 - "Community 11"
+### Community 12 - "Community 12"
 Cohesion: 0.6
 Nodes (4): build_parser(), enrich_company_contact(), enrich_research_companies(), main()
 
-### Community 12 - "Community 12"
+### Community 13 - "Community 13"
 Cohesion: 0.8
 Nodes (5): build_parser(), _detect_market_type(), discover_sources(), discover_sources_with_websearch(), main()
 
-### Community 13 - "Community 13"
+### Community 14 - "Community 14"
 Cohesion: 0.67
 Nodes (5): build_parser(), get_google_trends_data(), get_market_demand_report(), _iso_now(), main()
 
-### Community 14 - "Community 14"
+### Community 15 - "Community 15"
 Cohesion: 1.0
 Nodes (1): Prompt-driven market validation package.
 
-### Community 15 - "Community 15"
+### Community 16 - "Community 16"
 Cohesion: 1.0
 Nodes (0): 
 
 ## Knowledge Gaps
-- **20 isolated node(s):** `Prompt-driven market validation package.`, `Market Research Agent - Simple 3-step pipeline:  1. find()      - Discover compa`, `Run opencode and return JSON.`, `STEP 1: Find companies in a market.                  Searches web for businesses`, `STEP 2: Qualify companies - AI assessment of relevance and volume.` (+15 more)
+- **22 isolated node(s):** `Prompt-driven market validation package.`, `Dashboard HTML generator and optional local server.  Modes: - Static HTML: gener`, `Market Research Agent - Simple 3-step pipeline:  1. find()      - Discover compa`, `Run opencode and return JSON.`, `STEP 1: Find companies in a market.                  Searches web for businesses` (+17 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 14`** (2 nodes): `__init__.py`, `Prompt-driven market validation package.`
+- **Thin community `Community 15`** (2 nodes): `__init__.py`, `Prompt-driven market validation package.`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 15`** (2 nodes): `environment.py`, `load_project_env()`
+- **Thin community `Community 16`** (2 nodes): `environment.py`, `load_project_env()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **What connects `Prompt-driven market validation package.`, `Market Research Agent - Simple 3-step pipeline:  1. find()      - Discover compa`, `Run opencode and return JSON.` to the rest of the system?**
-  _20 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `Prompt-driven market validation package.`, `Dashboard HTML generator and optional local server.  Modes: - Static HTML: gener`, `Market Research Agent - Simple 3-step pipeline:  1. find()      - Discover compa` to the rest of the system?**
+  _22 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.11 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**

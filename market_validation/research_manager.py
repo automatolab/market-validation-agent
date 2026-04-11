@@ -103,7 +103,7 @@ class ResearchManager:
     def enrich_all_qualified(self, limit: int = 20) -> dict[str, Any]:
         from market_validation.research import _connect, _ensure_schema, resolve_db_path
         from market_validation.company_enrichment import enrich_company_contact
-        from market_validation.research import update_company, add_contact
+        from market_validation.research import update_company
 
         db_file = resolve_db_path(self.root)
         with _connect(db_file) as conn:
@@ -127,24 +127,13 @@ class ResearchManager:
 
             if result.get("result") == "ok":
                 emails = result.get("emails_found", [])
-                contacts = result.get("contacts", [])
 
                 if not current_email and emails:
                     update_company(company_id, research_id, {"email": emails[0]})
 
-                for contact in contacts:
-                    add_contact(
-                        company_id=company_id,
-                        research_id=research_id,
-                        name=contact.get("name"),
-                        title=contact.get("title"),
-                        source=contact.get("source", "web_search"),
-                    )
-
                 enriched.append({
                     "company": company_name,
                     "email": emails[0] if emails else None,
-                    "contacts": contacts,
                 })
             else:
                 errors.append({"company": company_name, "error": result.get("error")})

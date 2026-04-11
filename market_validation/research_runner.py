@@ -10,7 +10,6 @@ from market_validation.research import (
     get_research,
     add_company,
     update_company,
-    add_contact,
     resolve_db_path,
     _connect,
     _ensure_schema,

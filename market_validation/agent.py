@@ -288,7 +288,7 @@ Return JSON:
     
     def _update_company_from_findings(self, company_name: str, findings: dict):
         """Update company record with enriched data."""
-        from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company, add_contact
+        from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company
         
         db = resolve_db_path(self.root)
         
@@ -320,17 +320,6 @@ Return JSON:
             
             if updates:
                 update_company(cid, self.research_id, updates, root=self.root)
-            
-            # Add contacts
-            contacts = findings.get("employees_found") or []
-            for c in contacts[:5]:
-                add_contact(
-                    company_id=cid,
-                    research_id=self.research_id,
-                    name=c.get("name"),
-                    title=c.get("title"),
-                    source="enrichment",
-                )
     
     def _search_website(self, company: str, location: str | None) -> dict:
         """Source 1: Official website."""

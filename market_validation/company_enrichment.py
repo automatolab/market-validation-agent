@@ -109,7 +109,7 @@ def enrich_research_companies(
     root: str | Path = ".",
     db_path: str | None = None,
 ) -> dict[str, Any]:
-    from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company, add_contact
+    from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company
 
     root_path = Path(root).resolve()
     db_file = resolve_db_path(root_path, db_path)
@@ -130,7 +130,6 @@ def enrich_research_companies(
 
     enriched_count = 0
     email_found_count = 0
-    contacts_added = 0
     errors = []
 
     for company in companies:
@@ -148,36 +147,21 @@ def enrich_research_companies(
 
         if result.get("result") == "ok":
             emails = result.get("emails_found", [])
-            contacts = result.get("contacts", [])
             phones = result.get("phones_found", [])
 
-            new_email = None
             if current_email is None and emails:
-                new_email = emails[0]
                 update_company(
                     company_id=company_id,
                     research_id=research_id,
-                    fields={"email": new_email},
+                    fields={"email": emails[0]},
                     root=root_path,
                     db_path=db_path,
                 )
                 email_found_count += 1
 
-            for contact_data in contacts:
-                add_contact(
-                    company_id=company_id,
-                    research_id=research_id,
-                    name=contact_data.get("name"),
-                    title=contact_data.get("title"),
-                    source=contact_data.get("source", "web_search"),
-                    root=root_path,
-                    db_path=db_path,
-                )
-                contacts_added += 1
-
             enriched_count += 1
 
-            if not emails and not contacts:
+            if not emails:
                 errors.append(f"{company_name}: No contact info found")
 
     return {
@@ -186,7 +170,6 @@ def enrich_research_companies(
         "total_companies": len(companies),
         "enriched": enriched_count,
         "emails_found": email_found_count,
-        "contacts_added": contacts_added,
         "errors": errors[:5],
     }
 

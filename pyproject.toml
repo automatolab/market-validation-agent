@@ -34,6 +34,7 @@ market-source-discover = "market_validation.source_discovery:main"
 market-email-send = "market_validation.email_sender:main"
 market-email-fetch = "market_validation.gmail_inbox:main"
 market-dashboard = "market_validation.dashboard_export:main"
+market-dashboard-ui = "market_validation.dashboard:main"
 market-research = "market_validation.research:main"
 market-research-run = "market_validation.research_runner:main"
 

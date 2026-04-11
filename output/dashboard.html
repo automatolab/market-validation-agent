@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang='en'>
+<head>
+  <meta charset='utf-8' />
+  <meta name='viewport' content='width=device-width, initial-scale=1' />
+  <title>Market Research Dashboard</title>
+  <style>
+    :root {
+      --bg: #f2f5f9;
+      --surface: #ffffff;
+      --text: #182433;
+      --muted: #5e7083;
+      --line: #d9e2eb;
+      --brand: #0b5ca8;
+      --ok: #1d7b3a;
+      --warn: #996900;
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(24, 36, 51, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: radial-gradient(1200px 500px at 15% -10%, #e6eef8, transparent), var(--bg); font: 15px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+    .app { max-width: 1520px; margin: 0 auto; padding: 24px; }
+    .header { display: flex; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }
+    .title h1 { margin: 0; font-size: clamp(22px, 3vw, 34px); }
+    .title p { margin: 6px 0 0; color: var(--muted); }
+    .kpis { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; width: min(640px, 100%); }
+    .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); }
+    .kpi .v { font-size: 24px; font-weight: 700; }
+    .kpi .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+    .panel-head { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+    .panel-head h2 { margin: 0; font-size: 17px; }
+    .panel-body { padding: 14px; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .select { min-width: 280px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; background: #fff; }
+    .count-pill { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; font-size: 13px; color: #324457; background: #fff; }
+    .btn-link { display: inline-block; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: #fff; color: var(--brand); text-decoration: none; font-size: 13px; }
+    .btn-link:hover { background: #f7fbff; }
+    .table-wrap { width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; min-width: 860px; border-collapse: collapse; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #edf2f7; vertical-align: top; }
+    th { background: #f8fafc; font-size: 12px; color: #4b5f73; text-transform: uppercase; letter-spacing: 0.06em; position: sticky; top: 0; }
+    tr:hover td { background: #fbfdff; }
+    td a { color: var(--brand); text-decoration: none; }
+    td a:hover { text-decoration: underline; }
+    .muted { color: var(--muted); }
+    .empty { color: var(--muted); margin: 0; padding: 10px; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid transparent; }
+    .priority-high { background: #e8f7ed; color: var(--ok); border-color: #c2e5cd; }
+    .priority-medium { background: #fff4de; color: var(--warn); border-color: #ecd6a7; }
+    .priority-low { background: #edf2f7; color: #4f6071; border-color: #dfe7ef; }
+    .status-pending { background: #fff4de; color: var(--warn); border-color: #ecd6a7; }
+    .status-sent { background: #e8f7ed; color: var(--ok); border-color: #c2e5cd; }
+    .action-link { margin-right: 10px; white-space: nowrap; }
+    .editing-row td { background: #fffdf4; }
+    .cell-input { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; }
+    .cell-split { display: flex; gap: 6px; }
+    @media (max-width: 980px) {
+      .app { padding: 14px; }
+      .header { flex-direction: column; align-items: stretch; }
+      .kpis { grid-template-columns: repeat(2, minmax(120px, 1fr)); width: 100%; }
+      .select { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class='app'>
+    <div class='header'>
+      <div class='title'>
+        <h1>Market Research Dashboard</h1>
+        <p>Generated 2026-04-11T04:32:58Z</p>
+      </div>
+      <div class='kpis'>
+        <div class='kpi'><div class='v'>1</div><div class='l'>Research Projects</div></div>
+        <div class='kpi'><div class='v'>20</div><div class='l'>Companies</div></div>
+        <div class='kpi'><div class='v'>0</div><div class='l'>Pending Emails</div></div>
+        <div class='kpi'><div class='v'>1</div><div class='l'>Sent Emails</div></div>
+      </div>
+    </div>
+    <section class='panel'>
+      <div class='panel-head'><h2>Filters</h2></div>
+      <div class='panel-body'>
+        <div class='toolbar'>
+          <select id='researchSelect' class='select'><option value=''>All Research Projects</option><option value='7fac0d0d'>Brisket SJ 2 (7fac0d0d)</option></select>
+          <span id='currentResearchLabel' class='count-pill'>All Research Projects</span>
+          <span class='count-pill'>Mode: prompt</span>
+        </div>
+      </div>
+    </section>
+    <section class='panel'>
+      <div class='panel-head'><h2 id='emailsTitle'>Email Queue</h2></div>
+      <div class='panel-body'>
+        <div class='toolbar'><span id='emailCount' class='count-pill'>0 rows</span></div>
+        <div id='emailsWrap' class='table-wrap'></div>
+      </div>
+    </section>
+    <section class='panel'>
+      <div class='panel-head'><h2 id='companiesTitle'>Companies</h2></div>
+      <div class='panel-body'>
+        <div class='toolbar'>
+          <span id='companyCount' class='count-pill'>0 rows</span>
+          <a class='btn-link' href='#' onclick='addCompanyRow(); return false;'>Add Company</a>
+        </div>
+        <div id='companiesWrap' class='table-wrap'></div>
+      </div>
+    </section>
+  </div>
+
+  <script id='dashboard-data' type='application/json'>{"researches": [{"id": "7fac0d0d", "name": "Brisket SJ 2", "market": "brisket", "product": "beef brisket", "geography": "San Jose, CA", "status": "active", "created_at": "2026-04-10T18:20:04Z", "total": 20, "qualified": 12, "contacted": 0, "with_email": 10}], "companies": [{"id": "b3591d07", "research_id": "7fac0d0d", "company_name": "Smoking Pig BBQ", "website": "https://www.smokingpigbbq.net", "location": "1144 N 4th St, San Jose, CA 95112", "phone": "(408) 380-4784", "email": "paul@smokingpigbbq.net", "status": "qualified", "priority_score": 98, "priority_tier": "high", "volume_estimate": 300.0, "volume_unit": "300+ lbs/week", "notes": "Veteran-owned, authentic low-and-slow. Famous for 7-month aged brisket - unique differentiator.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "a9edb8a4", "research_id": "7fac0d0d", "company_name": "Mesquite & Oak", "website": "https://mesquiteandoak.com", "location": "856 N 13th St, San Jose, CA 95112", "phone": "(669) 306-6873", "email": "melissa@mesquiteandoak.com", "status": "qualified", "priority_score": 95, "priority_tier": "high", "volume_estimate": 150.0, "volume_unit": "150+ lbs/week", "notes": "Texas-style BBQ, slow-smoked with post oak. Known for exceptional brisket. Strong local reputation.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "5fe69aef", "research_id": "7fac0d0d", "company_name": "Jackie's Place", "website": "https://www.jackiesplacesj.com", "location": "840 North 1st St, San Jose, CA 95112", "phone": "(408) 490-4653", "email": "info@jackiesplacesj.com", "status": "qualified", "priority_score": 92, "priority_tier": "high", "volume_estimate": 200.0, "volume_unit": "200+ lbs/week", "notes": "Soul food and BBQ - elevated Southern cuisine. Strong brisket focus with generous portions.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "ddb70f31", "research_id": "7fac0d0d", "company_name": "Smoking Pig BBQ (Newhall Location)", "website": "https://www.smokingpigbbq.net", "location": "530 Newhall Dr, San Jose, CA 95110", "phone": "(408) 289-1510", "email": "cateredevents@smokingpigbbq.net", "status": "qualified", "priority_score": 92, "priority_tier": "high", "volume_estimate": 150.0, "volume_unit": "150+ lbs/week", "notes": "Second location of popular Smoking Pig BBQ. Same great 7-month aged brisket. Expanded capacity.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "9aae0837", "research_id": "7fac0d0d", "company_name": "South Winchester BBQ", "website": "https://southwinchesterbarbecue.com", "location": "1362 S Winchester Blvd, San Jose, CA 95128", "phone": "(408) 376-0485", "email": "swbbq@rsbbqinc.com", "status": "qualified", "priority_score": 90, "priority_tier": "high", "volume_estimate": 200.0, "volume_unit": "200+ lbs/week", "notes": "Voted best BBQ in Silicon Valley. Strong brisket presence on menu.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "0b01fd6a", "research_id": "7fac0d0d", "company_name": "Horn Barbecue", "website": null, "location": "San Jose, CA", "phone": "(510) 225-6101", "email": "catering@hornbarbecue.com", "status": "qualified", "priority_score": 85, "priority_tier": "high", "volume_estimate": 50.0, "volume_unit": "50+ lbs/week", "notes": "Weekend pop-up. Known for incredible prime brisket and spare ribs. Limited availability but premium quality.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "35fb591a", "research_id": "7fac0d0d", "company_name": "Sam's Bar-B-Que", "website": "https://www.samsbbq.com", "location": "1110 S Bascom Ave, San Jose, CA 95128", "phone": "(408) 297-9151", "email": "samsbbqandcatering@gmail.com", "status": "qualified", "priority_score": 85, "priority_tier": "medium", "volume_estimate": 100.0, "volume_unit": "100+ lbs/week", "notes": "Family-owned. Kansas City style ribs, Carolina pulled pork. Known for exceptional brisket.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "26d7043a", "research_id": "7fac0d0d", "company_name": "Armadillo Willy's Texas BBQ", "website": "https://www.armadillowillys.com", "location": "878 Blossom Hill Rd, San Jose, CA 95123", "phone": "(408) 224-7427", "email": "info@armadillowillys.com", "status": "qualified", "priority_score": 80, "priority_tier": "medium", "volume_estimate": 120.0, "volume_unit": "120+ lbs/week", "notes": "Authentic Texas BBQ since 1983. Known for melt-in-your-mouth brisket.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "d1fad7fe", "research_id": "7fac0d0d", "company_name": "The Barbeque Pit", "website": "https://thebarbequepit.com", "location": "1349 Blossom Hill Rd, San Jose, CA 95118", "phone": "(408) 440-2968", "email": null, "status": "qualified", "priority_score": 80, "priority_tier": "medium", "volume_estimate": 80.0, "volume_unit": "80+ lbs/week", "notes": "Family-run combining Carolinas, Texas, and California BBQ styles. Known for tender brisket.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "d0b05bd5", "research_id": "7fac0d0d", "company_name": "Sauced BBQ & Spirits", "website": "https://saucedbbqspirits.com", "location": "3055 Olin Ave #1005, San Jose, CA 95128 (Santana Row)", "phone": "(408) 564-8048", "email": null, "status": "qualified", "priority_score": 75, "priority_tier": "medium", "volume_estimate": 80.0, "volume_unit": "80+ lbs/week", "notes": "Southern BBQ at Santana Row. Brisket items available including innovative brisket chili cheese fries.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "799811b1", "research_id": "7fac0d0d", "company_name": "Malibu Grill & BBQ", "website": "https://www.malibugrillbbq.com", "location": "5735 Camden Ave, San Jose, CA 95124", "phone": "(408) 448-7300", "email": "info@malibugrillbbq.com", "status": "qualified", "priority_score": 70, "priority_tier": "medium", "volume_estimate": 60.0, "volume_unit": "60+ lbs/week", "notes": "Family-owned since 1989. Known for brisket tacos and fall-off-bone ribs.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "9c7a74c5", "research_id": "7fac0d0d", "company_name": "Famous Dave's Bar-B-Que", "website": "https://www.famousdaves.com/san-jose", "location": "61 Curtner Ave, San Jose, CA 95125", "phone": "(408) 292-7444", "email": "guestservices@famousdaves.com", "status": "qualified", "priority_score": 60, "priority_tier": "low", "volume_estimate": 70.0, "volume_unit": "70+ lbs/week", "notes": "National chain. Brisket available but not specialty. Lower local relevance compared to independents.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "a91afd80", "research_id": "7fac0d0d", "company_name": "JC's BBQ & Deli", "website": "http://orderjcsbbqanddeli.com", "location": "1080 Saratoga Ave #8, San Jose, CA 95129", "phone": "(408) 246-2146", "email": null, "status": "uncertain", "priority_score": 50, "priority_tier": "low", "volume_estimate": 50.0, "volume_unit": "50+ lbs/week", "notes": "Known for best beef ribs in the area. Brisket available but not highlighted specialty.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "060747a6", "research_id": "7fac0d0d", "company_name": "Jon Jon's Barbeque", "website": null, "location": "1305 Oakland Rd, San Jose, CA 95112", "phone": "(408) 297-5799", "email": null, "status": "uncertain", "priority_score": 45, "priority_tier": "low", "volume_estimate": 40.0, "volume_unit": "40+ lbs/week", "notes": "Family-owned 30+ years. Hole-in-the-wall known for hot links and ribs. Brisket available.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "4df03949", "research_id": "7fac0d0d", "company_name": "CJ BBQ", "website": "https://www.cjbarbecue.com", "location": "461 Blossom Hill Rd, San Jose, CA 95123", "phone": "(408) 229-9612", "email": null, "status": "uncertain", "priority_score": 40, "priority_tier": "low", "volume_estimate": 40.0, "volume_unit": "40+ lbs/week", "notes": "Local BBQ spot. Offers generic BBQ plates but brisket not highlighted as specialty.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "55a48185", "research_id": "7fac0d0d", "company_name": "Ono Hawaiian BBQ", "website": null, "location": "San Jose, CA", "phone": null, "email": null, "status": "uncertain", "priority_score": 30, "priority_tier": "low", "volume_estimate": null, "volume_unit": null, "notes": "Hawaiian BBQ with minimal online presence. Not brisket-focused.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "344a9d16", "research_id": "7fac0d0d", "company_name": "Henry's Hi-Life", "website": "https://www.henryshilife.com", "location": "301 W St John St, San Jose, CA 95110", "phone": "(408) 295-5414", "email": null, "status": "not_relevant", "priority_score": 25, "priority_tier": "low", "volume_estimate": null, "volume_unit": null, "notes": "Historic San Jose landmark since 1970s. Known for steaks and live music, not brisket specialty.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "ccebeb24", "research_id": "7fac0d0d", "company_name": "TAOB Pit Stop (The Art of BBQ)", "website": "https://taobbq.com", "location": "484 Blossom Hill Rd, San Jose, CA 95123", "phone": "(669) 234-7377", "email": null, "status": "not_relevant", "priority_score": 20, "priority_tier": "low", "volume_estimate": null, "volume_unit": null, "notes": "Fusion BBQ with Latin/Island flavors. Known for tri-tip, not brisket. Different specialty.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "2a6a1cbe", "research_id": "7fac0d0d", "company_name": "L&L Hawaiian Barbecue", "website": "https://www.hawaiianbbq.com", "location": "San Jose, CA (multiple locations)", "phone": "Varies by location", "email": null, "status": "not_relevant", "priority_score": 15, "priority_tier": "low", "volume_estimate": null, "volume_unit": null, "notes": "Fast-casual Hawaiian BBQ chain. Different concept - quick service over rice, not traditional brisket.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}, {"id": "a80b69e3", "research_id": "7fac0d0d", "company_name": "The ART of BBQ - Catering", "website": "https://taobbq.com", "location": "484 Blossom Hill Rd, San Jose, CA 95123", "phone": "(408) 545-8552", "email": null, "status": "not_relevant", "priority_score": 15, "priority_tier": "low", "volume_estimate": null, "volume_unit": null, "notes": "Catering company. Award-winning ribs and chicken, not brisket focus.", "created_at": "2026-04-10T18:27:38Z", "research_name": "Brisket SJ 2"}], "emails": [{"id": "fexrsa07", "created_at": "2026-04-11T02:15:26Z", "status": "sent", "to_email": "automato.lab@gmail.com", "subject": "Review Before Sending", "body": "Updated body content!", "company_name": "Test Co", "contact_name": null, "research_id": null, "company_id": null, "approved": true, "sent_at": "2026-04-11T02:15:33Z", "updated_at": "2026-04-11T02:15:26Z"}]}</script>
+  <script>
+    const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+    const params = new URLSearchParams(window.location.search);
+    let selectedResearchId = params.get('research_id') || '';
+    const INTERACTIVE = false;
+    let editingCompanyId = null;
+
+    function esc(v) {
+      if (v === null || v === undefined) return '';
+      return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function escSingle(v) {
+      return String(v || '').split('\\').join('\\\\').split("'").join("\'").split('\n').join('\\n');
+    }
+
+    function selectedResearch() {
+      if (!selectedResearchId) return null;
+      return DATA.researches.find((r) => r.id === selectedResearchId) || null;
+    }
+
+    function companyById(id) {
+      return DATA.companies.find((x) => x.id === id) || null;
+    }
+
+    function priorityClass(v) {
+      const t = (v || '').toLowerCase();
+      if (t === 'high') return 'priority-high';
+      if (t === 'medium') return 'priority-medium';
+      return 'priority-low';
+    }
+
+    function statusClass(v) {
+      return (v || '').toLowerCase() === 'sent' ? 'status-sent' : 'status-pending';
+    }
+
+    function filteredCompanies() {
+      return DATA.companies.filter((c) => {
+        if (selectedResearchId && c.research_id !== selectedResearchId) return false;
+        return true;
+      });
+    }
+
+    function filteredEmails() {
+      return DATA.emails.filter((e) => {
+        if (selectedResearchId) {
+          if (e.research_id && e.research_id !== selectedResearchId) return false;
+          if (!e.research_id) {
+            const match = DATA.companies.find((c) => c.company_name === e.company_name && c.research_id === selectedResearchId);
+            if (!match) return false;
+          }
+        }
+        return true;
+      });
+    }
+
+    function setResearchLabel() {
+      const ref = selectedResearch();
+      const label = ref ? `${ref.name} (${ref.id})` : 'All Research Projects';
+      document.getElementById('currentResearchLabel').textContent = label;
+      document.getElementById('researchSelect').value = selectedResearchId;
+    }
+
+    function renderCompanies() {
+      const rows = filteredCompanies();
+      const current = selectedResearch();
+      document.getElementById('companiesTitle').textContent = current ? `Companies - ${current.name}` : 'Companies';
+      document.getElementById('companyCount').textContent = `${rows.length} rows`;
+
+      if (!rows.length) {
+        document.getElementById('companiesWrap').innerHTML = '<p class="empty">No companies for this project/filter.</p>';
+        return;
+      }
+
+      let body = '';
+      for (const c of rows) {
+        const isEditing = editingCompanyId === c.id;
+        const email = c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '-';
+        const phoneHref = c.phone ? String(c.phone).replace(/\s+/g, '') : '';
+        const phone = c.phone ? `<a href="tel:${esc(phoneHref)}">${esc(c.phone)}</a>` : '-';
+        const volume = c.volume_estimate ? `${esc(c.volume_estimate)} ${esc(c.volume_unit || '')}` : '-';
+        const notes = esc(c.notes || '').slice(0, 120);
+
+        if (isEditing) {
+          const pri = (c.priority_tier || 'low').toLowerCase();
+          const st = (c.status || 'new').toLowerCase();
+          body += `
+            <tr class="editing-row">
+              <td><input class="cell-input" id="edit-company_name-${esc(c.id)}" value="${esc(c.company_name || '')}" /></td>
+              <td><input class="cell-input" id="edit-location-${esc(c.id)}" value="${esc(c.location || '')}" /></td>
+              <td><input class="cell-input" id="edit-phone-${esc(c.id)}" value="${esc(c.phone || '')}" /></td>
+              <td><input class="cell-input" id="edit-email-${esc(c.id)}" value="${esc(c.email || '')}" /></td>
+              <td>
+                <div class="cell-split">
+                  <input class="cell-input" id="edit-volume_estimate-${esc(c.id)}" value="${esc(c.volume_estimate || '')}" />
+                  <input class="cell-input" id="edit-volume_unit-${esc(c.id)}" value="${esc(c.volume_unit || '')}" />
+                </div>
+              </td>
+              <td>
+                <select class="cell-input" id="edit-priority_tier-${esc(c.id)}">
+                  <option value="high" ${pri === 'high' ? 'selected' : ''}>high</option>
+                  <option value="medium" ${pri === 'medium' ? 'selected' : ''}>medium</option>
+                  <option value="low" ${pri === 'low' ? 'selected' : ''}>low</option>
+                </select>
+              </td>
+              <td>
+                <select class="cell-input" id="edit-status-${esc(c.id)}">
+                  <option value="new" ${st === 'new' ? 'selected' : ''}>new</option>
+                  <option value="qualified" ${st === 'qualified' ? 'selected' : ''}>qualified</option>
+                  <option value="contacted" ${st === 'contacted' ? 'selected' : ''}>contacted</option>
+                  <option value="interested" ${st === 'interested' ? 'selected' : ''}>interested</option>
+                  <option value="not_interested" ${st === 'not_interested' ? 'selected' : ''}>not_interested</option>
+                </select>
+              </td>
+              <td><textarea class="cell-input" id="edit-notes-${esc(c.id)}" rows="2">${esc(c.notes || '')}</textarea></td>
+              <td>
+                <a class="action-link" href="#" onclick="saveEditCompany('${esc(c.id)}'); return false;">Save</a>
+                <a class="action-link" href="#" onclick="cancelEditCompany(); return false;">Cancel</a>
+                <a class="action-link" href="#" onclick="deleteCompany('${esc(c.id)}'); return false;">Delete</a>
+              </td>
+            </tr>
+          `;
+          continue;
+        }
+
+        body += `
+          <tr>
+            <td><strong>${esc(c.company_name)}</strong><div class="muted">${esc(c.research_name || '')}</div></td>
+            <td>${esc(c.location || '-')}</td>
+            <td>${phone}</td>
+            <td>${email}</td>
+            <td>${volume}</td>
+            <td><span class="badge ${priorityClass(c.priority_tier)}">${esc(c.priority_tier || 'low')}</span></td>
+            <td>${esc(c.status || '-')}</td>
+            <td class="muted">${notes || '-'}</td>
+            <td>
+              <a class="action-link" href="#" onclick="startEditCompany('${esc(c.id)}'); return false;">Edit Row</a>
+              <a class="action-link" href="#" onclick="deleteCompany('${esc(c.id)}'); return false;">Delete</a>
+            </td>
+          </tr>
+        `;
+      }
+
+      document.getElementById('companiesWrap').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Location</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Volume</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Notes</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
+    function renderEmails() {
+      const rows = filteredEmails();
+      const current = selectedResearch();
+      document.getElementById('emailsTitle').textContent = current ? `Email Queue - ${current.name}` : 'Email Queue';
+      document.getElementById('emailCount').textContent = `${rows.length} rows`;
+
+      if (!rows.length) {
+        document.getElementById('emailsWrap').innerHTML = '<p class="empty">No emails for this project/filter.</p>';
+        return;
+      }
+
+      let body = '';
+      for (const e of rows) {
+        const status = e.status || 'pending';
+        const preview = esc(e.body || '').slice(0, 140);
+        const approve = status === 'pending'
+          ? `<a class="action-link" href="#" onclick="approveEmail('${esc(e.id)}'); return false;">Approve</a>`
+          : `<span class="muted">Sent ${esc((e.sent_at || '').slice(0, 10))}</span>`;
+        const edit = status === 'pending'
+          ? `<a class="action-link" href="#" onclick="editEmail('${esc(e.id)}'); return false;">Edit</a>`
+          : '';
+        const del = status === 'pending'
+          ? `<a class="action-link" href="#" onclick="deleteEmail('${esc(e.id)}'); return false;">Delete</a>`
+          : '';
+        body += `
+          <tr>
+            <td><strong>${esc(e.subject || '-')}</strong><div class="muted">${esc(e.company_name || '-')}</div></td>
+            <td><a href="mailto:${esc(e.to_email || '')}">${esc(e.to_email || '-')}</a></td>
+            <td><span class="badge ${statusClass(status)}">${esc(status)}</span></td>
+            <td class="muted">${preview || '-'}</td>
+            <td>${approve}${edit}${del}</td>
+          </tr>
+        `;
+      }
+
+      document.getElementById('emailsWrap').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Recipient</th>
+              <th>Status</th>
+              <th>Preview</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table>
+      `;
+    }
+
+    async function apiPost(path, payload) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {}),
+      });
+      return res.json();
+    }
+
+    function setResearch(id) {
+      selectedResearchId = id || '';
+      const next = new URL(window.location.href);
+      if (selectedResearchId) next.searchParams.set('research_id', selectedResearchId);
+      else next.searchParams.delete('research_id');
+      window.history.replaceState({}, '', next.toString());
+      setResearchLabel();
+      renderCompanies();
+      renderEmails();
+    }
+
+    function runCommandPrompt(cmd) {
+      prompt('Run this command in terminal:', cmd);
+    }
+
+    async function refreshDataFromServer() {
+      if (!INTERACTIVE) return;
+      const res = await fetch('/api/refresh');
+      await res.json();
+      window.location.reload();
+    }
+
+    function startEditCompany(companyId) {
+      editingCompanyId = companyId;
+      renderCompanies();
+    }
+
+    function cancelEditCompany() {
+      editingCompanyId = null;
+      renderCompanies();
+    }
+
+    async function saveEditCompany(companyId) {
+      const c = companyById(companyId);
+      if (!c) return;
+
+      const getVal = (key) => {
+        const el = document.getElementById(`edit-${key}-${companyId}`);
+        return el ? el.value : '';
+      };
+
+      const fields = {
+        company_name: getVal('company_name').trim(),
+        location: getVal('location'),
+        phone: getVal('phone'),
+        email: getVal('email'),
+        status: getVal('status') || 'new',
+        priority_tier: getVal('priority_tier') || 'low',
+        notes: getVal('notes'),
+        volume_estimate: getVal('volume_estimate'),
+        volume_unit: getVal('volume_unit'),
+      };
+
+      if (!fields.company_name) {
+        alert('Company name is required.');
+        return;
+      }
+
+      if (INTERACTIVE) {
+        await apiPost('/api/company/update', {
+          company_id: c.id,
+          research_id: c.research_id,
+          fields,
+        });
+        editingCompanyId = null;
+        return refreshDataFromServer();
+      }
+
+      const cmd = 'python3 -c "from market_validation.research import update_company; print(update_company(\'' + escSingle(c.id) + '\',\'' + escSingle(c.research_id) + '\', {\'company_name\':\'' + escSingle(fields.company_name) + '\',\'location\':\'' + escSingle(fields.location) + '\',\'phone\':\'' + escSingle(fields.phone) + '\',\'email\':\'' + escSingle(fields.email) + '\',\'status\':\'' + escSingle(fields.status) + '\',\'priority_tier\':\'' + escSingle(fields.priority_tier) + '\',\'notes\':\'' + escSingle(fields.notes) + '\',\'volume_estimate\':\'' + escSingle(fields.volume_estimate) + '\',\'volume_unit\':\'' + escSingle(fields.volume_unit) + '\'}))"';
+      runCommandPrompt(cmd);
+      editingCompanyId = null;
+      renderCompanies();
+    }
+
+    async function deleteCompany(companyId) {
+      const c = companyById(companyId);
+      if (!c) return;
+      if (!confirm('Delete this company?')) return;
+
+      if (INTERACTIVE) {
+        await apiPost('/api/company/delete', { company_id: c.id, research_id: c.research_id });
+        return refreshDataFromServer();
+      }
+
+      const cmd = 'python3 -c "from market_validation.research import delete_company; print(delete_company(\'' + escSingle(c.id) + '\',\'' + escSingle(c.research_id) + '\'))"';
+      runCommandPrompt(cmd);
+    }
+
+    async function approveEmail(id) {
+      if (!confirm('Send this queued email now?')) return;
+      if (INTERACTIVE) {
+        await apiPost('/api/email/approve', { email_id: id });
+        return refreshDataFromServer();
+      }
+      const cmd = 'python3 -c "from market_validation.email_sender import approve_email; print(approve_email(\'' + id + '\'))"';
+      runCommandPrompt(cmd);
+    }
+
+    async function editEmail(id) {
+      const body = prompt('Enter new email body:');
+      if (body === null) return;
+      const subject = prompt('Enter new subject (optional):', '');
+      if (subject === null) return;
+
+      if (INTERACTIVE) {
+        await apiPost('/api/email/update', { email_id: id, subject, body });
+        return refreshDataFromServer();
+      }
+
+      const cmd = 'python3 -c "from market_validation.email_sender import update_queued_email; print(update_queued_email(\'' + escSingle(id) + '\', subject=\'' + escSingle(subject) + '\', body=\'' + escSingle(body) + '\'))"';
+      runCommandPrompt(cmd);
+    }
+
+    async function deleteEmail(id) {
+      if (!confirm('Delete this pending email file?')) return;
+      if (INTERACTIVE) {
+        await apiPost('/api/email/delete', { email_id: id });
+        return refreshDataFromServer();
+      }
+      const cmd = 'rm output/email-queue/' + id + '.json';
+      runCommandPrompt(cmd);
+    }
+
+    async function addCompanyRow() {
+      let rid = selectedResearchId;
+      if (!rid) {
+        rid = prompt('Research ID for new company:', '');
+        if (!rid) return;
+      }
+
+      const ref = DATA.researches.find((r) => r.id === rid);
+      const marketDefault = ref ? (ref.market || '') : '';
+      const company_name = prompt('Company name:', '');
+      if (!company_name) return;
+      const market = prompt('Market:', marketDefault) || marketDefault;
+      const website = prompt('Website (optional):', '') || '';
+      const location = prompt('Location (optional):', '') || '';
+      const phone = prompt('Phone (optional):', '') || '';
+      const email = prompt('Email (optional):', '') || '';
+      const notes = prompt('Notes (optional):', '') || '';
+
+      if (INTERACTIVE) {
+        await apiPost('/api/company/add', { research_id: rid, company_name, market: market || 'general', website, location, phone, email, notes });
+        return refreshDataFromServer();
+      }
+
+      const cmd = 'python3 -c "from market_validation.research import add_company; print(add_company(research_id=\'' + escSingle(rid) + '\', company_name=\'' + escSingle(company_name) + '\', market=\'' + escSingle(market || 'general') + '\', website=\'' + escSingle(website) + '\', location=\'' + escSingle(location) + '\', phone=\'' + escSingle(phone) + '\', email=\'' + escSingle(email) + '\', notes=\'' + escSingle(notes) + '\'))"';
+      runCommandPrompt(cmd);
+    }
+
+    function setResearch(id) {
+      selectedResearchId = id || '';
+      const next = new URL(window.location.href);
+      if (selectedResearchId) next.searchParams.set('research_id', selectedResearchId);
+      else next.searchParams.delete('research_id');
+      window.history.replaceState({}, '', next.toString());
+      setResearchLabel();
+      renderCompanies();
+      renderEmails();
+    }
+
+    function wire() {
+      const select = document.getElementById('researchSelect');
+      select.addEventListener('change', (e) => setResearch(e.target.value));
+
+      if (selectedResearchId) {
+        const exists = DATA.researches.some((r) => r.id === selectedResearchId);
+        if (!exists) selectedResearchId = '';
+      }
+
+      setResearchLabel();
+      renderCompanies();
+      renderEmails();
+    }
+
+    wire();
+  </script>
+</body>
+</html>

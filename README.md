@@ -241,14 +241,11 @@ companies: id, research_id, company_name, company_name_normalized,
            notes, menu_items, prices, hours, ratings, reviews_count, raw_data,
            created_at, updated_at
 
-contacts: id, company_id, research_id, name, name_normalized,
-          title, email, phone, source, created_at
-
 call_notes: id, company_id, research_id, author, note,
             meeting_at, next_action, created_at
 ```
 
-**Indexes:** Companies indexed by research_id, status, priority_score. Contacts indexed by company_id and name_normalized (for deduplication).
+**Indexes:** Companies indexed by research_id, status, priority_score.
 
 ## CLI Commands
 
@@ -300,6 +297,40 @@ for c in companies["companies"]:
 | YellowPages | Business directories |
 | OpenStreetMap | Location data |
 | Google Trends | Market demand data |
+
+## Dashboard
+
+Launch the interactive dashboard server (default):
+
+```bash
+python3 -m market_validation.dashboard
+```
+
+Optional flags:
+
+```bash
+# static file mode
+python3 -m market_validation.dashboard --static
+
+# custom host/port
+python3 -m market_validation.dashboard --host 127.0.0.1 --port 8787
+```
+
+Or generate an HTML dashboard file directly:
+
+```bash
+python3 -c "from market_validation.dashboard import generate_html; generate_html()"
+```
+
+This shows:
+- Research Projects (click one project to filter)
+- Email Queue for selected research
+- Companies for selected research (phone, email, volume, priority)
+
+Or view in terminal:
+```bash
+python3 -c "from market_validation.dashboard_export import export_markdown_call_sheet; print(export_markdown_call_sheet())"
+```
 
 ## Optional: Email Integration
 

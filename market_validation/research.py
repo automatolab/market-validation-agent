@@ -80,23 +80,6 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (research_id) REFERENCES researches(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS contacts (
-            id TEXT PRIMARY KEY,
-            company_id TEXT NOT NULL,
-            research_id TEXT NOT NULL,
-            name TEXT,
-            name_normalized TEXT,
-            title TEXT,
-            email TEXT,
-            phone TEXT,
-            source TEXT,
-            created_at TEXT NOT NULL,
-            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
-            FOREIGN KEY (research_id) REFERENCES researches(id) ON DELETE CASCADE
-        );
-        
-        CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name_normalized);
-
         CREATE TABLE IF NOT EXISTS call_notes (
             id TEXT PRIMARY KEY,
             company_id TEXT NOT NULL,
@@ -114,7 +97,6 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_companies_market ON companies(market);
         CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(status);
         CREATE INDEX IF NOT EXISTS idx_companies_priority ON companies(priority_score DESC);
-        CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company_id);
         CREATE INDEX IF NOT EXISTS idx_call_notes_company ON call_notes(company_id);
     """)
 
@@ -218,7 +200,6 @@ def get_research(
 
         companies = conn.execute(
             """SELECT c.*, 
-               (SELECT COUNT(*) FROM contacts WHERE company_id = c.id) as contact_count,
                (SELECT COUNT(*) FROM call_notes WHERE company_id = c.id) as note_count
                FROM companies c 
                WHERE c.research_id = ? 
@@ -346,6 +327,29 @@ def add_company(
     }
 
 
+def delete_company(
+    company_id: str,
+    research_id: str,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        cursor = conn.execute(
+            "DELETE FROM companies WHERE id = ? AND research_id = ?",
+            (company_id, research_id),
+        )
+
+    return {
+        "result": "ok",
+        "company_id": company_id,
+        "deleted": cursor.rowcount > 0,
+    }
+
+
 def update_company(
     company_id: str,
     research_id: str,
@@ -358,9 +362,11 @@ def update_company(
     db_file = resolve_db_path(root_path, db_path)
 
     valid_fields = {
+        "company_name", "company_name_normalized", "market",
         "status", "priority_score", "priority_tier", "next_action", "why_now",
         "volume_estimate", "volume_unit", "volume_basis", "volume_tier",
-        "notes", "website", "location", "phone", "email",
+        "notes", "website", "location", "phone", "email", "hours",
+        "menu_items", "prices", "ratings", "reviews_count", "raw_data",
         "source_records", "claims",
     }
 
@@ -368,7 +374,16 @@ def update_company(
     values = []
     for key, value in fields.items():
         if key in valid_fields:
+            if key == "company_name":
+                normalized = " ".join(str(value).strip().lower().split()) if value else None
+                updates.append("company_name = ?")
+                values.append(value)
+                updates.append("company_name_normalized = ?")
+                values.append(normalized)
+                continue
             if key in ("source_records", "claims") and isinstance(value, list):
+                value = json.dumps(value)
+            if key in ("menu_items", "prices", "ratings", "raw_data") and isinstance(value, (list, dict)):
                 value = json.dumps(value)
             updates.append(f"{key} = ?")
             values.append(value)
@@ -391,61 +406,6 @@ def update_company(
         "result": "ok",
         "company_id": company_id,
         "updated": cursor.rowcount > 0,
-    }
-
-
-def _normalize_name(name: str | None) -> str | None:
-    if not name:
-        return None
-    return " ".join(name.strip().lower().split())
-
-
-def add_contact(
-    company_id: str,
-    research_id: str,
-    name: str | None = None,
-    title: str | None = None,
-    email: str | None = None,
-    phone: str | None = None,
-    source: str | None = None,
-    root: str | Path = ".",
-    db_path: str | None = None,
-) -> dict[str, Any]:
-    if not name:
-        return {"result": "skipped", "reason": "No name provided"}
-
-    contact_id = str(uuid.uuid4())[:8]
-    now = _iso_now()
-    normalized_name = _normalize_name(name)
-
-    root_path = Path(root).resolve()
-    db_file = resolve_db_path(root_path, db_path)
-
-    with _connect(db_file) as conn:
-        _ensure_schema(conn)
-
-        existing = conn.execute(
-            "SELECT id FROM contacts WHERE company_id = ? AND name_normalized = ?",
-            (company_id, normalized_name),
-        ).fetchone()
-
-        if existing:
-            return {
-                "result": "skipped",
-                "contact_id": existing[0],
-                "reason": "Contact already exists",
-            }
-
-        conn.execute(
-            """INSERT INTO contacts (id, company_id, research_id, name, name_normalized, title, email, phone, source, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (contact_id, company_id, research_id, name.strip(), normalized_name, title, email, phone, source, now),
-        )
-
-    return {
-        "result": "ok",
-        "contact_id": contact_id,
-        "company_id": company_id,
     }
 
 

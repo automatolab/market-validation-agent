@@ -335,6 +335,20 @@ def update_queued_email(
     }
 
 
+def delete_email(email_id: str) -> dict[str, Any]:
+    """Delete a queued email JSON file."""
+    queue_file = EMAIL_QUEUE_DIR / f"{email_id}.json"
+    if not queue_file.exists():
+        return {"result": "error", "error": "Email not found in queue"}
+
+    queue_file.unlink()
+    return {
+        "result": "ok",
+        "email_id": email_id,
+        "deleted": True,
+    }
+
+
 def build_parser() -> Any:
     import argparse
     parser = argparse.ArgumentParser(description="Send outreach emails from templates")
