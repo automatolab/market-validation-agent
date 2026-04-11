@@ -1,11 +1,11 @@
 # Graph Report - market_validation  (2026-04-10)
 
 ## Corpus Check
-- 16 files · ~16,386 words
+- 16 files · ~16,477 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 219 nodes · 421 edges · 16 communities detected
+- 220 nodes · 423 edges · 16 communities detected
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
@@ -47,8 +47,8 @@ Cohesion: 0.25
 Nodes (16): ensure_tracker_file(), extract_report_target(), main_merge_cli(), main_verify_cli(), merge_tracker_additions(), MergeResult, _move_to_merged(), normalize_status() (+8 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.42
-Nodes (15): add_call_note(), add_company(), add_contact(), build_parser(), _connect(), create_research(), _ensure_schema(), export_markdown() (+7 more)
+Cohesion: 0.39
+Nodes (16): add_call_note(), add_company(), add_contact(), build_parser(), _connect(), create_research(), _ensure_schema(), export_markdown() (+8 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.27

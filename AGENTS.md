@@ -22,52 +22,42 @@ This project has a graphify knowledge graph at graphify-out/.
 
 | Module | Class | Purpose |
 |--------|-------|---------|
-| `agent.py` | `Agent` | Deep research - web search, adaptive strategies |
+| `agent.py` | `Agent` | **Main interface** - find(), qualify(), enrich() |
 | `research_manager.py` | `ResearchManager` | Database operations, call sheets |
-| `research.py` | (functions) | Low-level SQLite CRUD |
+| `research.py` | (functions) | Low-level SQLite CRUD + deduplication |
 | `research_runner.py` | (functions) | Gather/qualify pipeline |
 | `company_enrichment.py` | (functions) | Find contacts, emails |
 | `dashboard_export.py` | (functions) | Reports, call sheets |
 
-### Usage
+### Usage (Simple 3-Step Pipeline)
 
 ```python
 from market_validation.agent import Agent
-from market_validation.research_manager import ResearchManager
 from market_validation.research import create_research
 
-# 1. Create research
-from market_validation.research_runner import gather_companies, qualify_companies
-rid = create_research("Brisket BBQ", "brisket", "beef brisket", "San Jose, CA")["research_id"]
+# 1. Create research (generic - works for any market/product)
+rid = create_research(
+    name="My Market Research",
+    market="<market_or_product>",
+    product="<specific_product>",
+    geography="<location>"
+)["research_id"]
 
-# 2. Gather companies
-gather_companies(rid, "brisket", "beef brisket", "San Jose, CA")
+# 2. Create agent and run 3-step pipeline
+agent = Agent(research_id=rid)
 
-# 3. Qualify companies
-qualify_companies(rid, "brisket", "beef brisket")
+# Step 1: Find companies in a market
+agent.find("<market>", "<geography>", "<product>")
 
-# 4. Deep research with Agent
-agent = Agent()
+# Step 2: Qualify (AI assessment + volume estimation)
+agent.qualify()
 
-# Market intelligence
-intel = agent.research_market_intelligence(market="wholesale brisket", geography="San Jose, CA")
-print(intel["intelligence"]["key_trends"])
+# Step 3: Enrich specific companies (8 sources)
+agent.enrich("<company_name>", "<geography>")
+agent.enrich("<another_company>", "<geography>")
 
-# Find companies adaptively
-companies = agent.adaptive_research(
-    goal="Find BBQ restaurants in San Jose that might buy brisket"
-)
-print(companies["initial_findings"])
-
-# Deep research on specific company
-deep = agent.research_company_deep(
-    company_name="Smoking Pig BBQ",
-    location="San Jose, CA",
-    focus_areas=["contacts", "decision_makers", "social", "news"]
-)
-print(deep["data"]["contacts"])
-
-# 5. Manage with ResearchManager
+# 3. Manage with ResearchManager
+from market_validation.research_manager import ResearchManager
 manager = ResearchManager(research_id=rid)
 
 # Get call sheet
@@ -76,28 +66,29 @@ print(f"{sheet['count']} companies ready")
 
 # Add call notes
 manager.add_call_note(
-    company_id="abc123",
-    note="Interested in bulk pricing",
-    author="Sales",
-    next_action="Send quote"
+    company_id="<company_id>",
+    note="<call notes>",
+    author="<author>",
+    next_action="<next action>"
 )
 
-# Enrich contacts
-manager.enrich_contact_info("Restaurant Name", website="https://...")
-
-# Generate outreach
-outreach = manager.generate_outreach_message(
-    company_name="Smoke House",
-    contact_name="John",
-    product="beef brisket",
-    volume_estimate="200 lbs/week"
-)
-print(outreach["email_body"])
-
-# 6. Export call sheet
+# 4. Export call sheet
 from market_validation.dashboard_export import export_markdown_call_sheet
 print(export_markdown_call_sheet(status="qualified"))
 ```
+
+### Agent Methods
+
+| Method | Purpose |
+|--------|---------|
+| `find(market, geography, product?)` | Discover companies via web search |
+| `qualify()` | AI assessment + volume estimation |
+| `enrich(company_name, location?)` | Find contacts via 8 sources |
+
+### Duplicate Prevention
+
+- **Companies**: Normalized name matching (case/space insensitive)
+- **Contacts**: Normalized name matching per company
 
 ### Database
 
@@ -105,11 +96,10 @@ print(export_markdown_call_sheet(status="qualified"))
 
 ### Verified Working (2024-04-10)
 
-- ✅ Market intelligence research
-- ✅ Adaptive company discovery
-- ✅ Deep company research (contacts, social, news)
+- ✅ Simple 3-step pipeline (find/qualify/enrich)
+- ✅ 8-source contact enrichment
+- ✅ Duplicate prevention (companies + contacts)
 - ✅ Gather/qualify pipeline
 - ✅ Call sheet generation
 - ✅ Add call notes
-- ✅ Contact enrichment
 - ✅ Outreach message generation

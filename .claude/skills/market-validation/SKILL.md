@@ -11,28 +11,34 @@ The Market Validation Agent is a tool for discovering companies in a market, qua
 **Database:** `output/market-research.sqlite3`
 
 **Key Modules:**
-- `market_validation/agent.py` - **DEEP RESEARCH AGENT** (main agent for research)
+- `market_validation/agent.py` - **Main interface** (find/qualify/enrich)
 - `market_validation/research_manager.py` - Database operations (CRUD)
-- `market_validation/research.py` - Database layer (low-level CRUD)
+- `market_validation/research.py` - Database layer (low-level CRUD + deduplication)
 - `market_validation/research_runner.py` - Pipeline (gather, qualify)
 - `market_validation/company_enrichment.py` - Find emails, contacts, phones
 - `market_validation/dashboard_export.py` - Reports and call sheets
-- `market_validation/email_sender.py` - Email sending (SMTP)
-- `market_validation/gmail_inbox.py` - Reply tracking (Gmail API)
-- `market_validation/source_discovery.py` - Auto-discover sources
-- `market_validation/market_trends.py` - Google Trends integration
 
 ## Common Tasks
 
-### Create and Run a Research Project
+### Simple 3-Step Pipeline (Recommended)
 
 ```python
-from market_validation.research_runner import gather_companies, qualify_companies
-from market_validation.research import get_research, create_research
+from market_validation.agent import Agent
+from market_validation.research import create_research
 
-# Run full pipeline
-result = gather_companies(research_id, market, product, geography)
-qualify_companies(research_id, market, product)
+# 1. Create research (generic - works for any market/product)
+rid = create_research(
+    name="My Market Research",
+    market="<market_or_product>",
+    product="<specific_product>",
+    geography="<location>"
+)["research_id"]
+
+# 2. Run 3-step pipeline
+agent = Agent(research_id=rid)
+agent.find("<market>", "<geography>", "<product>")  # Step 1: Find companies
+agent.qualify()                                      # Step 2: Score/rank
+agent.enrich("<company_name>", "<geography>")        # Step 3: Find contacts
 ```
 
 ### Gather Companies for Existing Research
@@ -41,25 +47,12 @@ qualify_companies(research_id, market, product)
 from market_validation.research_runner import gather_companies
 
 result = gather_companies(
-    research_id="abc12345",
-    market="brisket",
-    product="beef brisket",
-    geography="San Jose, CA"
+    research_id="<research_id>",
+    market="<market>",
+    product="<product>",
+    geography="<location>"
 )
 print(f"Added {result['companies_added']} companies")
-```
-
-### Qualify Companies
-
-```python
-from market_validation.research_runner import qualify_companies
-
-result = qualify_companies(
-    research_id="abc12345",
-    market="brisket",
-    product="beef brisket"
-)
-print(f"Qualified {result['qualified']} companies")
 ```
 
 ### View Results
@@ -68,38 +61,35 @@ print(f"Qualified {result['qualified']} companies")
 from market_validation.research import get_research, search_companies
 
 # Get research with stats
-research = get_research("abc12345")
+research = get_research("<research_id>")
 print(f"Status: {research['stats']}")
 
 # Search companies
-companies = search_companies(research_id="abc12345", status="qualified", limit=20)
+companies = search_companies(research_id="<research_id>", status="qualified", limit=20)
 for c in companies["companies"]:
-    print(f"{c['company_name']}: {c['priority_score']} score")
+    print(f"{c['company_name']}: {c['priority_score']} score, email={c['email']}")
 ```
 
 ### Generate Call Sheet
 
 ```python
-from market_validation.dashboard_export import get_call_sheet_from_db, export_markdown_call_sheet
+from market_validation.dashboard_export import export_markdown_call_sheet
 
-# Get call sheet data
-sheet = get_call_sheet_from_db(status_filter="qualified", limit=50)
-
-# Export as markdown
-md = export_markdown_call_sheet(status_filter="qualified", limit=50)
+md = export_markdown_call_sheet(status="qualified", limit=50)
+print(md)
 ```
 
 ### Add Call Notes
 
 ```python
-from market_validation.research import add_call_note
+from market_validation.research_manager import ResearchManager
 
-note = add_call_note(
-    company_id="abc12345",
-    research_id="xyz67890",
-    author="Sales",
-    note="Interested in bulk brisket, wants pricing sheet",
-    next_action="Send pricing sheet Friday"
+manager = ResearchManager(research_id="<research_id>")
+manager.add_call_note(
+    company_id="<company_id>",
+    author="<author>",
+    note="<call notes>",
+    next_action="<next action>"
 )
 ```
 
@@ -113,7 +103,9 @@ CREATE TABLE researches (
     market TEXT NOT NULL,
     product TEXT,
     geography TEXT,
-    status TEXT DEFAULT 'active'
+    status TEXT DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 -- Discovered companies
@@ -121,42 +113,55 @@ CREATE TABLE companies (
     id TEXT PRIMARY KEY,
     research_id TEXT NOT NULL,
     company_name TEXT NOT NULL,
+    company_name_normalized TEXT,  -- For deduplication
     website TEXT,
     location TEXT,
     phone TEXT,
+    email TEXT,
     status TEXT DEFAULT 'new',
     priority_score INTEGER,
     priority_tier TEXT,
     volume_estimate REAL,
     volume_unit TEXT,
-    volume_basis TEXT,
     notes TEXT,
-    menu_items TEXT,  -- JSON
-    ratings TEXT,     -- JSON
-    raw_data TEXT     -- JSON
+    menu_items TEXT,   -- JSON
+    prices TEXT,       -- JSON
+    hours TEXT,
+    ratings TEXT,
+    reviews_count INTEGER,
+    raw_data TEXT,     -- JSON
+    created_at TEXT,
+    updated_at TEXT
 );
 
--- Contacts at companies
+-- Contacts at companies (deduplicated by name_normalized)
 CREATE TABLE contacts (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
-    research_id TEXT,
+    research_id TEXT NOT NULL,
     name TEXT,
+    name_normalized TEXT,  -- For deduplication
     title TEXT,
     email TEXT,
-    phone TEXT
+    phone TEXT,
+    source TEXT,
+    created_at TEXT
 );
 
 -- Call notes
 CREATE TABLE call_notes (
     id TEXT PRIMARY KEY,
     company_id TEXT NOT NULL,
-    research_id TEXT,
+    research_id TEXT NOT NULL,
     author TEXT,
     note TEXT,
-    next_action TEXT
+    meeting_at TEXT,
+    next_action TEXT,
+    created_at TEXT
 );
 ```
+
+**Duplicate Prevention:** Companies and contacts use normalized name matching (lowercase, trimmed) to prevent duplicates.
 
 ## Company Status Flow
 
@@ -182,10 +187,10 @@ new → qualified → emailed → replied_interested
 
 ## Tips for Claude Code
 
-1. **Use the Agent class** for deep research - `agent.py`
+1. **Use the Agent class** for the 3-step pipeline - `agent.py` with find(), qualify(), enrich()
 2. **Use the ResearchManager** for database operations - `research_manager.py`
 3. **Database is at `output/market-research.sqlite3`** - relative to project root
-4. **Run gather before qualify** - companies must have status='new' to be qualified
+4. **Duplicate prevention is automatic** - companies and contacts are deduplicated
 5. **Use qualified status filter** for call sheets - only shows relevant companies
 
 ## Testing New Changes

@@ -21,17 +21,17 @@ pip install -e .
 
 # 2. Create a research project
 python -m market_validation.research create \
-  --name "San Jose BBQ" \
-  --market "brisket" \
-  --product "beef brisket" \
-  --geography "San Jose, CA"
+  --name "My Market Research" \
+  --market "<market_or_product>" \
+  --product "<specific_product>" \
+  --geography "<location>"
 
 # 3. Run the full pipeline
 python -m market_validation.research_runner run \
-  --name "San Jose BBQ" \
-  --market "brisket" \
-  --product "beef brisket" \
-  --geography "San Jose, CA"
+  --name "My Market Research" \
+  --market "<market_or_product>" \
+  --product "<specific_product>" \
+  --geography "<location>"
 ```
 
 ## Architecture
@@ -46,27 +46,36 @@ Research Project
 
 ## Key Modules
 
+### agent.py - Main Interface (Recommended)
+```python
+from market_validation.agent import Agent
+
+agent = Agent(research_id="xxx")
+agent.find(market, geography, product?)   # Step 1: Discover companies
+agent.qualify()                           # Step 2: Score/rank
+agent.enrich(company_name, location?)     # Step 3: Find contacts
+```
+
 ### research.py - Database Operations
 ```python
 from market_validation.research import (
     create_research,
     get_research,
     list_researches,
-    add_company,
+    add_company,      # With duplicate prevention
     update_company,
-    add_contact,
+    add_contact,     # With duplicate prevention
     add_call_note,
     search_companies,
     export_markdown,
 )
 ```
 
-### research_runner.py - Full Pipeline
+### research_runner.py - Pipeline Functions
 ```python
 from market_validation.research_runner import (
-    run_market_research,   # Create + discover sources + trends
-    gather_companies,       # Web search for businesses
-    qualify_companies,       # AI assessment + volume estimation
+    gather_companies,    # Web search for businesses
+    qualify_companies,   # AI assessment + volume estimation
 )
 ```
 
@@ -100,76 +109,94 @@ manager.add_call_note(...)         # Save call notes
 manager.export_markdown()          # Export to markdown
 ```
 
-### agent.py - Deep Research Agent (MAIN)
+### agent.py - Market Research Agent (MAIN)
 ```python
 from market_validation.agent import Agent
 
-agent = Agent()
+# Create agent (optionally with research_id)
+agent = Agent(research_id="<research_id>")
 
-# Adaptive research - agent figures out what to search
-result = agent.adaptive_research(
-    goal="Find BBQ restaurants in San Jose that might buy brisket",
-    market="BBQ restaurants",
-    geography="San Jose, CA"
+# STEP 1: Find companies in a market
+result = agent.find(
+    market="<market_or_product>",
+    geography="<location>",
+    product="<specific_product>"  # optional
 )
+print(f"Found: {len(result.get('companies', []))} companies")
 
-# Market intelligence - understand the market
-intel = agent.research_market_intelligence(
-    market="brisket",
-    geography="San Jose, CA"
+# STEP 2: Qualify - AI assessment of relevance + volume
+result = agent.qualify()
+print(f"Qualified: {result['qualified']} companies")
+
+# STEP 3: Enrich - Find contacts via 8 sources
+result = agent.enrich(
+    company_name="<company_name>",
+    location="<location>"
 )
-
-# Deep research on a single company
-deep = agent.research_company_deep(
-    company_name="Smoke House BBQ",
-    location="San Jose, CA",
-    focus_areas=["contacts", "decision_makers", "pricing"]
-)
-
-# AGGRESSIVE deep discovery - tries 8 different sources
-discovery = agent.deep_discovery("Jackie's Place", "San Jose, CA")
-print(f"Sources: {discovery['sources_tried']}")
-print(f"Findings: {discovery['findings']}")
+print(f"Sources: {result['sources_tried']}")
+print(f"Email: {result['findings'].get('email')}")
+print(f"Owner: {result['findings'].get('owners')}")
 ```
 
-**The Agent has 3 research modes:**
+**The Agent has 3 simple methods:**
 
-1. **adaptive_research()** - Strategic goal-based research
-2. **research_company_deep()** - Multi-phase deep dive on one company  
-3. **deep_discovery()** - AGGRESSIVE - tries 8 different sources:
-   - Official website + all pages
-   - LinkedIn for people
-   - Business directories (Yelp, Google, BBB, Crunchbase)
+1. **find(market, geography, product?)** - Discovers companies via web search
+2. **qualify()** - AI assessment + volume estimation (updates database)
+3. **enrich(company_name, location?)** - Finds contacts via 8 sources:
+   - Official website + contact/about pages
+   - LinkedIn (indirect via web search)
+   - Business directories (Yelp, Google, BBB)
    - News archives
-   - Review sites (sentiment analysis)
-   - Social media (Instagram, Facebook, TikTok)
+   - Review sites (sentiment + volume hints)
+   - Social media (Instagram, Facebook)
    - State business registry
    - Supplier pages
 
+**Duplicate Prevention:**
+- Companies: Normalized name matching (case/space insensitive)
+- Contacts: Normalized name matching per company
+
 ## Complete Workflow
 
+### Option 1: Simple 3-Step (Recommended)
+```python
+from market_validation.agent import Agent
+from market_validation.research import create_research
+
+# 1. Create research
+r = create_research("My Research", "<market>", "<product>", "<geography>")
+research_id = r["research_id"]
+
+# 2. Create agent and run 3-step pipeline
+agent = Agent(research_id=research_id)
+agent.find("<market>", "<geography>", "<product>")  # Step 1
+agent.qualify()                                      # Step 2
+
+# 3. Enrich specific companies
+agent.enrich("<company_name>", "<geography>")
+agent.enrich("<another_company>", "<geography>")
+
+# 4. Export call sheet
+from market_validation.dashboard_export import export_markdown_call_sheet
+print(export_markdown_call_sheet(status="qualified"))
+```
+
+### Option 2: Lower-Level Functions
 ```python
 from market_validation.research import create_research
 from market_validation.research_runner import gather_companies, qualify_companies
-from market_validation.company_enrichment import enrich_research_companies
 from market_validation.dashboard_export import export_markdown_call_sheet
 
 # 1. Create research
-r = create_research("Brisket SJ", "brisket", "beef brisket", "San Jose, CA")
+r = create_research("My Research", "<market>", "<product>", "<geography>")
 rid = r["research_id"]
 
-# 2. Gather companies (web search)
-gather_companies(rid, "brisket", "beef brisket", "San Jose, CA")
+# 2. Gather + qualify
+gather_companies(rid, "<market>", "<product>", "<geography>")
+qualify_companies(rid, "<market>", "<product>")
 
-# 3. Qualify leads (AI assessment + volume)
-qualify_companies(rid, "brisket", "beef brisket")
-
-# 4. Enrich with contact info (emails, phones, contacts)
-enrich_research_companies(rid)
-
-# 5. Generate call sheet
-call_sheet = export_markdown_call_sheet(status_filter="qualified")
-print(call_sheet)
+# 3. Generate call sheet
+print(export_markdown_call_sheet(status="qualified"))
 ```
 
 ### email_sender.py - Email Outreach
@@ -197,13 +224,22 @@ from market_validation.gmail_inbox import (
 
 **Schema:**
 ```sql
-researches: id, name, market, product, geography, status
-companies: id, research_id, company_name, website, location, phone,
-           status, priority_score, priority_tier, volume_estimate,
-           volume_unit, notes, menu_items, ratings, reviews_count, raw_data
-contacts: id, company_id, name, title, email, phone, source
-call_notes: id, company_id, author, note, meeting_at, next_action
+researches: id, name, market, product, geography, status, created_at
+
+companies: id, research_id, company_name, company_name_normalized,
+           website, location, phone, email, status,
+           priority_score, priority_tier, volume_estimate, volume_unit,
+           notes, menu_items, prices, hours, ratings, reviews_count, raw_data,
+           created_at, updated_at
+
+contacts: id, company_id, research_id, name, name_normalized,
+          title, email, phone, source, created_at
+
+call_notes: id, company_id, research_id, author, note,
+            meeting_at, next_action, created_at
 ```
+
+**Indexes:** Companies indexed by research_id, status, priority_score. Contacts indexed by company_id and name_normalized (for deduplication).
 
 ## CLI Commands
 
@@ -222,28 +258,27 @@ python -m market_validation.dashboard_export call-sheet --status qualified
 python -m market_validation.dashboard_export summary
 ```
 
-## Example Workflow: Brisket Supply
+## Example Workflow
 
 ```python
-from market_validation.research import create_research, search_companies
-from market_validation.research_runner import gather_companies, qualify_companies
+from market_validation.agent import Agent
+from market_validation.research import create_research
 
 # 1. Create research
-r = create_research("Brisket SJ", "brisket", "beef brisket", "San Jose, CA")
+r = create_research("My Research", "<market>", "<product>", "<geography>")
 research_id = r["research_id"]
 
-# 2. Gather companies (web search)
-gather = gather_companies(research_id, "brisket", "beef brisket", "San Jose, CA")
-print(f"Found {gather['companies_added']} companies")
+# 2. Run 3-step pipeline with agent
+agent = Agent(research_id=research_id)
+agent.find("<market>", "<geography>", "<product>")  # Find companies
+agent.qualify()                                      # Score them
+agent.enrich("<company_name>", "<geography>")        # Find contacts
 
-# 3. Qualify (AI assessment + volume)
-qualify = qualify_companies(research_id, "brisket", "beef brisket")
-print(f"Qualified {qualify['qualified']} companies")
-
-# 4. View results
+# 3. View results
+from market_validation.research import search_companies
 companies = search_companies(research_id=research_id, status="qualified", limit=10)
 for c in companies["companies"]:
-    print(f"{c['company_name']}: {c['priority_score']} score, {c['volume_estimate']} {c['volume_unit']}")
+    print(f"{c['company_name']}: {c['priority_score']} score, {c['email'] or 'no email'}")
 ```
 
 ## Data Sources (No API Keys Required)

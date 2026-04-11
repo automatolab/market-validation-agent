@@ -8,16 +8,16 @@ Market Research Agent - Simple 3-step pipeline:
 Usage:
     from market_validation.agent import Agent
     
-    agent = Agent()
+    agent = Agent(research_id="<research_id>")
     
     # Step 1: Find companies
-    agent.find("brisket", "San Jose, CA")
+    agent.find("<market>", "<geography>")
     
     # Step 2: Qualify (AI assessment)
     agent.qualify()
     
     # Step 3: Enrich contact info
-    agent.enrich("Smoking Pig BBQ")
+    agent.enrich("<company_name>")
 """
 
 from __future__ import annotations
