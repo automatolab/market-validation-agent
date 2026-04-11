@@ -27,17 +27,12 @@ The Market Validation Agent is a tool for discovering companies in a market, qua
 ### Create and Run a Research Project
 
 ```python
-from market_validation.research_runner import run_market_research, gather_companies, qualify_companies
-from market_validation.research import get_research, search_companies
+from market_validation.research_runner import gather_companies, qualify_companies
+from market_validation.research import get_research, create_research
 
 # Run full pipeline
-result = run_market_research(
-    name="San Jose BBQ",
-    market="brisket",
-    product="beef brisket",
-    geography="San Jose, CA"
-)
-research_id = result["research_id"]
+result = gather_companies(research_id, market, product, geography)
+qualify_companies(research_id, market, product)
 ```
 
 ### Gather Companies for Existing Research
@@ -65,25 +60,6 @@ result = qualify_companies(
     product="beef brisket"
 )
 print(f"Qualified {result['qualified']} companies")
-```
-
-### Enrich with Contact Information
-
-```python
-from market_validation.company_enrichment import enrich_research_companies, enrich_company_contact
-
-# Enrich all qualified companies in a research
-result = enrich_research_companies(research_id="abc12345")
-print(f"Found {result['emails_found']} emails, {result['contacts_added']} contacts")
-
-# Or enrich a single company
-contact_info = enrich_company_contact(
-    company_name="Smoke House BBQ",
-    website="https://smokehouse.com",
-    location="San Jose, CA"
-)
-print(f"Emails: {contact_info['emails_found']}")
-print(f"Contacts: {contact_info['contacts']}")
 ```
 
 ### View Results
@@ -124,22 +100,6 @@ note = add_call_note(
     author="Sales",
     note="Interested in bulk brisket, wants pricing sheet",
     next_action="Send pricing sheet Friday"
-)
-```
-
-### Send Email to Company
-
-```python
-from market_validation.email_sender import send_templated_email
-
-result = send_templated_email(
-    to_email="contact@company.com",
-    template={
-        "subject_template": "Bulk Brisket Partnership - {{company_name}}",
-        "body_template": "Hi {{contact_name}}, we supply brisket to restaurants like {{company_name}}..."
-    },
-    company_name="Smoke House BBQ",
-    contact_name="John"
 )
 ```
 
@@ -222,79 +182,11 @@ new → qualified → emailed → replied_interested
 
 ## Tips for Claude Code
 
-1. **Use the ResearchAgent class** for dynamic, AI-driven research workflows
-2. **Let the agent suggest next actions** - it analyzes current state and recommends what to do
-3. **Call `agent.suggest_next_actions()`** to get AI recommendations for the research
-4. **The agent can decide to**: enrich contacts, generate outreach, make calls, research topics, etc.
-5. **Database is at `output/market-research.sqlite3`** - relative to project root
-
-## Dynamic Research Workflow
-
-```python
-from market_validation.agent import Agent
-
-# Create the deep research agent
-agent = Agent()
-
-# ADAPTIVE RESEARCH - agent decides what to search based on goal
-result = agent.adaptive_research(
-    goal="Find BBQ restaurants in San Jose that serve brisket and might buy wholesale brisket",
-    market="BBQ restaurants",
-    geography="San Jose, CA"
-)
-print(result["initial_findings"])
-print(result["recommended_next_steps"])
-
-# MARKET INTELLIGENCE - understand the market
-intel = agent.research_market_intelligence(
-    market="wholesale brisket",
-    geography="San Jose, CA"
-)
-print(intel["intelligence"]["key_trends"])
-print(intel["intelligence"]["opportunities"])
-print(intel["intelligence"]["recommended_search_queries"])
-
-# DEEP RESEARCH on a single company
-deep = agent.research_company_deep(
-    company_name="Jackie's Place",
-    location="San Jose, CA",
-    focus_areas=["contacts", "decision_makers", "social", "news"]
-)
-print(deep["data"]["contacts"])
-print(deep["data"]["news"])
-print(deep["data"]["social_media"])
-```
-
-## Agent Capabilities
-
-The `Agent` class is the **MAIN AGENT** for deep research:
-
-1. **adaptive_research()** - Give it a GOAL, it figures out the strategy
-2. **research_market_intelligence()** - Market size, trends, opportunities
-3. **research_company_deep()** - Multi-phase deep dive on ONE company
-4. **analyze_gaps()** - What info is missing and how to find it
-5. **batch_research()** - Research multiple companies
-
-### Why Agent?
-
-Unlike static pipelines, this agent:
-- **Adapts** search strategies based on what it finds
-- **Digs deeper** when initial searches are insufficient  
-- **Tries alternatives** when one approach fails
-- **Thinks strategically** about what information is most valuable
-- **Works for ANY market** - not just BBQ/restaurants
-
-### Research Philosophy
-
-The agent follows this research approach:
-
-1. **Surface Search** - Get basic info (website, phone, address)
-2. **Decision Maker Hunt** - Find owners, managers, purchasing
-3. **Verification** - Cross-reference multiple sources
-4. **Gap Analysis** - What info is still missing?
-5. **Deep Dive** - If important gaps exist, dig deeper
-6. **Alternative Strategies** - If stuck, try different angles
-7. **Synthesis** - Combine findings into actionable insights
+1. **Use the Agent class** for deep research - `agent.py`
+2. **Use the ResearchManager** for database operations - `research_manager.py`
+3. **Database is at `output/market-research.sqlite3`** - relative to project root
+4. **Run gather before qualify** - companies must have status='new' to be qualified
+5. **Use qualified status filter** for call sheets - only shows relevant companies
 
 ## Testing New Changes
 
@@ -321,7 +213,9 @@ print(f'Call sheet: {sheet[\"count\"]} companies')
 
 | File | Purpose |
 |------|---------|
-| `market_validation/research.py` | Core database module |
+| `market_validation/agent.py` | Deep research agent |
+| `market_validation/research_manager.py` | Database manager |
+| `market_validation/research.py` | Database layer |
 | `market_validation/research_runner.py` | Pipeline runner |
 | `market_validation/dashboard_export.py` | Reports and exports |
 | `output/market-research.sqlite3` | SQLite database |
