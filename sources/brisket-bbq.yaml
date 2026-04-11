@@ -1,0 +1,52 @@
+# Brisket BBQ Restaurant Sources
+# Add custom data sources for brisket BBQ market research
+
+name: brisket-bbq
+description: Data sources for discovering BBQ restaurants that use brisket
+
+# Search queries to use (in addition to agent's own searches)
+search_queries:
+  - "{product} {geography} restaurant"
+  - "best {product} {geography} BBQ"
+  - "{product} catering {geography}"
+  - "Texas BBQ {geography}"
+  - "smokehouse {geography} reviews"
+
+# Direct URLs to scrape
+urls:
+  - name: Yelp BBQ San Jose
+    url: "https://www.yelp.com/search?find_desc=Barbecue+Restaurant&find_loc=San+Jose%2C+CA"
+    type: directory
+  - name: Google Maps BBQ
+    url: "https://www.google.com/maps/search/BBQ+Restaurant/@37.3382,-121.8863,11z"
+    type: maps
+
+# Directory sites to check
+directories:
+  - name: Yelp
+    search_url: "https://www.yelp.com/search?find_desc={product}&find_loc={geography}"
+    type: restaurant
+  - name: TripAdvisor
+    search_url: "https://www.tripadvisor.com/Restaurants-g32707-San_Jose_California.html"
+    type: restaurant
+  - name: Google Maps
+    search_url: "https://www.google.com/maps/search/BBQ+Restaurant/{geography}"
+    type: maps
+  - name: YellowPages
+    search_url: "https://www.yellowpages.com/search?search_terms=BBQ+Restaurant&geo_location_terms={geography}"
+    type: directory
+
+# Scraping selectors for different sites
+selectors:
+  yelp:
+    business_name: "[class*='businessName']"
+    address: "[class*='address']"
+    phone: "[class*='phone']"
+    website: "[class*='website']"
+  tripadvisor:
+    business_name: "[class*='title']"
+    address: "[class*='address']"
+  yellowpages:
+    business_name: "[class*='name']"
+    address: "[class*='street']"
+    phone: "[class*='phone']"

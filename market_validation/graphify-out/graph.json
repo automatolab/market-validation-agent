@@ -9,7 +9,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L1",
       "id": "research_runner",
-      "community": 6
+      "community": 10
     },
     {
       "label": "run_market_research()",
@@ -17,7 +17,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L20",
       "id": "research_runner_run_market_research",
-      "community": 6
+      "community": 10
     },
     {
       "label": "gather_companies()",
@@ -25,7 +25,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L71",
       "id": "research_runner_gather_companies",
-      "community": 6
+      "community": 10
     },
     {
       "label": "qualify_companies()",
@@ -33,7 +33,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L170",
       "id": "research_runner_qualify_companies",
-      "community": 6
+      "community": 10
     },
     {
       "label": "build_parser()",
@@ -41,7 +41,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L276",
       "id": "research_runner_build_parser",
-      "community": 6
+      "community": 10
     },
     {
       "label": "main()",
@@ -49,7 +49,71 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L305",
       "id": "research_runner_main",
-      "community": 6
+      "community": 10
+    },
+    {
+      "label": "web_scraper.py",
+      "file_type": "code",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L1",
+      "id": "web_scraper",
+      "community": 9
+    },
+    {
+      "label": "is_playwright_available()",
+      "file_type": "code",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L21",
+      "id": "web_scraper_is_playwright_available",
+      "community": 9
+    },
+    {
+      "label": "_extract_phone()",
+      "file_type": "code",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L30",
+      "id": "web_scraper_extract_phone",
+      "community": 9
+    },
+    {
+      "label": "_extract_email()",
+      "file_type": "code",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L35",
+      "id": "web_scraper_extract_email",
+      "community": 9
+    },
+    {
+      "label": "quick_scrape()",
+      "file_type": "code",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L40",
+      "id": "web_scraper_quick_scrape",
+      "community": 9
+    },
+    {
+      "label": "Lightweight free web scraper helpers.  No Playwright dependency required. Uses r",
+      "file_type": "rationale",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L1",
+      "id": "web_scraper_rationale_1",
+      "community": 9
+    },
+    {
+      "label": "Optional check only; project works without Playwright.",
+      "file_type": "rationale",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L22",
+      "id": "web_scraper_rationale_22",
+      "community": 9
+    },
+    {
+      "label": "Best-effort scrape for a page and basic business details.     Returns a normaliz",
+      "file_type": "rationale",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L41",
+      "id": "web_scraper_rationale_41",
+      "community": 9
     },
     {
       "label": "research.py",
@@ -57,7 +121,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L1",
       "id": "research",
-      "community": 3
+      "community": 6
     },
     {
       "label": "_iso_now()",
@@ -65,7 +129,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L14",
       "id": "research_iso_now",
-      "community": 3
+      "community": 6
     },
     {
       "label": "_connect()",
@@ -73,7 +137,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L18",
       "id": "research_connect",
-      "community": 3
+      "community": 6
     },
     {
       "label": "resolve_db_path()",
@@ -81,7 +145,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L24",
       "id": "research_resolve_db_path",
-      "community": 3
+      "community": 6
     },
     {
       "label": "_ensure_schema()",
@@ -89,95 +153,95 @@
       "source_file": "market_validation/research.py",
       "source_location": "L38",
       "id": "research_ensure_schema",
-      "community": 3
+      "community": 6
     },
     {
       "label": "create_research()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L104",
+      "source_location": "L113",
       "id": "research_create_research",
-      "community": 3
+      "community": 6
     },
     {
       "label": "list_researches()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L138",
+      "source_location": "L147",
       "id": "research_list_researches",
-      "community": 3
+      "community": 6
     },
     {
       "label": "get_research()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L182",
+      "source_location": "L191",
       "id": "research_get_research",
-      "community": 3
+      "community": 6
     },
     {
       "label": "add_company()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L231",
+      "source_location": "L240",
       "id": "research_add_company",
-      "community": 3
+      "community": 6
     },
     {
       "label": "delete_company()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L330",
+      "source_location": "L339",
       "id": "research_delete_company",
-      "community": 3
+      "community": 6
     },
     {
       "label": "update_company()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L353",
+      "source_location": "L362",
       "id": "research_update_company",
-      "community": 3
+      "community": 6
     },
     {
       "label": "add_call_note()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L412",
+      "source_location": "L421",
       "id": "research_add_call_note",
-      "community": 3
+      "community": 6
     },
     {
       "label": "search_companies()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L443",
+      "source_location": "L452",
       "id": "research_search_companies",
-      "community": 3
+      "community": 6
     },
     {
       "label": "export_markdown()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L488",
+      "source_location": "L497",
       "id": "research_export_markdown",
-      "community": 3
+      "community": 6
     },
     {
       "label": "build_parser()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L549",
+      "source_location": "L558",
       "id": "research_build_parser",
-      "community": 3
+      "community": 6
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "market_validation/research.py",
-      "source_location": "L584",
+      "source_location": "L593",
       "id": "research_main",
-      "community": 3
+      "community": 6
     },
     {
       "label": "company_enrichment.py",
@@ -185,7 +249,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L1",
       "id": "company_enrichment",
-      "community": 7
+      "community": 11
     },
     {
       "label": "_iso_now()",
@@ -193,7 +257,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L10",
       "id": "company_enrichment_iso_now",
-      "community": 7
+      "community": 11
     },
     {
       "label": "enrich_company_contact()",
@@ -201,7 +265,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L15",
       "id": "company_enrichment_enrich_company_contact",
-      "community": 7
+      "community": 11
     },
     {
       "label": "enrich_research_companies()",
@@ -209,7 +273,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L107",
       "id": "company_enrichment_enrich_research_companies",
-      "community": 7
+      "community": 11
     },
     {
       "label": "build_parser()",
@@ -217,7 +281,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L177",
       "id": "company_enrichment_build_parser",
-      "community": 7
+      "community": 11
     },
     {
       "label": "main()",
@@ -225,7 +289,151 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L197",
       "id": "company_enrichment_main",
-      "community": 7
+      "community": 11
+    },
+    {
+      "label": "multi_search.py",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L1",
+      "id": "multi_search",
+      "community": 4
+    },
+    {
+      "label": "SearchResult",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L35",
+      "id": "multi_search_searchresult",
+      "community": 4
+    },
+    {
+      "label": ".to_dict()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L41",
+      "id": "multi_search_searchresult_to_dict",
+      "community": 4
+    },
+    {
+      "label": "_safe_get()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L50",
+      "id": "multi_search_safe_get",
+      "community": 4
+    },
+    {
+      "label": "_extract_location_hint()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L62",
+      "id": "multi_search_extract_location_hint",
+      "community": 4
+    },
+    {
+      "label": "_from_nominatim()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L71",
+      "id": "multi_search_from_nominatim",
+      "community": 4
+    },
+    {
+      "label": "_from_ddgs()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L122",
+      "id": "multi_search_from_ddgs",
+      "community": 4
+    },
+    {
+      "label": "_from_wikipedia()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L145",
+      "id": "multi_search_from_wikipedia",
+      "community": 4
+    },
+    {
+      "label": "_from_bbb()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L191",
+      "id": "multi_search_from_bbb",
+      "community": 4
+    },
+    {
+      "label": "_from_opencorporates()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L241",
+      "id": "multi_search_from_opencorporates",
+      "community": 4
+    },
+    {
+      "label": "_from_city_directory()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L280",
+      "id": "multi_search_from_city_directory",
+      "community": 4
+    },
+    {
+      "label": "search_all_backends()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L346",
+      "id": "multi_search_search_all_backends",
+      "community": 4
+    },
+    {
+      "label": "quick_search()",
+      "file_type": "code",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L379",
+      "id": "multi_search_quick_search",
+      "community": 4
+    },
+    {
+      "label": "Free search helpers (no API keys required).  Backends (all free/no key): 1. Nomi",
+      "file_type": "rationale",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L1",
+      "id": "multi_search_rationale_1",
+      "community": 4
+    },
+    {
+      "label": "Best-effort parser; may return empty due to captcha/anti-bot.",
+      "file_type": "rationale",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L242",
+      "id": "multi_search_rationale_242",
+      "community": 4
+    },
+    {
+      "label": "Best-effort city directory templates.     Currently includes Visit San Jose sear",
+      "file_type": "rationale",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L281",
+      "id": "multi_search_rationale_281",
+      "community": 4
+    },
+    {
+      "label": "Run all free backends with polite throttling.     Deduplicates by (title,url).",
+      "file_type": "rationale",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L347",
+      "id": "multi_search_rationale_347",
+      "community": 4
+    },
+    {
+      "label": "Main search entrypoint.     Strategy:     - try Nominatim first     - if sparse,",
+      "file_type": "rationale",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L380",
+      "id": "multi_search_rationale_380",
+      "community": 4
     },
     {
       "label": "__init__.py",
@@ -233,7 +441,7 @@
       "source_file": "market_validation/__init__.py",
       "source_location": "L1",
       "id": "init",
-      "community": 10
+      "community": 14
     },
     {
       "label": "Prompt-driven market validation package.",
@@ -241,7 +449,7 @@
       "source_file": "market_validation/__init__.py",
       "source_location": "L1",
       "id": "init_rationale_1",
-      "community": 10
+      "community": 14
     },
     {
       "label": "dashboard_export.py",
@@ -249,7 +457,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L1",
       "id": "dashboard_export",
-      "community": 5
+      "community": 8
     },
     {
       "label": "_iso_now()",
@@ -257,7 +465,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L15",
       "id": "dashboard_export_iso_now",
-      "community": 5
+      "community": 8
     },
     {
       "label": "get_call_sheet_from_db()",
@@ -265,7 +473,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L19",
       "id": "dashboard_export_get_call_sheet_from_db",
-      "community": 5
+      "community": 8
     },
     {
       "label": "get_dashboard_summary_from_db()",
@@ -273,7 +481,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L84",
       "id": "dashboard_export_get_dashboard_summary_from_db",
-      "community": 5
+      "community": 8
     },
     {
       "label": "export_call_notes_for_company()",
@@ -281,7 +489,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L128",
       "id": "dashboard_export_export_call_notes_for_company",
-      "community": 5
+      "community": 8
     },
     {
       "label": "export_markdown_call_sheet()",
@@ -289,7 +497,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L160",
       "id": "dashboard_export_export_markdown_call_sheet",
-      "community": 5
+      "community": 8
     },
     {
       "label": "export_markdown_dashboard()",
@@ -297,7 +505,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L204",
       "id": "dashboard_export_export_markdown_dashboard",
-      "community": 5
+      "community": 8
     },
     {
       "label": "build_parser()",
@@ -305,7 +513,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L250",
       "id": "dashboard_export_build_parser",
-      "community": 5
+      "community": 8
     },
     {
       "label": "main()",
@@ -313,7 +521,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L272",
       "id": "dashboard_export_main",
-      "community": 5
+      "community": 8
     },
     {
       "label": "dashboard.py",
@@ -321,7 +529,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L1",
       "id": "dashboard",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_iso_now()",
@@ -329,7 +537,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L21",
       "id": "dashboard_iso_now",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_escape_html()",
@@ -337,7 +545,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L27",
       "id": "dashboard_escape_html",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_load_data()",
@@ -345,55 +553,55 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L39",
       "id": "dashboard_load_data",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_render_research_options()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L146",
+      "source_location": "L148",
       "id": "dashboard_render_research_options",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_html_template()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L155",
+      "source_location": "L157",
       "id": "dashboard_html_template",
-      "community": 4
+      "community": 7
     },
     {
       "label": "generate_html()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L671",
+      "source_location": "L690",
       "id": "dashboard_generate_html",
-      "community": 4
+      "community": 7
     },
     {
       "label": "_make_handler()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L714",
+      "source_location": "L733",
       "id": "dashboard_make_handler",
-      "community": 4
+      "community": 7
     },
     {
       "label": "serve_dashboard()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L809",
+      "source_location": "L828",
       "id": "dashboard_serve_dashboard",
-      "community": 4
+      "community": 7
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L831",
+      "source_location": "L850",
       "id": "dashboard_main",
-      "community": 4
+      "community": 7
     },
     {
       "label": "Dashboard HTML generator and optional local server.  Modes: - Static HTML: gener",
@@ -401,7 +609,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L1",
       "id": "dashboard_rationale_1",
-      "community": 4
+      "community": 7
     },
     {
       "label": "agent.py",
@@ -412,42 +620,258 @@
       "community": 0
     },
     {
+      "label": "_try_multi_search()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L33",
+      "id": "agent_try_multi_search",
+      "community": 0
+    },
+    {
+      "label": "_summarize_backends()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L45",
+      "id": "agent_summarize_backends",
+      "community": 0
+    },
+    {
+      "label": "_tokenize_text()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L53",
+      "id": "agent_tokenize_text",
+      "community": 0
+    },
+    {
+      "label": "_infer_market_profile()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L57",
+      "id": "agent_infer_market_profile",
+      "community": 0
+    },
+    {
+      "label": "_try_source_urls()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L101",
+      "id": "agent_try_source_urls",
+      "community": 0
+    },
+    {
       "label": "_iso_now()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L31",
+      "source_location": "L161",
       "id": "agent_iso_now",
+      "community": 0
+    },
+    {
+      "label": "_to_float()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L166",
+      "id": "agent_to_float",
+      "community": 0
+    },
+    {
+      "label": "_normalize_companies()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L183",
+      "id": "agent_normalize_companies",
+      "community": 0
+    },
+    {
+      "label": "_dedupe_companies()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L200",
+      "id": "agent_dedupe_companies",
+      "community": 0
+    },
+    {
+      "label": "_filter_relevant_companies()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L215",
+      "id": "agent_filter_relevant_companies",
+      "community": 0
+    },
+    {
+      "label": "_unique_in_order()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L246",
+      "id": "agent_unique_in_order",
+      "community": 0
+    },
+    {
+      "label": "_normalize_name_key()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L256",
+      "id": "agent_normalize_name_key",
+      "community": 0
+    },
+    {
+      "label": "_extract_phone_text()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L261",
+      "id": "agent_extract_phone_text",
+      "community": 0
+    },
+    {
+      "label": "_is_useful_business_url()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L266",
+      "id": "agent_is_useful_business_url",
+      "community": 0
+    },
+    {
+      "label": "_build_contact_retry_queries()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L298",
+      "id": "agent_build_contact_retry_queries",
+      "community": 0
+    },
+    {
+      "label": "_apply_contact_retry_rows()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L319",
+      "id": "agent_apply_contact_retry_rows",
+      "community": 0
+    },
+    {
+      "label": "_primary_queries()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L369",
+      "id": "agent_primary_queries",
+      "community": 0
+    },
+    {
+      "label": "_opencode_hints()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L422",
+      "id": "agent_opencode_hints",
+      "community": 0
+    },
+    {
+      "label": "_find_quality_metrics()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L458",
+      "id": "agent_find_quality_metrics",
+      "community": 0
+    },
+    {
+      "label": "_has_contact_form_or_email_domain()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L478",
+      "id": "agent_has_contact_form_or_email_domain",
+      "community": 0
+    },
+    {
+      "label": "_contactability_score()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L485",
+      "id": "agent_contactability_score",
+      "community": 0
+    },
+    {
+      "label": "_quality_gate_thresholds()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L528",
+      "id": "agent_quality_gate_thresholds",
+      "community": 0
+    },
+    {
+      "label": "_passes_quality_gate()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L544",
+      "id": "agent_passes_quality_gate",
+      "community": 0
+    },
+    {
+      "label": "_build_retry_queries()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L561",
+      "id": "agent_build_retry_queries",
+      "community": 0
+    },
+    {
+      "label": "_heuristic_qualification()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L618",
+      "id": "agent_heuristic_qualification",
+      "community": 0
+    },
+    {
+      "label": "_normalize_qualification_status()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L666",
+      "id": "agent_normalize_qualification_status",
+      "community": 0
+    },
+    {
+      "label": "_normalize_priority()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L677",
+      "id": "agent_normalize_priority",
+      "community": 0
+    },
+    {
+      "label": "_clamp_score()",
+      "file_type": "code",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L688",
+      "id": "agent_clamp_score",
       "community": 0
     },
     {
       "label": "Agent",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L36",
+      "source_location": "L693",
       "id": "agent_agent",
-      "community": 0
+      "community": 2
     },
     {
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L46",
+      "source_location": "L703",
       "id": "agent_agent_init",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._run()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L56",
+      "source_location": "L713",
       "id": "agent_agent_run",
-      "community": 0
+      "community": 2
     },
     {
       "label": ".find()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L79",
+      "source_location": "L766",
       "id": "agent_agent_find",
       "community": 0
     },
@@ -455,7 +879,7 @@
       "label": ".qualify()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L146",
+      "source_location": "L1049",
       "id": "agent_agent_qualify",
       "community": 0
     },
@@ -463,79 +887,79 @@
       "label": ".enrich()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L219",
+      "source_location": "L1141",
       "id": "agent_agent_enrich",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._update_company_from_findings()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L289",
+      "source_location": "L1211",
       "id": "agent_agent_update_company_from_findings",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_website()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L324",
+      "source_location": "L1246",
       "id": "agent_agent_search_website",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_linkedin()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L347",
+      "source_location": "L1269",
       "id": "agent_agent_search_linkedin",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_directories()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L364",
+      "source_location": "L1286",
       "id": "agent_agent_search_directories",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_news()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L382",
+      "source_location": "L1304",
       "id": "agent_agent_search_news",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_reviews()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L398",
+      "source_location": "L1320",
       "id": "agent_agent_search_reviews",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_social()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L421",
+      "source_location": "L1343",
       "id": "agent_agent_search_social",
-      "community": 0
+      "community": 2
     },
     {
       "label": "._search_registry()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L436",
+      "source_location": "L1358",
       "id": "agent_agent_search_registry",
-      "community": 0
+      "community": 2
     },
     {
       "label": "main()",
       "file_type": "code",
       "source_file": "market_validation/agent.py",
-      "source_location": "L453",
+      "source_location": "L1375",
       "id": "agent_main",
       "community": 0
     },
@@ -548,108 +972,124 @@
       "community": 0
     },
     {
+      "label": "Try direct search using multi-backend search.     Falls back to empty list if al",
+      "file_type": "rationale",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L34",
+      "id": "agent_rationale_34",
+      "community": 0
+    },
+    {
+      "label": "Scrape URLs from market-specific source config.",
+      "file_type": "rationale",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L102",
+      "id": "agent_rationale_102",
+      "community": 0
+    },
+    {
       "label": "Market Research Pipeline Agent.          Simple 3-step pipeline:     1. find()",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L37",
-      "id": "agent_rationale_37",
-      "community": 0
+      "source_location": "L694",
+      "id": "agent_rationale_694",
+      "community": 2
     },
     {
       "label": "Run opencode and return JSON.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L57",
-      "id": "agent_rationale_57",
-      "community": 0
+      "source_location": "L714",
+      "id": "agent_rationale_714",
+      "community": 2
     },
     {
       "label": "STEP 1: Find companies in a market.                  Searches web for businesses",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L80",
-      "id": "agent_rationale_80",
+      "source_location": "L767",
+      "id": "agent_rationale_767",
       "community": 0
     },
     {
       "label": "STEP 2: Qualify companies - AI assessment of relevance and volume.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L147",
-      "id": "agent_rationale_147",
+      "source_location": "L1050",
+      "id": "agent_rationale_1050",
       "community": 0
     },
     {
       "label": "STEP 3: Enrich - Find contact info using 8 different sources.                  S",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L220",
-      "id": "agent_rationale_220",
-      "community": 0
+      "source_location": "L1142",
+      "id": "agent_rationale_1142",
+      "community": 2
     },
     {
       "label": "Update company record with enriched data.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L290",
-      "id": "agent_rationale_290",
-      "community": 0
+      "source_location": "L1212",
+      "id": "agent_rationale_1212",
+      "community": 2
     },
     {
       "label": "Source 1: Official website.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L325",
-      "id": "agent_rationale_325",
-      "community": 0
+      "source_location": "L1247",
+      "id": "agent_rationale_1247",
+      "community": 2
     },
     {
       "label": "Source 2: LinkedIn (via web search).",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L348",
-      "id": "agent_rationale_348",
-      "community": 0
+      "source_location": "L1270",
+      "id": "agent_rationale_1270",
+      "community": 2
     },
     {
       "label": "Source 3: Business directories.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L365",
-      "id": "agent_rationale_365",
-      "community": 0
+      "source_location": "L1287",
+      "id": "agent_rationale_1287",
+      "community": 2
     },
     {
       "label": "Source 4: News archives.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L383",
-      "id": "agent_rationale_383",
-      "community": 0
+      "source_location": "L1305",
+      "id": "agent_rationale_1305",
+      "community": 2
     },
     {
       "label": "Source 5: Review sites.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L399",
-      "id": "agent_rationale_399",
-      "community": 0
+      "source_location": "L1321",
+      "id": "agent_rationale_1321",
+      "community": 2
     },
     {
       "label": "Source 6: Social media.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L422",
-      "id": "agent_rationale_422",
-      "community": 0
+      "source_location": "L1344",
+      "id": "agent_rationale_1344",
+      "community": 2
     },
     {
       "label": "Source 7: Business registry.",
       "file_type": "rationale",
       "source_file": "market_validation/agent.py",
-      "source_location": "L437",
-      "id": "agent_rationale_437",
-      "community": 0
+      "source_location": "L1359",
+      "id": "agent_rationale_1359",
+      "community": 2
     },
     {
       "label": "environment.py",
@@ -657,7 +1097,7 @@
       "source_file": "market_validation/environment.py",
       "source_location": "L1",
       "id": "environment",
-      "community": 11
+      "community": 15
     },
     {
       "label": "load_project_env()",
@@ -665,7 +1105,7 @@
       "source_file": "market_validation/environment.py",
       "source_location": "L8",
       "id": "environment_load_project_env",
-      "community": 11
+      "community": 15
     },
     {
       "label": "source_discovery.py",
@@ -673,7 +1113,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L1",
       "id": "source_discovery",
-      "community": 8
+      "community": 12
     },
     {
       "label": "_detect_market_type()",
@@ -681,7 +1121,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L57",
       "id": "source_discovery_detect_market_type",
-      "community": 8
+      "community": 12
     },
     {
       "label": "discover_sources()",
@@ -689,7 +1129,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L94",
       "id": "source_discovery_discover_sources",
-      "community": 8
+      "community": 12
     },
     {
       "label": "discover_sources_with_websearch()",
@@ -697,7 +1137,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L120",
       "id": "source_discovery_discover_sources_with_websearch",
-      "community": 8
+      "community": 12
     },
     {
       "label": "build_parser()",
@@ -705,7 +1145,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L225",
       "id": "source_discovery_build_parser",
-      "community": 8
+      "community": 12
     },
     {
       "label": "main()",
@@ -713,7 +1153,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L238",
       "id": "source_discovery_main",
-      "community": 8
+      "community": 12
     },
     {
       "label": "email_sender.py",
@@ -721,7 +1161,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L1",
       "id": "email_sender",
-      "community": 2
+      "community": 3
     },
     {
       "label": "_iso_now()",
@@ -729,7 +1169,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L17",
       "id": "email_sender_iso_now",
-      "community": 2
+      "community": 3
     },
     {
       "label": "_get_smtp_connection()",
@@ -737,7 +1177,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L21",
       "id": "email_sender_get_smtp_connection",
-      "community": 2
+      "community": 3
     },
     {
       "label": "send_email()",
@@ -745,7 +1185,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L36",
       "id": "email_sender_send_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "send_templated_email()",
@@ -753,7 +1193,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L72",
       "id": "email_sender_send_templated_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "send_batch_emails()",
@@ -761,7 +1201,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L99",
       "id": "email_sender_send_batch_emails",
-      "community": 2
+      "community": 3
     },
     {
       "label": "prep_email()",
@@ -769,7 +1209,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L153",
       "id": "email_sender_prep_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "get_email_queue()",
@@ -777,7 +1217,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L196",
       "id": "email_sender_get_email_queue",
-      "community": 2
+      "community": 3
     },
     {
       "label": "approve_email()",
@@ -785,7 +1225,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L210",
       "id": "email_sender_approve_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "approve_all_emails()",
@@ -793,7 +1233,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L237",
       "id": "email_sender_approve_all_emails",
-      "community": 2
+      "community": 3
     },
     {
       "label": "export_email_queue_markdown()",
@@ -801,7 +1241,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L254",
       "id": "email_sender_export_email_queue_markdown",
-      "community": 2
+      "community": 3
     },
     {
       "label": "update_queued_email()",
@@ -809,7 +1249,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L308",
       "id": "email_sender_update_queued_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "delete_email()",
@@ -817,7 +1257,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L338",
       "id": "email_sender_delete_email",
-      "community": 2
+      "community": 3
     },
     {
       "label": "build_parser()",
@@ -825,7 +1265,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L352",
       "id": "email_sender_build_parser",
-      "community": 2
+      "community": 3
     },
     {
       "label": "main()",
@@ -833,7 +1273,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L362",
       "id": "email_sender_main",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Prep an email for review - saves to queue instead of sending.",
@@ -841,7 +1281,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L163",
       "id": "email_sender_rationale_163",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Get all queued emails.",
@@ -849,7 +1289,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L197",
       "id": "email_sender_rationale_197",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Approve and send a queued email.",
@@ -857,7 +1297,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L211",
       "id": "email_sender_rationale_211",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Approve and send all pending emails.",
@@ -865,7 +1305,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L238",
       "id": "email_sender_rationale_238",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Export email queue as markdown for review.",
@@ -873,7 +1313,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L255",
       "id": "email_sender_rationale_255",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Update a queued email's subject or body.",
@@ -881,7 +1321,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L313",
       "id": "email_sender_rationale_313",
-      "community": 2
+      "community": 3
     },
     {
       "label": "Delete a queued email JSON file.",
@@ -889,7 +1329,143 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L339",
       "id": "email_sender_rationale_339",
-      "community": 2
+      "community": 3
+    },
+    {
+      "label": "source_config.py",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L1",
+      "id": "source_config",
+      "community": 5
+    },
+    {
+      "label": "get_sources_dir()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L138",
+      "id": "source_config_get_sources_dir",
+      "community": 5
+    },
+    {
+      "label": "load_source_config()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L144",
+      "id": "source_config_load_source_config",
+      "community": 5
+    },
+    {
+      "label": "_normalize_market_key()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L198",
+      "id": "source_config_normalize_market_key",
+      "community": 5
+    },
+    {
+      "label": "_load_yaml()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L222",
+      "id": "source_config_load_yaml",
+      "community": 5
+    },
+    {
+      "label": "get_search_queries()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L233",
+      "id": "source_config_get_search_queries",
+      "community": 5
+    },
+    {
+      "label": "get_directory_urls()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L248",
+      "id": "source_config_get_directory_urls",
+      "community": 5
+    },
+    {
+      "label": "get_direct_urls()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L269",
+      "id": "source_config_get_direct_urls",
+      "community": 5
+    },
+    {
+      "label": "list_available_sources()",
+      "file_type": "code",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L274",
+      "id": "source_config_list_available_sources",
+      "community": 5
+    },
+    {
+      "label": "Market-specific data source configurations.  Load sources from YAML files in the",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L1",
+      "id": "source_config_rationale_1",
+      "community": 5
+    },
+    {
+      "label": "Get the sources directory path.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L139",
+      "id": "source_config_rationale_139",
+      "community": 5
+    },
+    {
+      "label": "Load source configuration for a market type.          Args:         market_type:",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L145",
+      "id": "source_config_rationale_145",
+      "community": 5
+    },
+    {
+      "label": "Load and parse a YAML file.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L223",
+      "id": "source_config_rationale_223",
+      "community": 5
+    },
+    {
+      "label": "Generate search queries from config template.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L234",
+      "id": "source_config_rationale_234",
+      "community": 5
+    },
+    {
+      "label": "Generate directory URLs from config template.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L249",
+      "id": "source_config_rationale_249",
+      "community": 5
+    },
+    {
+      "label": "Get direct URLs to scrape from config.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L270",
+      "id": "source_config_rationale_270",
+      "community": 5
+    },
+    {
+      "label": "List all available source configurations.",
+      "file_type": "rationale",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L275",
+      "id": "source_config_rationale_275",
+      "community": 5
     },
     {
       "label": "market_trends.py",
@@ -897,7 +1473,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L1",
       "id": "market_trends",
-      "community": 9
+      "community": 13
     },
     {
       "label": "_iso_now()",
@@ -905,7 +1481,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L8",
       "id": "market_trends_iso_now",
-      "community": 9
+      "community": 13
     },
     {
       "label": "get_google_trends_data()",
@@ -913,7 +1489,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L12",
       "id": "market_trends_get_google_trends_data",
-      "community": 9
+      "community": 13
     },
     {
       "label": "get_market_demand_report()",
@@ -921,7 +1497,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L86",
       "id": "market_trends_get_market_demand_report",
-      "community": 9
+      "community": 13
     },
     {
       "label": "build_parser()",
@@ -929,7 +1505,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L130",
       "id": "market_trends_build_parser",
-      "community": 9
+      "community": 13
     },
     {
       "label": "main()",
@@ -937,7 +1513,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L140",
       "id": "market_trends_main",
-      "community": 9
+      "community": 13
     },
     {
       "label": "research_manager.py",
@@ -1260,6 +1836,114 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L21",
+      "weight": 1.0,
+      "_src": "web_scraper",
+      "_tgt": "web_scraper_is_playwright_available",
+      "source": "web_scraper",
+      "target": "web_scraper_is_playwright_available",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "_src": "web_scraper",
+      "_tgt": "web_scraper_extract_phone",
+      "source": "web_scraper",
+      "target": "web_scraper_extract_phone",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_src": "web_scraper",
+      "_tgt": "web_scraper_extract_email",
+      "source": "web_scraper",
+      "target": "web_scraper_extract_email",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L40",
+      "weight": 1.0,
+      "_src": "web_scraper",
+      "_tgt": "web_scraper_quick_scrape",
+      "source": "web_scraper",
+      "target": "web_scraper_quick_scrape",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_src": "web_scraper_rationale_1",
+      "_tgt": "web_scraper",
+      "source": "web_scraper",
+      "target": "web_scraper_rationale_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L22",
+      "weight": 1.0,
+      "_src": "web_scraper_rationale_22",
+      "_tgt": "web_scraper_is_playwright_available",
+      "source": "web_scraper_is_playwright_available",
+      "target": "web_scraper_rationale_22",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L69",
+      "weight": 1.0,
+      "_src": "web_scraper_quick_scrape",
+      "_tgt": "web_scraper_extract_phone",
+      "source": "web_scraper_extract_phone",
+      "target": "web_scraper_quick_scrape",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L70",
+      "weight": 1.0,
+      "_src": "web_scraper_quick_scrape",
+      "_tgt": "web_scraper_extract_email",
+      "source": "web_scraper_extract_email",
+      "target": "web_scraper_quick_scrape",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/web_scraper.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_src": "web_scraper_rationale_41",
+      "_tgt": "web_scraper_quick_scrape",
+      "source": "web_scraper_quick_scrape",
+      "target": "web_scraper_rationale_41",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
       "source_location": "L14",
       "weight": 1.0,
@@ -1309,7 +1993,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L104",
+      "source_location": "L113",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_create_research",
@@ -1321,7 +2005,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L138",
+      "source_location": "L147",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_list_researches",
@@ -1333,7 +2017,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L182",
+      "source_location": "L191",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_get_research",
@@ -1345,7 +2029,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L231",
+      "source_location": "L240",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_add_company",
@@ -1357,7 +2041,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L330",
+      "source_location": "L339",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_delete_company",
@@ -1369,7 +2053,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L353",
+      "source_location": "L362",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_update_company",
@@ -1381,7 +2065,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L412",
+      "source_location": "L421",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_add_call_note",
@@ -1393,7 +2077,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L443",
+      "source_location": "L452",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_search_companies",
@@ -1405,7 +2089,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L488",
+      "source_location": "L497",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_export_markdown",
@@ -1417,7 +2101,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L549",
+      "source_location": "L558",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_build_parser",
@@ -1429,7 +2113,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L584",
+      "source_location": "L593",
       "weight": 1.0,
       "_src": "research",
       "_tgt": "research_main",
@@ -1441,7 +2125,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L114",
+      "source_location": "L123",
       "weight": 1.0,
       "_src": "research_create_research",
       "_tgt": "research_iso_now",
@@ -1453,7 +2137,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L250",
+      "source_location": "L259",
       "weight": 1.0,
       "_src": "research_add_company",
       "_tgt": "research_iso_now",
@@ -1465,7 +2149,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L360",
+      "source_location": "L369",
       "weight": 1.0,
       "_src": "research_update_company",
       "_tgt": "research_iso_now",
@@ -1477,7 +2161,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L423",
+      "source_location": "L432",
       "weight": 1.0,
       "_src": "research_add_call_note",
       "_tgt": "research_iso_now",
@@ -1489,7 +2173,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L119",
+      "source_location": "L128",
       "weight": 1.0,
       "_src": "research_create_research",
       "_tgt": "research_connect",
@@ -1501,7 +2185,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L146",
+      "source_location": "L155",
       "weight": 1.0,
       "_src": "research_list_researches",
       "_tgt": "research_connect",
@@ -1513,7 +2197,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L190",
+      "source_location": "L199",
       "weight": 1.0,
       "_src": "research_get_research",
       "_tgt": "research_connect",
@@ -1525,7 +2209,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L255",
+      "source_location": "L264",
       "weight": 1.0,
       "_src": "research_add_company",
       "_tgt": "research_connect",
@@ -1537,7 +2221,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L339",
+      "source_location": "L348",
       "weight": 1.0,
       "_src": "research_delete_company",
       "_tgt": "research_connect",
@@ -1549,7 +2233,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L398",
+      "source_location": "L407",
       "weight": 1.0,
       "_src": "research_update_company",
       "_tgt": "research_connect",
@@ -1561,7 +2245,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L428",
+      "source_location": "L437",
       "weight": 1.0,
       "_src": "research_add_call_note",
       "_tgt": "research_connect",
@@ -1573,7 +2257,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L455",
+      "source_location": "L464",
       "weight": 1.0,
       "_src": "research_search_companies",
       "_tgt": "research_connect",
@@ -1585,7 +2269,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L117",
+      "source_location": "L126",
       "weight": 1.0,
       "_src": "research_create_research",
       "_tgt": "research_resolve_db_path",
@@ -1597,7 +2281,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L144",
+      "source_location": "L153",
       "weight": 1.0,
       "_src": "research_list_researches",
       "_tgt": "research_resolve_db_path",
@@ -1609,7 +2293,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L188",
+      "source_location": "L197",
       "weight": 1.0,
       "_src": "research_get_research",
       "_tgt": "research_resolve_db_path",
@@ -1621,7 +2305,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L253",
+      "source_location": "L262",
       "weight": 1.0,
       "_src": "research_add_company",
       "_tgt": "research_resolve_db_path",
@@ -1633,7 +2317,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L337",
+      "source_location": "L346",
       "weight": 1.0,
       "_src": "research_delete_company",
       "_tgt": "research_resolve_db_path",
@@ -1645,7 +2329,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L362",
+      "source_location": "L371",
       "weight": 1.0,
       "_src": "research_update_company",
       "_tgt": "research_resolve_db_path",
@@ -1657,7 +2341,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L426",
+      "source_location": "L435",
       "weight": 1.0,
       "_src": "research_add_call_note",
       "_tgt": "research_resolve_db_path",
@@ -1669,7 +2353,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L453",
+      "source_location": "L462",
       "weight": 1.0,
       "_src": "research_search_companies",
       "_tgt": "research_resolve_db_path",
@@ -1681,7 +2365,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L120",
+      "source_location": "L129",
       "weight": 1.0,
       "_src": "research_create_research",
       "_tgt": "research_ensure_schema",
@@ -1693,7 +2377,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L147",
+      "source_location": "L156",
       "weight": 1.0,
       "_src": "research_list_researches",
       "_tgt": "research_ensure_schema",
@@ -1705,7 +2389,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L191",
+      "source_location": "L200",
       "weight": 1.0,
       "_src": "research_get_research",
       "_tgt": "research_ensure_schema",
@@ -1717,7 +2401,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L256",
+      "source_location": "L265",
       "weight": 1.0,
       "_src": "research_add_company",
       "_tgt": "research_ensure_schema",
@@ -1729,7 +2413,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L340",
+      "source_location": "L349",
       "weight": 1.0,
       "_src": "research_delete_company",
       "_tgt": "research_ensure_schema",
@@ -1741,7 +2425,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L399",
+      "source_location": "L408",
       "weight": 1.0,
       "_src": "research_update_company",
       "_tgt": "research_ensure_schema",
@@ -1753,7 +2437,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L429",
+      "source_location": "L438",
       "weight": 1.0,
       "_src": "research_add_call_note",
       "_tgt": "research_ensure_schema",
@@ -1765,7 +2449,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L456",
+      "source_location": "L465",
       "weight": 1.0,
       "_src": "research_search_companies",
       "_tgt": "research_ensure_schema",
@@ -1777,7 +2461,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L592",
+      "source_location": "L601",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_create_research",
@@ -1789,7 +2473,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L600",
+      "source_location": "L609",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_list_researches",
@@ -1801,7 +2485,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L493",
+      "source_location": "L502",
       "weight": 1.0,
       "_src": "research_export_markdown",
       "_tgt": "research_get_research",
@@ -1813,7 +2497,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L606",
+      "source_location": "L615",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_get_research",
@@ -1825,7 +2509,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L613",
+      "source_location": "L622",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_search_companies",
@@ -1837,7 +2521,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L621",
+      "source_location": "L630",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_export_markdown",
@@ -1849,7 +2533,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/research.py",
-      "source_location": "L587",
+      "source_location": "L596",
       "weight": 1.0,
       "_src": "research_main",
       "_tgt": "research_build_parser",
@@ -1963,6 +2647,462 @@
       "_tgt": "company_enrichment_build_parser",
       "source": "company_enrichment_build_parser",
       "target": "company_enrichment_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search",
+      "target": "multi_search_searchresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L50",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search",
+      "target": "multi_search_safe_get",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L62",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_extract_location_hint",
+      "source": "multi_search",
+      "target": "multi_search_extract_location_hint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L71",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_nominatim",
+      "source": "multi_search",
+      "target": "multi_search_from_nominatim",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L122",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_ddgs",
+      "source": "multi_search",
+      "target": "multi_search_from_ddgs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L145",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_wikipedia",
+      "source": "multi_search",
+      "target": "multi_search_from_wikipedia",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L191",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_bbb",
+      "source": "multi_search",
+      "target": "multi_search_from_bbb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L241",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_opencorporates",
+      "source": "multi_search",
+      "target": "multi_search_from_opencorporates",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L280",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_from_city_directory",
+      "source": "multi_search",
+      "target": "multi_search_from_city_directory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L346",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_search_all_backends",
+      "source": "multi_search",
+      "target": "multi_search_search_all_backends",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L379",
+      "weight": 1.0,
+      "_src": "multi_search",
+      "_tgt": "multi_search_quick_search",
+      "source": "multi_search",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_src": "multi_search_rationale_1",
+      "_tgt": "multi_search",
+      "source": "multi_search",
+      "target": "multi_search_rationale_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L41",
+      "weight": 1.0,
+      "_src": "multi_search_searchresult",
+      "_tgt": "multi_search_searchresult_to_dict",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_searchresult_to_dict",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L111",
+      "weight": 1.0,
+      "_src": "multi_search_from_nominatim",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_nominatim",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L133",
+      "weight": 1.0,
+      "_src": "multi_search_from_ddgs",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_ddgs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L187",
+      "weight": 1.0,
+      "_src": "multi_search_from_wikipedia",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_wikipedia",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L228",
+      "weight": 1.0,
+      "_src": "multi_search_from_bbb",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_bbb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L267",
+      "weight": 1.0,
+      "_src": "multi_search_from_opencorporates",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_opencorporates",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L332",
+      "weight": 1.0,
+      "_src": "multi_search_from_city_directory",
+      "_tgt": "multi_search_searchresult",
+      "source": "multi_search_searchresult",
+      "target": "multi_search_from_city_directory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L376",
+      "weight": 1.0,
+      "_src": "multi_search_search_all_backends",
+      "_tgt": "multi_search_searchresult_to_dict",
+      "source": "multi_search_searchresult_to_dict",
+      "target": "multi_search_search_all_backends",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L409",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_searchresult_to_dict",
+      "source": "multi_search_searchresult_to_dict",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L72",
+      "weight": 1.0,
+      "_src": "multi_search_from_nominatim",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search_safe_get",
+      "target": "multi_search_from_nominatim",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L153",
+      "weight": 1.0,
+      "_src": "multi_search_from_wikipedia",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search_safe_get",
+      "target": "multi_search_from_wikipedia",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L196",
+      "weight": 1.0,
+      "_src": "multi_search_from_bbb",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search_safe_get",
+      "target": "multi_search_from_bbb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L243",
+      "weight": 1.0,
+      "_src": "multi_search_from_opencorporates",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search_safe_get",
+      "target": "multi_search_from_opencorporates",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L303",
+      "weight": 1.0,
+      "_src": "multi_search_from_city_directory",
+      "_tgt": "multi_search_safe_get",
+      "source": "multi_search_safe_get",
+      "target": "multi_search_from_city_directory",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L192",
+      "weight": 1.0,
+      "_src": "multi_search_from_bbb",
+      "_tgt": "multi_search_extract_location_hint",
+      "source": "multi_search_extract_location_hint",
+      "target": "multi_search_from_bbb",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L389",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_nominatim",
+      "source": "multi_search_from_nominatim",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L392",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_ddgs",
+      "source": "multi_search_from_ddgs",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L397",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_wikipedia",
+      "source": "multi_search_from_wikipedia",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L398",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_bbb",
+      "source": "multi_search_from_bbb",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L399",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_opencorporates",
+      "source": "multi_search_from_opencorporates",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L242",
+      "weight": 1.0,
+      "_src": "multi_search_rationale_242",
+      "_tgt": "multi_search_from_opencorporates",
+      "source": "multi_search_from_opencorporates",
+      "target": "multi_search_rationale_242",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L400",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_from_city_directory",
+      "source": "multi_search_from_city_directory",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L281",
+      "weight": 1.0,
+      "_src": "multi_search_rationale_281",
+      "_tgt": "multi_search_from_city_directory",
+      "source": "multi_search_from_city_directory",
+      "target": "multi_search_rationale_281",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L412",
+      "weight": 1.0,
+      "_src": "multi_search_quick_search",
+      "_tgt": "multi_search_search_all_backends",
+      "source": "multi_search_search_all_backends",
+      "target": "multi_search_quick_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L347",
+      "weight": 1.0,
+      "_src": "multi_search_rationale_347",
+      "_tgt": "multi_search_search_all_backends",
+      "source": "multi_search_search_all_backends",
+      "target": "multi_search_rationale_347",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/multi_search.py",
+      "source_location": "L380",
+      "weight": 1.0,
+      "_src": "multi_search_rationale_380",
+      "_tgt": "multi_search_quick_search",
+      "source": "multi_search_quick_search",
+      "target": "multi_search_rationale_380",
       "confidence_score": 1.0
     },
     {
@@ -2233,7 +3373,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L146",
+      "source_location": "L148",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_render_research_options",
@@ -2245,7 +3385,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L155",
+      "source_location": "L157",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_html_template",
@@ -2257,7 +3397,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L671",
+      "source_location": "L690",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_generate_html",
@@ -2269,7 +3409,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L714",
+      "source_location": "L733",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_make_handler",
@@ -2281,7 +3421,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L809",
+      "source_location": "L828",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_serve_dashboard",
@@ -2293,7 +3433,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L831",
+      "source_location": "L850",
       "weight": 1.0,
       "_src": "dashboard",
       "_tgt": "dashboard_main",
@@ -2317,7 +3457,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L687",
+      "source_location": "L706",
       "weight": 1.0,
       "_src": "dashboard_generate_html",
       "_tgt": "dashboard_iso_now",
@@ -2329,7 +3469,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L149",
+      "source_location": "L151",
       "weight": 1.0,
       "_src": "dashboard_render_research_options",
       "_tgt": "dashboard_escape_html",
@@ -2341,7 +3481,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L687",
+      "source_location": "L706",
       "weight": 1.0,
       "_src": "dashboard_generate_html",
       "_tgt": "dashboard_escape_html",
@@ -2353,7 +3493,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L676",
+      "source_location": "L695",
       "weight": 1.0,
       "_src": "dashboard_generate_html",
       "_tgt": "dashboard_load_data",
@@ -2365,7 +3505,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L692",
+      "source_location": "L711",
       "weight": 1.0,
       "_src": "dashboard_generate_html",
       "_tgt": "dashboard_render_research_options",
@@ -2377,7 +3517,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L685",
+      "source_location": "L704",
       "weight": 1.0,
       "_src": "dashboard_generate_html",
       "_tgt": "dashboard_html_template",
@@ -2389,7 +3529,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L842",
+      "source_location": "L861",
       "weight": 1.0,
       "_src": "dashboard_main",
       "_tgt": "dashboard_generate_html",
@@ -2401,7 +3541,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L812",
+      "source_location": "L831",
       "weight": 1.0,
       "_src": "dashboard_serve_dashboard",
       "_tgt": "dashboard_make_handler",
@@ -2413,7 +3553,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/dashboard.py",
-      "source_location": "L846",
+      "source_location": "L865",
       "weight": 1.0,
       "_src": "dashboard_main",
       "_tgt": "dashboard_serve_dashboard",
@@ -2425,7 +3565,67 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L31",
+      "source_location": "L33",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_try_multi_search",
+      "source": "agent",
+      "target": "agent_try_multi_search",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L45",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_summarize_backends",
+      "source": "agent",
+      "target": "agent_summarize_backends",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L53",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_tokenize_text",
+      "source": "agent",
+      "target": "agent_tokenize_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L57",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent",
+      "target": "agent_infer_market_profile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L101",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_try_source_urls",
+      "source": "agent",
+      "target": "agent_try_source_urls",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L161",
       "weight": 1.0,
       "_src": "agent",
       "_tgt": "agent_iso_now",
@@ -2437,7 +3637,271 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L36",
+      "source_location": "L166",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_to_float",
+      "source": "agent",
+      "target": "agent_to_float",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L183",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_normalize_companies",
+      "source": "agent",
+      "target": "agent_normalize_companies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L200",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_dedupe_companies",
+      "source": "agent",
+      "target": "agent_dedupe_companies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L215",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_filter_relevant_companies",
+      "source": "agent",
+      "target": "agent_filter_relevant_companies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L246",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_unique_in_order",
+      "source": "agent",
+      "target": "agent_unique_in_order",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L256",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_normalize_name_key",
+      "source": "agent",
+      "target": "agent_normalize_name_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L261",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_extract_phone_text",
+      "source": "agent",
+      "target": "agent_extract_phone_text",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L266",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_is_useful_business_url",
+      "source": "agent",
+      "target": "agent_is_useful_business_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L298",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_build_contact_retry_queries",
+      "source": "agent",
+      "target": "agent_build_contact_retry_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L319",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_apply_contact_retry_rows",
+      "source": "agent",
+      "target": "agent_apply_contact_retry_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L369",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_primary_queries",
+      "source": "agent",
+      "target": "agent_primary_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L422",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_opencode_hints",
+      "source": "agent",
+      "target": "agent_opencode_hints",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L458",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_find_quality_metrics",
+      "source": "agent",
+      "target": "agent_find_quality_metrics",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L478",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_has_contact_form_or_email_domain",
+      "source": "agent",
+      "target": "agent_has_contact_form_or_email_domain",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L485",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_contactability_score",
+      "source": "agent",
+      "target": "agent_contactability_score",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L528",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_quality_gate_thresholds",
+      "source": "agent",
+      "target": "agent_quality_gate_thresholds",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L544",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_passes_quality_gate",
+      "source": "agent",
+      "target": "agent_passes_quality_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L561",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_build_retry_queries",
+      "source": "agent",
+      "target": "agent_build_retry_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L618",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_heuristic_qualification",
+      "source": "agent",
+      "target": "agent_heuristic_qualification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L666",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_normalize_qualification_status",
+      "source": "agent",
+      "target": "agent_normalize_qualification_status",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L677",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_normalize_priority",
+      "source": "agent",
+      "target": "agent_normalize_priority",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L688",
+      "weight": 1.0,
+      "_src": "agent",
+      "_tgt": "agent_clamp_score",
+      "source": "agent",
+      "target": "agent_clamp_score",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L693",
       "weight": 1.0,
       "_src": "agent",
       "_tgt": "agent_agent",
@@ -2449,7 +3913,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L453",
+      "source_location": "L1375",
       "weight": 1.0,
       "_src": "agent",
       "_tgt": "agent_main",
@@ -2470,10 +3934,490 @@
       "confidence_score": 1.0
     },
     {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L147",
+      "weight": 1.0,
+      "_src": "agent_try_source_urls",
+      "_tgt": "agent_try_multi_search",
+      "source": "agent_try_multi_search",
+      "target": "agent_try_source_urls",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L792",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_try_multi_search",
+      "source": "agent_try_multi_search",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L34",
+      "weight": 1.0,
+      "_src": "agent_rationale_34",
+      "_tgt": "agent_try_multi_search",
+      "source": "agent_try_multi_search",
+      "target": "agent_rationale_34",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L793",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_summarize_backends",
+      "source": "agent_summarize_backends",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L59",
+      "weight": 1.0,
+      "_src": "agent_infer_market_profile",
+      "_tgt": "agent_tokenize_text",
+      "source": "agent_tokenize_text",
+      "target": "agent_infer_market_profile",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L220",
+      "weight": 1.0,
+      "_src": "agent_filter_relevant_companies",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_filter_relevant_companies",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L371",
+      "weight": 1.0,
+      "_src": "agent_primary_queries",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_primary_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L424",
+      "weight": 1.0,
+      "_src": "agent_opencode_hints",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_opencode_hints",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L529",
+      "weight": 1.0,
+      "_src": "agent_quality_gate_thresholds",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_quality_gate_thresholds",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L563",
+      "weight": 1.0,
+      "_src": "agent_build_retry_queries",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_build_retry_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L623",
+      "weight": 1.0,
+      "_src": "agent_heuristic_qualification",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_heuristic_qualification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L778",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_infer_market_profile",
+      "source": "agent_infer_market_profile",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L815",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_try_source_urls",
+      "source": "agent_try_source_urls",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L102",
+      "weight": 1.0,
+      "_src": "agent_rationale_102",
+      "_tgt": "agent_try_source_urls",
+      "source": "agent_try_source_urls",
+      "target": "agent_rationale_102",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L689",
+      "weight": 1.0,
+      "_src": "agent_clamp_score",
+      "_tgt": "agent_to_float",
+      "source": "agent_to_float",
+      "target": "agent_clamp_score",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L1123",
+      "weight": 1.0,
+      "_src": "agent_agent_qualify",
+      "_tgt": "agent_to_float",
+      "source": "agent_to_float",
+      "target": "agent_agent_qualify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L838",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_normalize_companies",
+      "source": "agent_normalize_companies",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L838",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_dedupe_companies",
+      "source": "agent_dedupe_companies",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L839",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_filter_relevant_companies",
+      "source": "agent_filter_relevant_companies",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L316",
+      "weight": 1.0,
+      "_src": "agent_build_contact_retry_queries",
+      "_tgt": "agent_unique_in_order",
+      "source": "agent_unique_in_order",
+      "target": "agent_build_contact_retry_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L419",
+      "weight": 1.0,
+      "_src": "agent_primary_queries",
+      "_tgt": "agent_unique_in_order",
+      "source": "agent_unique_in_order",
+      "target": "agent_primary_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L615",
+      "weight": 1.0,
+      "_src": "agent_build_retry_queries",
+      "_tgt": "agent_unique_in_order",
+      "source": "agent_unique_in_order",
+      "target": "agent_build_retry_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L957",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_unique_in_order",
+      "source": "agent_unique_in_order",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L327",
+      "weight": 1.0,
+      "_src": "agent_apply_contact_retry_rows",
+      "_tgt": "agent_normalize_name_key",
+      "source": "agent_normalize_name_key",
+      "target": "agent_apply_contact_retry_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L357",
+      "weight": 1.0,
+      "_src": "agent_apply_contact_retry_rows",
+      "_tgt": "agent_extract_phone_text",
+      "source": "agent_extract_phone_text",
+      "target": "agent_apply_contact_retry_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L351",
+      "weight": 1.0,
+      "_src": "agent_apply_contact_retry_rows",
+      "_tgt": "agent_is_useful_business_url",
+      "source": "agent_is_useful_business_url",
+      "target": "agent_apply_contact_retry_rows",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L910",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_build_contact_retry_queries",
+      "source": "agent_build_contact_retry_queries",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L926",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_apply_contact_retry_rows",
+      "source": "agent_apply_contact_retry_rows",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L789",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_primary_queries",
+      "source": "agent_primary_queries",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L964",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_opencode_hints",
+      "source": "agent_opencode_hints",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L545",
+      "weight": 1.0,
+      "_src": "agent_passes_quality_gate",
+      "_tgt": "agent_find_quality_metrics",
+      "source": "agent_find_quality_metrics",
+      "target": "agent_passes_quality_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L509",
+      "weight": 1.0,
+      "_src": "agent_contactability_score",
+      "_tgt": "agent_has_contact_form_or_email_domain",
+      "source": "agent_has_contact_form_or_email_domain",
+      "target": "agent_contactability_score",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L546",
+      "weight": 1.0,
+      "_src": "agent_passes_quality_gate",
+      "_tgt": "agent_contactability_score",
+      "source": "agent_contactability_score",
+      "target": "agent_passes_quality_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L547",
+      "weight": 1.0,
+      "_src": "agent_passes_quality_gate",
+      "_tgt": "agent_quality_gate_thresholds",
+      "source": "agent_quality_gate_thresholds",
+      "target": "agent_passes_quality_gate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L842",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_passes_quality_gate",
+      "source": "agent_passes_quality_gate",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L854",
+      "weight": 1.0,
+      "_src": "agent_agent_find",
+      "_tgt": "agent_build_retry_queries",
+      "source": "agent_build_retry_queries",
+      "target": "agent_agent_find",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L1115",
+      "weight": 1.0,
+      "_src": "agent_agent_qualify",
+      "_tgt": "agent_heuristic_qualification",
+      "source": "agent_heuristic_qualification",
+      "target": "agent_agent_qualify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L1125",
+      "weight": 1.0,
+      "_src": "agent_agent_qualify",
+      "_tgt": "agent_normalize_qualification_status",
+      "source": "agent_normalize_qualification_status",
+      "target": "agent_agent_qualify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L1126",
+      "weight": 1.0,
+      "_src": "agent_agent_qualify",
+      "_tgt": "agent_normalize_priority",
+      "source": "agent_normalize_priority",
+      "target": "agent_agent_qualify",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/agent.py",
+      "source_location": "L1124",
+      "weight": 1.0,
+      "_src": "agent_agent_qualify",
+      "_tgt": "agent_clamp_score",
+      "source": "agent_clamp_score",
+      "target": "agent_agent_qualify",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L46",
+      "source_location": "L703",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_init",
@@ -2485,7 +4429,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L56",
+      "source_location": "L713",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_run",
@@ -2497,7 +4441,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L79",
+      "source_location": "L766",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_find",
@@ -2509,7 +4453,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L146",
+      "source_location": "L1049",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_qualify",
@@ -2521,7 +4465,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L219",
+      "source_location": "L1141",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_enrich",
@@ -2533,7 +4477,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L289",
+      "source_location": "L1211",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_update_company_from_findings",
@@ -2545,7 +4489,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L324",
+      "source_location": "L1246",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_website",
@@ -2557,7 +4501,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L347",
+      "source_location": "L1269",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_linkedin",
@@ -2569,7 +4513,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L364",
+      "source_location": "L1286",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_directories",
@@ -2581,7 +4525,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L382",
+      "source_location": "L1304",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_news",
@@ -2593,7 +4537,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L398",
+      "source_location": "L1320",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_reviews",
@@ -2605,7 +4549,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L421",
+      "source_location": "L1343",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_social",
@@ -2617,7 +4561,7 @@
       "relation": "method",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L436",
+      "source_location": "L1358",
       "weight": 1.0,
       "_src": "agent_agent",
       "_tgt": "agent_agent_search_registry",
@@ -2629,7 +4573,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L464",
+      "source_location": "L1386",
       "weight": 1.0,
       "_src": "agent_main",
       "_tgt": "agent_agent",
@@ -2641,19 +4585,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L37",
+      "source_location": "L694",
       "weight": 1.0,
-      "_src": "agent_rationale_37",
+      "_src": "agent_rationale_694",
       "_tgt": "agent_agent",
       "source": "agent_agent",
-      "target": "agent_rationale_37",
+      "target": "agent_rationale_694",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L112",
+      "source_location": "L989",
       "weight": 1.0,
       "_src": "agent_agent_find",
       "_tgt": "agent_agent_run",
@@ -2665,7 +4609,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L197",
+      "source_location": "L1112",
       "weight": 1.0,
       "_src": "agent_agent_qualify",
       "_tgt": "agent_agent_run",
@@ -2677,7 +4621,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L345",
+      "source_location": "L1267",
       "weight": 1.0,
       "_src": "agent_agent_search_website",
       "_tgt": "agent_agent_run",
@@ -2689,7 +4633,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L362",
+      "source_location": "L1284",
       "weight": 1.0,
       "_src": "agent_agent_search_linkedin",
       "_tgt": "agent_agent_run",
@@ -2701,7 +4645,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L380",
+      "source_location": "L1302",
       "weight": 1.0,
       "_src": "agent_agent_search_directories",
       "_tgt": "agent_agent_run",
@@ -2713,7 +4657,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L396",
+      "source_location": "L1318",
       "weight": 1.0,
       "_src": "agent_agent_search_news",
       "_tgt": "agent_agent_run",
@@ -2725,7 +4669,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L419",
+      "source_location": "L1341",
       "weight": 1.0,
       "_src": "agent_agent_search_reviews",
       "_tgt": "agent_agent_run",
@@ -2737,7 +4681,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L434",
+      "source_location": "L1356",
       "weight": 1.0,
       "_src": "agent_agent_search_social",
       "_tgt": "agent_agent_run",
@@ -2749,7 +4693,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L450",
+      "source_location": "L1372",
       "weight": 1.0,
       "_src": "agent_agent_search_registry",
       "_tgt": "agent_agent_run",
@@ -2761,19 +4705,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L57",
+      "source_location": "L714",
       "weight": 1.0,
-      "_src": "agent_rationale_57",
+      "_src": "agent_rationale_714",
       "_tgt": "agent_agent_run",
       "source": "agent_agent_run",
-      "target": "agent_rationale_57",
+      "target": "agent_rationale_714",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L468",
+      "source_location": "L1390",
       "weight": 1.0,
       "_src": "agent_main",
       "_tgt": "agent_agent_find",
@@ -2785,19 +4729,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L80",
+      "source_location": "L767",
       "weight": 1.0,
-      "_src": "agent_rationale_80",
+      "_src": "agent_rationale_767",
       "_tgt": "agent_agent_find",
       "source": "agent_agent_find",
-      "target": "agent_rationale_80",
+      "target": "agent_rationale_767",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L470",
+      "source_location": "L1392",
       "weight": 1.0,
       "_src": "agent_main",
       "_tgt": "agent_agent_qualify",
@@ -2809,19 +4753,19 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L147",
+      "source_location": "L1050",
       "weight": 1.0,
-      "_src": "agent_rationale_147",
+      "_src": "agent_rationale_1050",
       "_tgt": "agent_agent_qualify",
       "source": "agent_agent_qualify",
-      "target": "agent_rationale_147",
+      "target": "agent_rationale_1050",
       "confidence_score": 1.0
     },
     {
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L237",
+      "source_location": "L1159",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_website",
@@ -2833,7 +4777,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L243",
+      "source_location": "L1165",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_linkedin",
@@ -2845,7 +4789,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L249",
+      "source_location": "L1171",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_directories",
@@ -2857,7 +4801,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L255",
+      "source_location": "L1177",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_news",
@@ -2869,7 +4813,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L261",
+      "source_location": "L1183",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_reviews",
@@ -2881,7 +4825,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L267",
+      "source_location": "L1189",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_social",
@@ -2893,7 +4837,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L273",
+      "source_location": "L1195",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_search_registry",
@@ -2905,7 +4849,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L280",
+      "source_location": "L1202",
       "weight": 1.0,
       "_src": "agent_agent_enrich",
       "_tgt": "agent_agent_update_company_from_findings",
@@ -2917,7 +4861,7 @@
       "relation": "calls",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L472",
+      "source_location": "L1394",
       "weight": 1.0,
       "_src": "agent_main",
       "_tgt": "agent_agent_enrich",
@@ -2929,108 +4873,108 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L220",
+      "source_location": "L1142",
       "weight": 1.0,
-      "_src": "agent_rationale_220",
+      "_src": "agent_rationale_1142",
       "_tgt": "agent_agent_enrich",
       "source": "agent_agent_enrich",
-      "target": "agent_rationale_220",
+      "target": "agent_rationale_1142",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L290",
+      "source_location": "L1212",
       "weight": 1.0,
-      "_src": "agent_rationale_290",
+      "_src": "agent_rationale_1212",
       "_tgt": "agent_agent_update_company_from_findings",
       "source": "agent_agent_update_company_from_findings",
-      "target": "agent_rationale_290",
+      "target": "agent_rationale_1212",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L325",
+      "source_location": "L1247",
       "weight": 1.0,
-      "_src": "agent_rationale_325",
+      "_src": "agent_rationale_1247",
       "_tgt": "agent_agent_search_website",
       "source": "agent_agent_search_website",
-      "target": "agent_rationale_325",
+      "target": "agent_rationale_1247",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L348",
+      "source_location": "L1270",
       "weight": 1.0,
-      "_src": "agent_rationale_348",
+      "_src": "agent_rationale_1270",
       "_tgt": "agent_agent_search_linkedin",
       "source": "agent_agent_search_linkedin",
-      "target": "agent_rationale_348",
+      "target": "agent_rationale_1270",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L365",
+      "source_location": "L1287",
       "weight": 1.0,
-      "_src": "agent_rationale_365",
+      "_src": "agent_rationale_1287",
       "_tgt": "agent_agent_search_directories",
       "source": "agent_agent_search_directories",
-      "target": "agent_rationale_365",
+      "target": "agent_rationale_1287",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L383",
+      "source_location": "L1305",
       "weight": 1.0,
-      "_src": "agent_rationale_383",
+      "_src": "agent_rationale_1305",
       "_tgt": "agent_agent_search_news",
       "source": "agent_agent_search_news",
-      "target": "agent_rationale_383",
+      "target": "agent_rationale_1305",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L399",
+      "source_location": "L1321",
       "weight": 1.0,
-      "_src": "agent_rationale_399",
+      "_src": "agent_rationale_1321",
       "_tgt": "agent_agent_search_reviews",
       "source": "agent_agent_search_reviews",
-      "target": "agent_rationale_399",
+      "target": "agent_rationale_1321",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L422",
+      "source_location": "L1344",
       "weight": 1.0,
-      "_src": "agent_rationale_422",
+      "_src": "agent_rationale_1344",
       "_tgt": "agent_agent_search_social",
       "source": "agent_agent_search_social",
-      "target": "agent_rationale_422",
+      "target": "agent_rationale_1344",
       "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/agent.py",
-      "source_location": "L437",
+      "source_location": "L1359",
       "weight": 1.0,
-      "_src": "agent_rationale_437",
+      "_src": "agent_rationale_1359",
       "_tgt": "agent_agent_search_registry",
       "source": "agent_agent_search_registry",
-      "target": "agent_rationale_437",
+      "target": "agent_rationale_1359",
       "confidence_score": 1.0
     },
     {
@@ -3595,6 +5539,246 @@
       "_tgt": "email_sender_build_parser",
       "source": "email_sender_build_parser",
       "target": "email_sender_main",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L138",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_get_sources_dir",
+      "source": "source_config",
+      "target": "source_config_get_sources_dir",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L144",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_load_source_config",
+      "source": "source_config",
+      "target": "source_config_load_source_config",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L198",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_normalize_market_key",
+      "source": "source_config",
+      "target": "source_config_normalize_market_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L222",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_load_yaml",
+      "source": "source_config",
+      "target": "source_config_load_yaml",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L233",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_get_search_queries",
+      "source": "source_config",
+      "target": "source_config_get_search_queries",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L248",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_get_directory_urls",
+      "source": "source_config",
+      "target": "source_config_get_directory_urls",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L269",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_get_direct_urls",
+      "source": "source_config",
+      "target": "source_config_get_direct_urls",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L274",
+      "weight": 1.0,
+      "_src": "source_config",
+      "_tgt": "source_config_list_available_sources",
+      "source": "source_config",
+      "target": "source_config_list_available_sources",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "_src": "source_config_rationale_1",
+      "_tgt": "source_config",
+      "source": "source_config",
+      "target": "source_config_rationale_1",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L155",
+      "weight": 1.0,
+      "_src": "source_config_load_source_config",
+      "_tgt": "source_config_get_sources_dir",
+      "source": "source_config_get_sources_dir",
+      "target": "source_config_load_source_config",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L276",
+      "weight": 1.0,
+      "_src": "source_config_list_available_sources",
+      "_tgt": "source_config_get_sources_dir",
+      "source": "source_config_get_sources_dir",
+      "target": "source_config_list_available_sources",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L139",
+      "weight": 1.0,
+      "_src": "source_config_rationale_139",
+      "_tgt": "source_config_get_sources_dir",
+      "source": "source_config_get_sources_dir",
+      "target": "source_config_rationale_139",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L157",
+      "weight": 1.0,
+      "_src": "source_config_load_source_config",
+      "_tgt": "source_config_normalize_market_key",
+      "source": "source_config_load_source_config",
+      "target": "source_config_normalize_market_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_src": "source_config_load_source_config",
+      "_tgt": "source_config_load_yaml",
+      "source": "source_config_load_source_config",
+      "target": "source_config_load_yaml",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L145",
+      "weight": 1.0,
+      "_src": "source_config_rationale_145",
+      "_tgt": "source_config_load_source_config",
+      "source": "source_config_load_source_config",
+      "target": "source_config_rationale_145",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L223",
+      "weight": 1.0,
+      "_src": "source_config_rationale_223",
+      "_tgt": "source_config_load_yaml",
+      "source": "source_config_load_yaml",
+      "target": "source_config_rationale_223",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L234",
+      "weight": 1.0,
+      "_src": "source_config_rationale_234",
+      "_tgt": "source_config_get_search_queries",
+      "source": "source_config_get_search_queries",
+      "target": "source_config_rationale_234",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L249",
+      "weight": 1.0,
+      "_src": "source_config_rationale_249",
+      "_tgt": "source_config_get_directory_urls",
+      "source": "source_config_get_directory_urls",
+      "target": "source_config_rationale_249",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L270",
+      "weight": 1.0,
+      "_src": "source_config_rationale_270",
+      "_tgt": "source_config_get_direct_urls",
+      "source": "source_config_get_direct_urls",
+      "target": "source_config_rationale_270",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "market_validation/source_config.py",
+      "source_location": "L275",
+      "weight": 1.0,
+      "_src": "source_config_rationale_275",
+      "_tgt": "source_config_list_available_sources",
+      "source": "source_config_list_available_sources",
+      "target": "source_config_rationale_275",
       "confidence_score": 1.0
     },
     {

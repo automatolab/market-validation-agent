@@ -103,7 +103,8 @@ def _load_data() -> dict[str, Any]:
                 c.volume_unit,
                 c.notes,
                 c.created_at,
-                r.name as research_name
+                r.name as research_name,
+                r.last_source_health as last_source_health
             FROM companies c
             JOIN researches r ON r.id = c.research_id
             ORDER BY c.priority_score DESC NULLS LAST, c.company_name
@@ -128,6 +129,7 @@ def _load_data() -> dict[str, Any]:
                     "notes": row[12],
                     "created_at": row[13],
                     "research_name": row[14],
+                    "last_source_health": row[15],
                 }
             )
 
@@ -397,6 +399,9 @@ def _html_template(interactive: bool) -> str:
             <td>${{volume}}</td>
             <td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
             <td>${{esc(c.status || '-')}}</td>
+            <td>
+              ${{c.last_source_health ? `<a href="#" onclick="viewSourceHealth('${{esc(c.id)}}'); return false;">View</a>` : '<span class="muted">-</span>'}}
+            </td>
             <td class="muted">${{notes || '-'}}</td>
             <td>
               <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit Row</a>
@@ -417,6 +422,7 @@ def _html_template(interactive: bool) -> str:
               <th>Volume</th>
               <th>Priority</th>
               <th>Status</th>
+              <th>Sources</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -484,6 +490,19 @@ def _html_template(interactive: bool) -> str:
         body: JSON.stringify(payload || {{}}),
       }});
       return res.json();
+    }}
+
+    function viewSourceHealth(companyId) {{
+      const c = companyById(companyId);
+      if (!c) return;
+      try {{
+        const raw = c.last_source_health || null;
+        const parsed = raw ? JSON.parse(raw) : null;
+        const pretty = parsed ? JSON.stringify(parsed, null, 2) : 'No source health available';
+        alert('Source health for ' + (c.company_name || '') + '\n\n' + pretty);
+      }} catch (err) {{
+        alert('Failed to parse source health: ' + err);
+      }}
     }}
 
     function setResearch(id) {{

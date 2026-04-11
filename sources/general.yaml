@@ -1,0 +1,16 @@
+name: general
+description: Fallback source configuration for generic market research
+
+search_queries:
+  - "{market} companies {geography}"
+  - "{market} businesses {geography}"
+  - "best {product} providers {geography}"
+  - "{product} service {geography}"
+
+directories:
+  - name: BBB
+    search_url: "https://www.bbb.org/search?find_country=USA&find_loc={geography}&find_text={product}"
+    type: directory
+  - name: OpenCorporates
+    search_url: "https://opencorporates.com/companies?q={product}+{geography}"
+    type: registry

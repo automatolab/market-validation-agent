@@ -1,0 +1,23 @@
+# Generic Restaurant Sources
+
+name: restaurants
+description: Data sources for restaurant market research
+
+search_queries:
+  - "{product} restaurant {geography}"
+  - "best {product} {geography}"
+  - "{product} near me"
+
+directories:
+  - name: Yelp
+    search_url: "https://www.yelp.com/search?find_desc={product}&find_loc={geography}"
+    type: restaurant
+  - name: TripAdvisor
+    search_url: "https://www.tripadvisor.com/Restaurants-{geography}"
+    type: restaurant
+  - name: Google Maps
+    search_url: "https://www.google.com/maps/search/{product}+Restaurant/{geography}"
+    type: maps
+  - name: OpenTable
+    search_url: "https://www.opentable.com/{geography}/restaurants"
+    type: restaurant

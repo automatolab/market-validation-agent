@@ -1,0 +1,22 @@
+# Tech SaaS Sources
+
+name: tech-saas
+description: Data sources for discovering tech/SaaS companies
+
+search_queries:
+  - "{product} SaaS company {geography}"
+  - "{product} software startup {geography}"
+  - "best {product} tools {geography}"
+
+directories:
+  - name: Crunchbase
+    search_url: "https://www.crunchbase.com/discover/organization.companies?query={product}"
+    type: startup
+  - name: LinkedIn
+    search_url: "https://www.linkedin.com/search/results/companies/?keywords={product}+{geography}"
+    type: business
+  - name: AngelList
+    search_url: "https://angel.co/search?q={product}"
+    type: startup
+
+# Note: LinkedIn requires authentication - may get limited results

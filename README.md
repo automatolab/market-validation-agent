@@ -11,6 +11,45 @@ A general-purpose market research platform that discovers companies, qualifies l
 - **Email Outreach** - Send templated emails with review queue (requires SMTP)
 - **Dashboard** - Interactive web interface with inline editing
 
+## Free Search + Source Configs
+
+The `find()` step keeps its current behavior and now accepts additional market-specific sources.
+
+- Built-in free search uses OpenStreetMap/Nominatim (no API key)
+- `sources/*.yaml` adds market-specific queries and directory URLs
+- These source configs are additive, not replacements
+- If Playwright is installed, URL scraping can gather extra details
+
+Example source files:
+
+```text
+sources/
+├── brisket-bbq.yaml
+├── restaurants.yaml
+└── tech-saas.yaml
+```
+
+Each file can define:
+- `search_queries`
+- `urls` (direct URLs to scrape)
+- `directories` (search URL templates)
+
+No API keys are required for this workflow.
+
+Fallback order when free search is limited:
+1. Built-in free search (Nominatim)
+2. DDGS (DuckDuckGo) when available
+3. Additional free backends (Wikipedia, BBB, OpenCorporates best-effort, city directory templates)
+4. Additional source-config searches/URLs (`sources/*.yaml`)
+5. Existing `opencode` search fallback
+
+Notes:
+- DDGS is included, but can be rate-limited depending on network/IP.
+- OpenCorporates and some directories may show captcha/anti-bot pages; these are best-effort and safely skipped.
+- `source_health` in `find()` shows which backend produced results for each query.
+
+Each `find()` result now includes `source_health` so you can inspect which source worked.
+
 ## Quick Start
 
 ```bash

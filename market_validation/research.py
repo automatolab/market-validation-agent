@@ -46,7 +46,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             description TEXT,
             status TEXT NOT NULL DEFAULT 'active',
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            last_source_health TEXT
         );
 
         CREATE TABLE IF NOT EXISTS companies (
@@ -99,6 +100,14 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_companies_priority ON companies(priority_score DESC);
         CREATE INDEX IF NOT EXISTS idx_call_notes_company ON call_notes(company_id);
     """)
+    # Ensure older databases get the new column for source health
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(researches)").fetchall()]
+        if "last_source_health" not in cols:
+            conn.execute("ALTER TABLE researches ADD COLUMN last_source_health TEXT")
+    except Exception:
+        # Be permissive: if PRAGMA or ALTER fails, continue without breaking
+        pass
 
 
 def create_research(
