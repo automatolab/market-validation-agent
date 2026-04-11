@@ -97,6 +97,15 @@ from market_validation.company_enrichment import (
 )
 ```
 
+### email_sender.py - Email Outreach
+```python
+from market_validation.email_sender import (
+    send_email,           # Send single email
+    send_batch_emails,    # Batch send with template
+)
+# Requires: SMTP credentials in .env
+```
+
 ### research_manager.py - Database Operations
 ```python
 from market_validation.research_manager import ResearchManager
@@ -294,22 +303,59 @@ for c in companies["companies"]:
 
 ## Optional: Email Integration
 
-For automated email sending and reply tracking:
+### Setup
 
-**SMTP (send only):**
-```bash
-export SMTP_HOST=smtp.gmail.com
-export SMTP_PORT=587
-export SMTP_USER=your-email@gmail.com
-export SMTP_PASSWORD=app-password
-export FROM_EMAIL=your-email@gmail.com
+1. Copy `.env.example` to `.env`
+2. Edit `.env` with your SMTP credentials
+3. For Gmail: Create an App Password at https://myaccount.google.com/security
+
+### Option 1: Direct Send (Riskier)
+
+```python
+from market_validation.email_sender import send_email
+
+send_email(
+    to_email="lead@company.com",
+    subject="Partnership Opportunity",
+    body="Hi, I'd like to discuss..."
+)
 ```
 
-**Gmail API (read replies):**
-1. Create project at https://console.cloud.google.com
-2. Enable Gmail API
-3. Download credentials.json to project root
-4. First run will prompt for authorization
+### Option 2: Review Queue (Recommended)
+
+Prep emails → Review in dashboard → Approve to send
+
+```python
+from market_validation.email_sender import prep_email, get_email_queue, approve_email, export_email_queue_markdown
+
+# Prep emails to queue
+prep_email(
+    to_email="lead@company.com",
+    subject="Partnership Opportunity",
+    body="Hi...",
+    company_name="Acme Corp"
+)
+
+# View queue as markdown
+print(export_email_queue_markdown())
+
+# Edit before sending
+from market_validation.email_sender import update_queued_email
+update_queued_email("email_id", body="New improved body...")
+
+# Approve and send
+approve_email("email_id")  # One at a time
+# OR
+from market_validation.email_sender import approve_all_emails
+approve_all_emails()  # Send all pending
+```
+
+### Gmail App Password
+
+1. Go to https://myaccount.google.com/security
+2. Enable 2-Step Verification
+3. App Passwords → Create new → Mail → enter a name (e.g., "market-validation")
+4. Copy the 16-character password to `SMTP_PASSWORD` in `.env`
 
 ## Free vs Paid Features
 
