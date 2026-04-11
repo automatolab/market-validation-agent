@@ -4,124 +4,12 @@
   "graph": {},
   "nodes": [
     {
-      "label": "batch_worker.py",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L1",
-      "id": "batch_worker",
-      "community": 7
-    },
-    {
-      "label": "slugify()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L32",
-      "id": "batch_worker_slugify",
-      "community": 7
-    },
-    {
-      "label": "format_score()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L46",
-      "id": "batch_worker_format_score",
-      "community": 7
-    },
-    {
-      "label": "_ensure_output_dirs()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L50",
-      "id": "batch_worker_ensure_output_dirs",
-      "community": 7
-    },
-    {
-      "label": "_read_optional()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L58",
-      "id": "batch_worker_read_optional",
-      "community": 7
-    },
-    {
-      "label": "build_opencode_prompt()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L64",
-      "id": "batch_worker_build_opencode_prompt",
-      "community": 7
-    },
-    {
-      "label": "_extract_first_json_object()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L141",
-      "id": "batch_worker_extract_first_json_object",
-      "community": 7
-    },
-    {
-      "label": "invoke_opencode()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L174",
-      "id": "batch_worker_invoke_opencode",
-      "community": 7
-    },
-    {
-      "label": "normalize_status()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L208",
-      "id": "batch_worker_normalize_status",
-      "community": 7
-    },
-    {
-      "label": "to_score()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L222",
-      "id": "batch_worker_to_score",
-      "community": 7
-    },
-    {
-      "label": "fallback_report_markdown()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L234",
-      "id": "batch_worker_fallback_report_markdown",
-      "community": 7
-    },
-    {
-      "label": "run_worker()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L257",
-      "id": "batch_worker_run_worker",
-      "community": 7
-    },
-    {
-      "label": "build_parser()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L314",
-      "id": "batch_worker_build_parser",
-      "community": 7
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L329",
-      "id": "batch_worker_main",
-      "community": 7
-    },
-    {
       "label": "research_runner.py",
       "file_type": "code",
       "source_file": "market_validation/research_runner.py",
       "source_location": "L1",
       "id": "research_runner",
-      "community": 11
+      "community": 6
     },
     {
       "label": "run_market_research()",
@@ -129,7 +17,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L20",
       "id": "research_runner_run_market_research",
-      "community": 11
+      "community": 6
     },
     {
       "label": "gather_companies()",
@@ -137,7 +25,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L71",
       "id": "research_runner_gather_companies",
-      "community": 11
+      "community": 6
     },
     {
       "label": "qualify_companies()",
@@ -145,7 +33,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L170",
       "id": "research_runner_qualify_companies",
-      "community": 11
+      "community": 6
     },
     {
       "label": "build_parser()",
@@ -153,7 +41,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L276",
       "id": "research_runner_build_parser",
-      "community": 11
+      "community": 6
     },
     {
       "label": "main()",
@@ -161,7 +49,7 @@
       "source_file": "market_validation/research_runner.py",
       "source_location": "L305",
       "id": "research_runner_main",
-      "community": 11
+      "community": 6
     },
     {
       "label": "research.py",
@@ -169,7 +57,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L1",
       "id": "research",
-      "community": 6
+      "community": 3
     },
     {
       "label": "_iso_now()",
@@ -177,7 +65,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L14",
       "id": "research_iso_now",
-      "community": 6
+      "community": 3
     },
     {
       "label": "_connect()",
@@ -185,7 +73,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L18",
       "id": "research_connect",
-      "community": 6
+      "community": 3
     },
     {
       "label": "resolve_db_path()",
@@ -193,7 +81,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L24",
       "id": "research_resolve_db_path",
-      "community": 6
+      "community": 3
     },
     {
       "label": "_ensure_schema()",
@@ -201,7 +89,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L38",
       "id": "research_ensure_schema",
-      "community": 6
+      "community": 3
     },
     {
       "label": "create_research()",
@@ -209,7 +97,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L104",
       "id": "research_create_research",
-      "community": 6
+      "community": 3
     },
     {
       "label": "list_researches()",
@@ -217,7 +105,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L138",
       "id": "research_list_researches",
-      "community": 6
+      "community": 3
     },
     {
       "label": "get_research()",
@@ -225,7 +113,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L182",
       "id": "research_get_research",
-      "community": 6
+      "community": 3
     },
     {
       "label": "add_company()",
@@ -233,7 +121,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L231",
       "id": "research_add_company",
-      "community": 6
+      "community": 3
     },
     {
       "label": "delete_company()",
@@ -241,7 +129,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L330",
       "id": "research_delete_company",
-      "community": 6
+      "community": 3
     },
     {
       "label": "update_company()",
@@ -249,7 +137,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L353",
       "id": "research_update_company",
-      "community": 6
+      "community": 3
     },
     {
       "label": "add_call_note()",
@@ -257,7 +145,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L412",
       "id": "research_add_call_note",
-      "community": 6
+      "community": 3
     },
     {
       "label": "search_companies()",
@@ -265,7 +153,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L443",
       "id": "research_search_companies",
-      "community": 6
+      "community": 3
     },
     {
       "label": "export_markdown()",
@@ -273,7 +161,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L488",
       "id": "research_export_markdown",
-      "community": 6
+      "community": 3
     },
     {
       "label": "build_parser()",
@@ -281,7 +169,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L549",
       "id": "research_build_parser",
-      "community": 6
+      "community": 3
     },
     {
       "label": "main()",
@@ -289,7 +177,7 @@
       "source_file": "market_validation/research.py",
       "source_location": "L584",
       "id": "research_main",
-      "community": 6
+      "community": 3
     },
     {
       "label": "company_enrichment.py",
@@ -297,7 +185,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L1",
       "id": "company_enrichment",
-      "community": 12
+      "community": 7
     },
     {
       "label": "_iso_now()",
@@ -305,7 +193,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L10",
       "id": "company_enrichment_iso_now",
-      "community": 12
+      "community": 7
     },
     {
       "label": "enrich_company_contact()",
@@ -313,7 +201,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L15",
       "id": "company_enrichment_enrich_company_contact",
-      "community": 12
+      "community": 7
     },
     {
       "label": "enrich_research_companies()",
@@ -321,7 +209,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L107",
       "id": "company_enrichment_enrich_research_companies",
-      "community": 12
+      "community": 7
     },
     {
       "label": "build_parser()",
@@ -329,7 +217,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L177",
       "id": "company_enrichment_build_parser",
-      "community": 12
+      "community": 7
     },
     {
       "label": "main()",
@@ -337,151 +225,7 @@
       "source_file": "market_validation/company_enrichment.py",
       "source_location": "L197",
       "id": "company_enrichment_main",
-      "community": 12
-    },
-    {
-      "label": "file_pipeline.py",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L1",
-      "id": "file_pipeline",
-      "community": 5
-    },
-    {
-      "label": "MergeResult",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L32",
-      "id": "file_pipeline_mergeresult",
-      "community": 5
-    },
-    {
-      "label": "VerificationResult",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L40",
-      "id": "file_pipeline_verificationresult",
-      "community": 5
-    },
-    {
-      "label": "TrackerRow",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L46",
-      "id": "file_pipeline_trackerrow",
-      "community": 5
-    },
-    {
-      "label": ".key()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L56",
-      "id": "file_pipeline_trackerrow_key",
-      "community": 5
-    },
-    {
-      "label": "normalize_text()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L60",
-      "id": "file_pipeline_normalize_text",
-      "community": 5
-    },
-    {
-      "label": "parse_score()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L65",
-      "id": "file_pipeline_parse_score",
-      "community": 5
-    },
-    {
-      "label": "normalize_status()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L77",
-      "id": "file_pipeline_normalize_status",
-      "community": 5
-    },
-    {
-      "label": "extract_report_target()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L91",
-      "id": "file_pipeline_extract_report_target",
-      "community": 5
-    },
-    {
-      "label": "_move_to_merged()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L102",
-      "id": "file_pipeline_move_to_merged",
-      "community": 5
-    },
-    {
-      "label": "ensure_tracker_file()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L114",
-      "id": "file_pipeline_ensure_tracker_file",
-      "community": 5
-    },
-    {
-      "label": "read_tracker_rows()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L130",
-      "id": "file_pipeline_read_tracker_rows",
-      "community": 5
-    },
-    {
-      "label": "write_tracker_rows()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L160",
-      "id": "file_pipeline_write_tracker_rows",
-      "community": 5
-    },
-    {
-      "label": "parse_addition_file()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L170",
-      "id": "file_pipeline_parse_addition_file",
-      "community": 5
-    },
-    {
-      "label": "merge_tracker_additions()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L196",
-      "id": "file_pipeline_merge_tracker_additions",
-      "community": 5
-    },
-    {
-      "label": "verify_pipeline()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L258",
-      "id": "file_pipeline_verify_pipeline",
-      "community": 5
-    },
-    {
-      "label": "main_merge_cli()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L292",
-      "id": "file_pipeline_main_merge_cli",
-      "community": 5
-    },
-    {
-      "label": "main_verify_cli()",
-      "file_type": "code",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L299",
-      "id": "file_pipeline_main_verify_cli",
-      "community": 5
+      "community": 7
     },
     {
       "label": "__init__.py",
@@ -489,7 +233,7 @@
       "source_file": "market_validation/__init__.py",
       "source_location": "L1",
       "id": "init",
-      "community": 15
+      "community": 10
     },
     {
       "label": "Prompt-driven market validation package.",
@@ -497,239 +241,7 @@
       "source_file": "market_validation/__init__.py",
       "source_location": "L1",
       "id": "init_rationale_1",
-      "community": 15
-    },
-    {
-      "label": "lead_pipeline.py",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L1",
-      "id": "lead_pipeline",
-      "community": 2
-    },
-    {
-      "label": "ConfigValidationResult",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L32",
-      "id": "lead_pipeline_configvalidationresult",
-      "community": 2
-    },
-    {
-      "label": "_safe_segment()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L37",
-      "id": "lead_pipeline_safe_segment",
-      "community": 2
-    },
-    {
-      "label": "_slug()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L43",
-      "id": "lead_pipeline_slug",
-      "community": 2
-    },
-    {
-      "label": "_normalize_geo_code()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L49",
-      "id": "lead_pipeline_normalize_geo_code",
-      "community": 2
-    },
-    {
-      "label": "_iso_now()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L77",
-      "id": "lead_pipeline_iso_now",
-      "community": 2
-    },
-    {
-      "label": "_read_optional()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L81",
-      "id": "lead_pipeline_read_optional",
-      "community": 2
-    },
-    {
-      "label": "_extract_first_json_object()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L87",
-      "id": "lead_pipeline_extract_first_json_object",
-      "community": 2
-    },
-    {
-      "label": "_parse_iso_dt()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L120",
-      "id": "lead_pipeline_parse_iso_dt",
-      "community": 2
-    },
-    {
-      "label": "_days_since()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L134",
-      "id": "lead_pipeline_days_since",
-      "community": 2
-    },
-    {
-      "label": "_json_read()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L145",
-      "id": "lead_pipeline_json_read",
-      "community": 2
-    },
-    {
-      "label": "load_config()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L152",
-      "id": "lead_pipeline_load_config",
-      "community": 2
-    },
-    {
-      "label": "validate_config()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L172",
-      "id": "lead_pipeline_validate_config",
-      "community": 2
-    },
-    {
-      "label": "_run_stage_file()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L267",
-      "id": "lead_pipeline_run_stage_file",
-      "community": 2
-    },
-    {
-      "label": "_load_stage_output()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L272",
-      "id": "lead_pipeline_load_stage_output",
-      "community": 2
-    },
-    {
-      "label": "_read_jsonl()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L279",
-      "id": "lead_pipeline_read_jsonl",
-      "community": 2
-    },
-    {
-      "label": "_interest_level()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L293",
-      "id": "lead_pipeline_interest_level",
-      "community": 2
-    },
-    {
-      "label": "_volume_level()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L303",
-      "id": "lead_pipeline_volume_level",
-      "community": 2
-    },
-    {
-      "label": "build_stage_payload()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L317",
-      "id": "lead_pipeline_build_stage_payload",
-      "community": 2
-    },
-    {
-      "label": "build_stage_prompt()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L466",
-      "id": "lead_pipeline_build_stage_prompt",
-      "community": 2
-    },
-    {
-      "label": "invoke_stage_model()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L491",
-      "id": "lead_pipeline_invoke_stage_model",
-      "community": 2
-    },
-    {
-      "label": "_resolve_model_agent()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L529",
-      "id": "lead_pipeline_resolve_model_agent",
-      "community": 2
-    },
-    {
-      "label": "run_stage()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L535",
-      "id": "lead_pipeline_run_stage",
-      "community": 2
-    },
-    {
-      "label": "run_pipeline()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L584",
-      "id": "lead_pipeline_run_pipeline",
-      "community": 2
-    },
-    {
-      "label": "_default_run_id()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L638",
-      "id": "lead_pipeline_default_run_id",
-      "community": 2
-    },
-    {
-      "label": "_load_input_payload()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L643",
-      "id": "lead_pipeline_load_input_payload",
-      "community": 2
-    },
-    {
-      "label": "build_parser()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L650",
-      "id": "lead_pipeline_build_parser",
-      "community": 2
-    },
-    {
-      "label": "_print_json()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L681",
-      "id": "lead_pipeline_print_json",
-      "community": 2
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L685",
-      "id": "lead_pipeline_main",
-      "community": 2
+      "community": 10
     },
     {
       "label": "dashboard_export.py",
@@ -737,7 +249,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L1",
       "id": "dashboard_export",
-      "community": 10
+      "community": 5
     },
     {
       "label": "_iso_now()",
@@ -745,7 +257,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L15",
       "id": "dashboard_export_iso_now",
-      "community": 10
+      "community": 5
     },
     {
       "label": "get_call_sheet_from_db()",
@@ -753,7 +265,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L19",
       "id": "dashboard_export_get_call_sheet_from_db",
-      "community": 10
+      "community": 5
     },
     {
       "label": "get_dashboard_summary_from_db()",
@@ -761,7 +273,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L84",
       "id": "dashboard_export_get_dashboard_summary_from_db",
-      "community": 10
+      "community": 5
     },
     {
       "label": "export_call_notes_for_company()",
@@ -769,7 +281,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L128",
       "id": "dashboard_export_export_call_notes_for_company",
-      "community": 10
+      "community": 5
     },
     {
       "label": "export_markdown_call_sheet()",
@@ -777,7 +289,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L160",
       "id": "dashboard_export_export_markdown_call_sheet",
-      "community": 10
+      "community": 5
     },
     {
       "label": "export_markdown_dashboard()",
@@ -785,7 +297,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L204",
       "id": "dashboard_export_export_markdown_dashboard",
-      "community": 10
+      "community": 5
     },
     {
       "label": "build_parser()",
@@ -793,7 +305,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L250",
       "id": "dashboard_export_build_parser",
-      "community": 10
+      "community": 5
     },
     {
       "label": "main()",
@@ -801,7 +313,7 @@
       "source_file": "market_validation/dashboard_export.py",
       "source_location": "L272",
       "id": "dashboard_export_main",
-      "community": 10
+      "community": 5
     },
     {
       "label": "dashboard.py",
@@ -809,7 +321,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L1",
       "id": "dashboard",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_iso_now()",
@@ -817,7 +329,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L21",
       "id": "dashboard_iso_now",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_escape_html()",
@@ -825,7 +337,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L27",
       "id": "dashboard_escape_html",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_load_data()",
@@ -833,7 +345,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L39",
       "id": "dashboard_load_data",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_render_research_options()",
@@ -841,7 +353,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L146",
       "id": "dashboard_render_research_options",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_html_template()",
@@ -849,7 +361,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L155",
       "id": "dashboard_html_template",
-      "community": 8
+      "community": 4
     },
     {
       "label": "generate_html()",
@@ -857,7 +369,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L671",
       "id": "dashboard_generate_html",
-      "community": 8
+      "community": 4
     },
     {
       "label": "_make_handler()",
@@ -865,7 +377,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L714",
       "id": "dashboard_make_handler",
-      "community": 8
+      "community": 4
     },
     {
       "label": "serve_dashboard()",
@@ -873,7 +385,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L809",
       "id": "dashboard_serve_dashboard",
-      "community": 8
+      "community": 4
     },
     {
       "label": "main()",
@@ -881,7 +393,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L831",
       "id": "dashboard_main",
-      "community": 8
+      "community": 4
     },
     {
       "label": "Dashboard HTML generator and optional local server.  Modes: - Static HTML: gener",
@@ -889,7 +401,7 @@
       "source_file": "market_validation/dashboard.py",
       "source_location": "L1",
       "id": "dashboard_rationale_1",
-      "community": 8
+      "community": 4
     },
     {
       "label": "agent.py",
@@ -1145,7 +657,7 @@
       "source_file": "market_validation/environment.py",
       "source_location": "L1",
       "id": "environment",
-      "community": 16
+      "community": 11
     },
     {
       "label": "load_project_env()",
@@ -1153,247 +665,7 @@
       "source_file": "market_validation/environment.py",
       "source_location": "L8",
       "id": "environment_load_project_env",
-      "community": 16
-    },
-    {
-      "label": "output_store.py",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L1",
-      "id": "output_store",
-      "community": 1
-    },
-    {
-      "label": "persist_pipeline_state_to_db()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L14",
-      "id": "output_store_persist_pipeline_state_to_db",
-      "community": 1
-    },
-    {
-      "label": "_iso_now()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L75",
-      "id": "output_store_iso_now",
-      "community": 1
-    },
-    {
-      "label": "_safe_segment()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L79",
-      "id": "output_store_safe_segment",
-      "community": 1
-    },
-    {
-      "label": "_normalize_stage()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L85",
-      "id": "output_store_normalize_stage",
-      "community": 1
-    },
-    {
-      "label": "_normalize_status()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L93",
-      "id": "output_store_normalize_status",
-      "community": 1
-    },
-    {
-      "label": "_normalize_links()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L101",
-      "id": "output_store_normalize_links",
-      "community": 1
-    },
-    {
-      "label": "_to_int()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L119",
-      "id": "output_store_to_int",
-      "community": 1
-    },
-    {
-      "label": "_to_float()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L128",
-      "id": "output_store_to_float",
-      "community": 1
-    },
-    {
-      "label": "_escape_md()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L137",
-      "id": "output_store_escape_md",
-      "community": 1
-    },
-    {
-      "label": "_ensure_dirs()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L141",
-      "id": "output_store_ensure_dirs",
-      "community": 1
-    },
-    {
-      "label": "_read_lead_index()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L162",
-      "id": "output_store_read_lead_index",
-      "community": 1
-    },
-    {
-      "label": "_write_lead_index()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L181",
-      "id": "output_store_write_lead_index",
-      "community": 1
-    },
-    {
-      "label": "_upsert_lead()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L190",
-      "id": "output_store_upsert_lead",
-      "community": 1
-    },
-    {
-      "label": "_merge_links()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L209",
-      "id": "output_store_merge_links",
-      "community": 1
-    },
-    {
-      "label": "_apply_research_ingest()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L228",
-      "id": "output_store_apply_research_ingest",
-      "community": 1
-    },
-    {
-      "label": "_apply_lead_qualify()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L266",
-      "id": "output_store_apply_lead_qualify",
-      "community": 1
-    },
-    {
-      "label": "_apply_outreach_email()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L316",
-      "id": "output_store_apply_outreach_email",
-      "community": 1
-    },
-    {
-      "label": "_apply_reply_parse()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L339",
-      "id": "output_store_apply_reply_parse",
-      "community": 1
-    },
-    {
-      "label": "_apply_call_sheet_build()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L368",
-      "id": "output_store_apply_call_sheet_build",
-      "community": 1
-    },
-    {
-      "label": "_apply_worker_result()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L398",
-      "id": "output_store_apply_worker_result",
-      "community": 1
-    },
-    {
-      "label": "_apply_stage()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L434",
-      "id": "output_store_apply_stage",
-      "community": 1
-    },
-    {
-      "label": "_priority_sort_key()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L450",
-      "id": "output_store_priority_sort_key",
-      "community": 1
-    },
-    {
-      "label": "_write_call_sheet()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L459",
-      "id": "output_store_write_call_sheet",
-      "community": 1
-    },
-    {
-      "label": "_write_dashboard_summary()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L507",
-      "id": "output_store_write_dashboard_summary",
-      "community": 1
-    },
-    {
-      "label": "_relative()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L555",
-      "id": "output_store_relative",
-      "community": 1
-    },
-    {
-      "label": "persist_stage_result()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L559",
-      "id": "output_store_persist_stage_result",
-      "community": 1
-    },
-    {
-      "label": "_read_payload()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L619",
-      "id": "output_store_read_payload",
-      "community": 1
-    },
-    {
-      "label": "build_parser()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L632",
-      "id": "output_store_build_parser",
-      "community": 1
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L641",
-      "id": "output_store_main",
-      "community": 1
+      "community": 11
     },
     {
       "label": "source_discovery.py",
@@ -1401,7 +673,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L1",
       "id": "source_discovery",
-      "community": 13
+      "community": 8
     },
     {
       "label": "_detect_market_type()",
@@ -1409,7 +681,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L57",
       "id": "source_discovery_detect_market_type",
-      "community": 13
+      "community": 8
     },
     {
       "label": "discover_sources()",
@@ -1417,7 +689,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L94",
       "id": "source_discovery_discover_sources",
-      "community": 13
+      "community": 8
     },
     {
       "label": "discover_sources_with_websearch()",
@@ -1425,7 +697,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L120",
       "id": "source_discovery_discover_sources_with_websearch",
-      "community": 13
+      "community": 8
     },
     {
       "label": "build_parser()",
@@ -1433,7 +705,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L225",
       "id": "source_discovery_build_parser",
-      "community": 13
+      "community": 8
     },
     {
       "label": "main()",
@@ -1441,7 +713,7 @@
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L238",
       "id": "source_discovery_main",
-      "community": 13
+      "community": 8
     },
     {
       "label": "email_sender.py",
@@ -1449,7 +721,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L1",
       "id": "email_sender",
-      "community": 4
+      "community": 2
     },
     {
       "label": "_iso_now()",
@@ -1457,7 +729,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L17",
       "id": "email_sender_iso_now",
-      "community": 4
+      "community": 2
     },
     {
       "label": "_get_smtp_connection()",
@@ -1465,7 +737,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L21",
       "id": "email_sender_get_smtp_connection",
-      "community": 4
+      "community": 2
     },
     {
       "label": "send_email()",
@@ -1473,7 +745,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L36",
       "id": "email_sender_send_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "send_templated_email()",
@@ -1481,7 +753,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L72",
       "id": "email_sender_send_templated_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "send_batch_emails()",
@@ -1489,7 +761,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L99",
       "id": "email_sender_send_batch_emails",
-      "community": 4
+      "community": 2
     },
     {
       "label": "prep_email()",
@@ -1497,7 +769,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L153",
       "id": "email_sender_prep_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "get_email_queue()",
@@ -1505,7 +777,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L196",
       "id": "email_sender_get_email_queue",
-      "community": 4
+      "community": 2
     },
     {
       "label": "approve_email()",
@@ -1513,7 +785,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L210",
       "id": "email_sender_approve_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "approve_all_emails()",
@@ -1521,7 +793,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L237",
       "id": "email_sender_approve_all_emails",
-      "community": 4
+      "community": 2
     },
     {
       "label": "export_email_queue_markdown()",
@@ -1529,7 +801,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L254",
       "id": "email_sender_export_email_queue_markdown",
-      "community": 4
+      "community": 2
     },
     {
       "label": "update_queued_email()",
@@ -1537,7 +809,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L308",
       "id": "email_sender_update_queued_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "delete_email()",
@@ -1545,7 +817,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L338",
       "id": "email_sender_delete_email",
-      "community": 4
+      "community": 2
     },
     {
       "label": "build_parser()",
@@ -1553,7 +825,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L352",
       "id": "email_sender_build_parser",
-      "community": 4
+      "community": 2
     },
     {
       "label": "main()",
@@ -1561,7 +833,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L362",
       "id": "email_sender_main",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Prep an email for review - saves to queue instead of sending.",
@@ -1569,7 +841,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L163",
       "id": "email_sender_rationale_163",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Get all queued emails.",
@@ -1577,7 +849,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L197",
       "id": "email_sender_rationale_197",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Approve and send a queued email.",
@@ -1585,7 +857,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L211",
       "id": "email_sender_rationale_211",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Approve and send all pending emails.",
@@ -1593,7 +865,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L238",
       "id": "email_sender_rationale_238",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Export email queue as markdown for review.",
@@ -1601,7 +873,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L255",
       "id": "email_sender_rationale_255",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Update a queued email's subject or body.",
@@ -1609,7 +881,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L313",
       "id": "email_sender_rationale_313",
-      "community": 4
+      "community": 2
     },
     {
       "label": "Delete a queued email JSON file.",
@@ -1617,7 +889,7 @@
       "source_file": "market_validation/email_sender.py",
       "source_location": "L339",
       "id": "email_sender_rationale_339",
-      "community": 4
+      "community": 2
     },
     {
       "label": "market_trends.py",
@@ -1625,7 +897,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L1",
       "id": "market_trends",
-      "community": 14
+      "community": 9
     },
     {
       "label": "_iso_now()",
@@ -1633,7 +905,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L8",
       "id": "market_trends_iso_now",
-      "community": 14
+      "community": 9
     },
     {
       "label": "get_google_trends_data()",
@@ -1641,7 +913,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L12",
       "id": "market_trends_get_google_trends_data",
-      "community": 14
+      "community": 9
     },
     {
       "label": "get_market_demand_report()",
@@ -1649,7 +921,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L86",
       "id": "market_trends_get_market_demand_report",
-      "community": 14
+      "community": 9
     },
     {
       "label": "build_parser()",
@@ -1657,7 +929,7 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L130",
       "id": "market_trends_build_parser",
-      "community": 14
+      "community": 9
     },
     {
       "label": "main()",
@@ -1665,86 +937,6 @@
       "source_file": "market_validation/market_trends.py",
       "source_location": "L140",
       "id": "market_trends_main",
-      "community": 14
-    },
-    {
-      "label": "gmail_inbox.py",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L1",
-      "id": "gmail_inbox",
-      "community": 9
-    },
-    {
-      "label": "_iso_now()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L14",
-      "id": "gmail_inbox_iso_now",
-      "community": 9
-    },
-    {
-      "label": "_get_gmail_service()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L18",
-      "id": "gmail_inbox_get_gmail_service",
-      "community": 9
-    },
-    {
-      "label": "_decode_email_body()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L44",
-      "id": "gmail_inbox_decode_email_body",
-      "community": 9
-    },
-    {
-      "label": "_extract_headers()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L84",
-      "id": "gmail_inbox_extract_headers",
-      "community": 9
-    },
-    {
-      "label": "fetch_email_replies()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L91",
-      "id": "gmail_inbox_fetch_email_replies",
-      "community": 9
-    },
-    {
-      "label": "build_reply_payload()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L158",
-      "id": "gmail_inbox_build_reply_payload",
-      "community": 9
-    },
-    {
-      "label": "fetch_and_build_replies()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L219",
-      "id": "gmail_inbox_fetch_and_build_replies",
-      "community": 9
-    },
-    {
-      "label": "build_parser()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L236",
-      "id": "gmail_inbox_build_parser",
-      "community": 9
-    },
-    {
-      "label": "main()",
-      "file_type": "code",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L247",
-      "id": "gmail_inbox_main",
       "community": 9
     },
     {
@@ -1753,7 +945,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L1",
       "id": "research_manager",
-      "community": 3
+      "community": 1
     },
     {
       "label": "_iso_now()",
@@ -1761,7 +953,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L10",
       "id": "research_manager_iso_now",
-      "community": 3
+      "community": 1
     },
     {
       "label": "ResearchManager",
@@ -1769,7 +961,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L15",
       "id": "research_manager_researchmanager",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".__init__()",
@@ -1777,7 +969,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L16",
       "id": "research_manager_researchmanager_init",
-      "community": 3
+      "community": 1
     },
     {
       "label": "._run_opencode()",
@@ -1785,7 +977,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L23",
       "id": "research_manager_researchmanager_run_opencode",
-      "community": 3
+      "community": 1
     },
     {
       "label": "._extract_json()",
@@ -1793,7 +985,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L51",
       "id": "research_manager_researchmanager_extract_json",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".gather_companies()",
@@ -1801,7 +993,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L64",
       "id": "research_manager_researchmanager_gather_companies",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".qualify_companies()",
@@ -1809,7 +1001,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L80",
       "id": "research_manager_researchmanager_qualify_companies",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".enrich_contact_info()",
@@ -1817,7 +1009,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L94",
       "id": "research_manager_researchmanager_enrich_contact_info",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".enrich_all_qualified()",
@@ -1825,7 +1017,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L103",
       "id": "research_manager_researchmanager_enrich_all_qualified",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".search_company_details()",
@@ -1833,7 +1025,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L148",
       "id": "research_manager_researchmanager_search_company_details",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".find_decision_makers()",
@@ -1841,7 +1033,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L173",
       "id": "research_manager_researchmanager_find_decision_makers",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".estimate_volume()",
@@ -1849,7 +1041,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L190",
       "id": "research_manager_researchmanager_estimate_volume",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".analyze_competitors()",
@@ -1857,7 +1049,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L212",
       "id": "research_manager_researchmanager_analyze_competitors",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".generate_outreach_message()",
@@ -1865,7 +1057,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L235",
       "id": "research_manager_researchmanager_generate_outreach_message",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".research_research()",
@@ -1873,7 +1065,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L255",
       "id": "research_manager_researchmanager_research_research",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".update_company_data()",
@@ -1881,7 +1073,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L276",
       "id": "research_manager_researchmanager_update_company_data",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".get_company()",
@@ -1889,7 +1081,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L286",
       "id": "research_manager_researchmanager_get_company",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".get_all_companies()",
@@ -1897,7 +1089,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L299",
       "id": "research_manager_researchmanager_get_all_companies",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".add_call_note()",
@@ -1905,7 +1097,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L304",
       "id": "research_manager_researchmanager_add_call_note",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".get_call_notes()",
@@ -1913,7 +1105,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L320",
       "id": "research_manager_researchmanager_get_call_notes",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".get_call_sheet()",
@@ -1921,7 +1113,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L334",
       "id": "research_manager_researchmanager_get_call_sheet",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".export_call_sheet_markdown()",
@@ -1929,7 +1121,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L338",
       "id": "research_manager_researchmanager_export_call_sheet_markdown",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".get_research_summary()",
@@ -1937,7 +1129,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L342",
       "id": "research_manager_researchmanager_get_research_summary",
-      "community": 3
+      "community": 1
     },
     {
       "label": ".suggest_next_actions()",
@@ -1945,7 +1137,7 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L353",
       "id": "research_manager_researchmanager_suggest_next_actions",
-      "community": 3
+      "community": 1
     },
     {
       "label": "main()",
@@ -1953,310 +1145,10 @@
       "source_file": "market_validation/research_manager.py",
       "source_location": "L380",
       "id": "research_manager_main",
-      "community": 3
+      "community": 1
     }
   ],
   "links": [
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L32",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_slugify",
-      "source": "batch_worker",
-      "target": "batch_worker_slugify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L46",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_format_score",
-      "source": "batch_worker",
-      "target": "batch_worker_format_score",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L50",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_ensure_output_dirs",
-      "source": "batch_worker",
-      "target": "batch_worker_ensure_output_dirs",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L58",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_read_optional",
-      "source": "batch_worker",
-      "target": "batch_worker_read_optional",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L64",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_build_opencode_prompt",
-      "source": "batch_worker",
-      "target": "batch_worker_build_opencode_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L141",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_extract_first_json_object",
-      "source": "batch_worker",
-      "target": "batch_worker_extract_first_json_object",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L174",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_invoke_opencode",
-      "source": "batch_worker",
-      "target": "batch_worker_invoke_opencode",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L208",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_normalize_status",
-      "source": "batch_worker",
-      "target": "batch_worker_normalize_status",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L222",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_to_score",
-      "source": "batch_worker",
-      "target": "batch_worker_to_score",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L234",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_fallback_report_markdown",
-      "source": "batch_worker",
-      "target": "batch_worker_fallback_report_markdown",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L257",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_run_worker",
-      "source": "batch_worker",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L314",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_build_parser",
-      "source": "batch_worker",
-      "target": "batch_worker_build_parser",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L329",
-      "weight": 1.0,
-      "_src": "batch_worker",
-      "_tgt": "batch_worker_main",
-      "source": "batch_worker",
-      "target": "batch_worker_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L266",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_slugify",
-      "source": "batch_worker_slugify",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L295",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_format_score",
-      "source": "batch_worker_format_score",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L259",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_ensure_output_dirs",
-      "source": "batch_worker_ensure_output_dirs",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L65",
-      "weight": 1.0,
-      "_src": "batch_worker_build_opencode_prompt",
-      "_tgt": "batch_worker_read_optional",
-      "source": "batch_worker_read_optional",
-      "target": "batch_worker_build_opencode_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L261",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_build_opencode_prompt",
-      "source": "batch_worker_build_opencode_prompt",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L205",
-      "weight": 1.0,
-      "_src": "batch_worker_invoke_opencode",
-      "_tgt": "batch_worker_extract_first_json_object",
-      "source": "batch_worker_extract_first_json_object",
-      "target": "batch_worker_invoke_opencode",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L262",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_invoke_opencode",
-      "source": "batch_worker_invoke_opencode",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L269",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_normalize_status",
-      "source": "batch_worker_normalize_status",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L270",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_to_score",
-      "source": "batch_worker_to_score",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L277",
-      "weight": 1.0,
-      "_src": "batch_worker_run_worker",
-      "_tgt": "batch_worker_fallback_report_markdown",
-      "source": "batch_worker_fallback_report_markdown",
-      "target": "batch_worker_run_worker",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L335",
-      "weight": 1.0,
-      "_src": "batch_worker_main",
-      "_tgt": "batch_worker_run_worker",
-      "source": "batch_worker_run_worker",
-      "target": "batch_worker_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/batch_worker.py",
-      "source_location": "L331",
-      "weight": 1.0,
-      "_src": "batch_worker_main",
-      "_tgt": "batch_worker_build_parser",
-      "source": "batch_worker_build_parser",
-      "target": "batch_worker_main",
-      "confidence_score": 1.0
-    },
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
@@ -3074,462 +1966,6 @@
       "confidence_score": 1.0
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L32",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_mergeresult",
-      "source": "file_pipeline",
-      "target": "file_pipeline_mergeresult",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L40",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_verificationresult",
-      "source": "file_pipeline",
-      "target": "file_pipeline_verificationresult",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L46",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_trackerrow",
-      "source": "file_pipeline",
-      "target": "file_pipeline_trackerrow",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L60",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_normalize_text",
-      "source": "file_pipeline",
-      "target": "file_pipeline_normalize_text",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L65",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_parse_score",
-      "source": "file_pipeline",
-      "target": "file_pipeline_parse_score",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L77",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_normalize_status",
-      "source": "file_pipeline",
-      "target": "file_pipeline_normalize_status",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L91",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_extract_report_target",
-      "source": "file_pipeline",
-      "target": "file_pipeline_extract_report_target",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L102",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_move_to_merged",
-      "source": "file_pipeline",
-      "target": "file_pipeline_move_to_merged",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L114",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_ensure_tracker_file",
-      "source": "file_pipeline",
-      "target": "file_pipeline_ensure_tracker_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L130",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_read_tracker_rows",
-      "source": "file_pipeline",
-      "target": "file_pipeline_read_tracker_rows",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L160",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_write_tracker_rows",
-      "source": "file_pipeline",
-      "target": "file_pipeline_write_tracker_rows",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L170",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_parse_addition_file",
-      "source": "file_pipeline",
-      "target": "file_pipeline_parse_addition_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L196",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_merge_tracker_additions",
-      "source": "file_pipeline",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L258",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_verify_pipeline",
-      "source": "file_pipeline",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L292",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_main_merge_cli",
-      "source": "file_pipeline",
-      "target": "file_pipeline_main_merge_cli",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L299",
-      "weight": 1.0,
-      "_src": "file_pipeline",
-      "_tgt": "file_pipeline_main_verify_cli",
-      "source": "file_pipeline",
-      "target": "file_pipeline_main_verify_cli",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L250",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_mergeresult",
-      "source": "file_pipeline_mergeresult",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L289",
-      "weight": 1.0,
-      "_src": "file_pipeline_verify_pipeline",
-      "_tgt": "file_pipeline_verificationresult",
-      "source": "file_pipeline_verificationresult",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "method",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L56",
-      "weight": 1.0,
-      "_src": "file_pipeline_trackerrow",
-      "_tgt": "file_pipeline_trackerrow_key",
-      "source": "file_pipeline_trackerrow",
-      "target": "file_pipeline_trackerrow_key",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L146",
-      "weight": 1.0,
-      "_src": "file_pipeline_read_tracker_rows",
-      "_tgt": "file_pipeline_trackerrow",
-      "source": "file_pipeline_trackerrow",
-      "target": "file_pipeline_read_tracker_rows",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L184",
-      "weight": 1.0,
-      "_src": "file_pipeline_parse_addition_file",
-      "_tgt": "file_pipeline_trackerrow",
-      "source": "file_pipeline_trackerrow",
-      "target": "file_pipeline_parse_addition_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L57",
-      "weight": 1.0,
-      "_src": "file_pipeline_trackerrow_key",
-      "_tgt": "file_pipeline_normalize_text",
-      "source": "file_pipeline_trackerrow_key",
-      "target": "file_pipeline_normalize_text",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L206",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_trackerrow_key",
-      "source": "file_pipeline_trackerrow_key",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L271",
-      "weight": 1.0,
-      "_src": "file_pipeline_verify_pipeline",
-      "_tgt": "file_pipeline_trackerrow_key",
-      "source": "file_pipeline_trackerrow_key",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L232",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_parse_score",
-      "source": "file_pipeline_parse_score",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L151",
-      "weight": 1.0,
-      "_src": "file_pipeline_read_tracker_rows",
-      "_tgt": "file_pipeline_normalize_status",
-      "source": "file_pipeline_normalize_status",
-      "target": "file_pipeline_read_tracker_rows",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L189",
-      "weight": 1.0,
-      "_src": "file_pipeline_parse_addition_file",
-      "_tgt": "file_pipeline_normalize_status",
-      "source": "file_pipeline_normalize_status",
-      "target": "file_pipeline_parse_addition_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L234",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_normalize_status",
-      "source": "file_pipeline_normalize_status",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L280",
-      "weight": 1.0,
-      "_src": "file_pipeline_verify_pipeline",
-      "_tgt": "file_pipeline_extract_report_target",
-      "source": "file_pipeline_extract_report_target",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L220",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_move_to_merged",
-      "source": "file_pipeline_move_to_merged",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L198",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_ensure_tracker_file",
-      "source": "file_pipeline_ensure_tracker_file",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L260",
-      "weight": 1.0,
-      "_src": "file_pipeline_verify_pipeline",
-      "_tgt": "file_pipeline_ensure_tracker_file",
-      "source": "file_pipeline_ensure_tracker_file",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L205",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_read_tracker_rows",
-      "source": "file_pipeline_read_tracker_rows",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L261",
-      "weight": 1.0,
-      "_src": "file_pipeline_verify_pipeline",
-      "_tgt": "file_pipeline_read_tracker_rows",
-      "source": "file_pipeline_read_tracker_rows",
-      "target": "file_pipeline_verify_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L248",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_write_tracker_rows",
-      "source": "file_pipeline_write_tracker_rows",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L217",
-      "weight": 1.0,
-      "_src": "file_pipeline_merge_tracker_additions",
-      "_tgt": "file_pipeline_parse_addition_file",
-      "source": "file_pipeline_parse_addition_file",
-      "target": "file_pipeline_merge_tracker_additions",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L293",
-      "weight": 1.0,
-      "_src": "file_pipeline_main_merge_cli",
-      "_tgt": "file_pipeline_merge_tracker_additions",
-      "source": "file_pipeline_merge_tracker_additions",
-      "target": "file_pipeline_main_merge_cli",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/file_pipeline.py",
-      "source_location": "L300",
-      "weight": 1.0,
-      "_src": "file_pipeline_main_verify_cli",
-      "_tgt": "file_pipeline_verify_pipeline",
-      "source": "file_pipeline_verify_pipeline",
-      "target": "file_pipeline_main_verify_cli",
-      "confidence_score": 1.0
-    },
-    {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "market_validation/__init__.py",
@@ -3539,690 +1975,6 @@
       "_tgt": "init",
       "source": "init",
       "target": "init_rationale_1",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L32",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_configvalidationresult",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_configvalidationresult",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L37",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_safe_segment",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_safe_segment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L43",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_slug",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_slug",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L49",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_normalize_geo_code",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_normalize_geo_code",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L77",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_iso_now",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_iso_now",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L81",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_read_optional",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_read_optional",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L87",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_extract_first_json_object",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_extract_first_json_object",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L120",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_parse_iso_dt",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_parse_iso_dt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L134",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_days_since",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_days_since",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L145",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_json_read",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_json_read",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L152",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_load_config",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_load_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L172",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_validate_config",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_validate_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L267",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_run_stage_file",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_run_stage_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L272",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_load_stage_output",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_load_stage_output",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L279",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_read_jsonl",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_read_jsonl",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L293",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_interest_level",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_interest_level",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L303",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_volume_level",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_volume_level",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L317",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_build_stage_payload",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L466",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_build_stage_prompt",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_build_stage_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L491",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_invoke_stage_model",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_invoke_stage_model",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L529",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_resolve_model_agent",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_resolve_model_agent",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L535",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_run_stage",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_run_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L584",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_run_pipeline",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_run_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L638",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_default_run_id",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_default_run_id",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L643",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_load_input_payload",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_load_input_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L650",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_build_parser",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_build_parser",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L681",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_print_json",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_print_json",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L685",
-      "weight": 1.0,
-      "_src": "lead_pipeline",
-      "_tgt": "lead_pipeline_main",
-      "source": "lead_pipeline",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L264",
-      "weight": 1.0,
-      "_src": "lead_pipeline_validate_config",
-      "_tgt": "lead_pipeline_configvalidationresult",
-      "source": "lead_pipeline_configvalidationresult",
-      "target": "lead_pipeline_validate_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L268",
-      "weight": 1.0,
-      "_src": "lead_pipeline_run_stage_file",
-      "_tgt": "lead_pipeline_safe_segment",
-      "source": "lead_pipeline_safe_segment",
-      "target": "lead_pipeline_run_stage_file",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L640",
-      "weight": 1.0,
-      "_src": "lead_pipeline_default_run_id",
-      "_tgt": "lead_pipeline_slug",
-      "source": "lead_pipeline_slug",
-      "target": "lead_pipeline_default_run_id",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L363",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_normalize_geo_code",
-      "source": "lead_pipeline_normalize_geo_code",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L467",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_prompt",
-      "_tgt": "lead_pipeline_read_optional",
-      "source": "lead_pipeline_read_optional",
-      "target": "lead_pipeline_build_stage_prompt",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L525",
-      "weight": 1.0,
-      "_src": "lead_pipeline_invoke_stage_model",
-      "_tgt": "lead_pipeline_extract_first_json_object",
-      "source": "lead_pipeline_extract_first_json_object",
-      "target": "lead_pipeline_invoke_stage_model",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L135",
-      "weight": 1.0,
-      "_src": "lead_pipeline_days_since",
-      "_tgt": "lead_pipeline_parse_iso_dt",
-      "source": "lead_pipeline_parse_iso_dt",
-      "target": "lead_pipeline_days_since",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L450",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_days_since",
-      "source": "lead_pipeline_days_since",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L156",
-      "weight": 1.0,
-      "_src": "lead_pipeline_load_config",
-      "_tgt": "lead_pipeline_json_read",
-      "source": "lead_pipeline_json_read",
-      "target": "lead_pipeline_load_config",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L276",
-      "weight": 1.0,
-      "_src": "lead_pipeline_load_stage_output",
-      "_tgt": "lead_pipeline_json_read",
-      "source": "lead_pipeline_json_read",
-      "target": "lead_pipeline_load_stage_output",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L646",
-      "weight": 1.0,
-      "_src": "lead_pipeline_load_input_payload",
-      "_tgt": "lead_pipeline_json_read",
-      "source": "lead_pipeline_json_read",
-      "target": "lead_pipeline_load_input_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L693",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_load_config",
-      "source": "lead_pipeline_load_config",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L699",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_validate_config",
-      "source": "lead_pipeline_validate_config",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L273",
-      "weight": 1.0,
-      "_src": "lead_pipeline_load_stage_output",
-      "_tgt": "lead_pipeline_run_stage_file",
-      "source": "lead_pipeline_run_stage_file",
-      "target": "lead_pipeline_load_stage_output",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L357",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_load_stage_output",
-      "source": "lead_pipeline_load_stage_output",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L436",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_read_jsonl",
-      "source": "lead_pipeline_read_jsonl",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L448",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_interest_level",
-      "source": "lead_pipeline_interest_level",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L449",
-      "weight": 1.0,
-      "_src": "lead_pipeline_build_stage_payload",
-      "_tgt": "lead_pipeline_volume_level",
-      "source": "lead_pipeline_volume_level",
-      "target": "lead_pipeline_build_stage_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L546",
-      "weight": 1.0,
-      "_src": "lead_pipeline_run_stage",
-      "_tgt": "lead_pipeline_build_stage_payload",
-      "source": "lead_pipeline_build_stage_payload",
-      "target": "lead_pipeline_run_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L499",
-      "weight": 1.0,
-      "_src": "lead_pipeline_invoke_stage_model",
-      "_tgt": "lead_pipeline_build_stage_prompt",
-      "source": "lead_pipeline_build_stage_prompt",
-      "target": "lead_pipeline_invoke_stage_model",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L555",
-      "weight": 1.0,
-      "_src": "lead_pipeline_run_stage",
-      "_tgt": "lead_pipeline_invoke_stage_model",
-      "source": "lead_pipeline_invoke_stage_model",
-      "target": "lead_pipeline_run_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L723",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_resolve_model_agent",
-      "source": "lead_pipeline_resolve_model_agent",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L605",
-      "weight": 1.0,
-      "_src": "lead_pipeline_run_pipeline",
-      "_tgt": "lead_pipeline_run_stage",
-      "source": "lead_pipeline_run_stage",
-      "target": "lead_pipeline_run_pipeline",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L729",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_run_stage",
-      "source": "lead_pipeline_run_stage",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L748",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_run_pipeline",
-      "source": "lead_pipeline_run_pipeline",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L726",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_default_run_id",
-      "source": "lead_pipeline_default_run_id",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L727",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_load_input_payload",
-      "source": "lead_pipeline_load_input_payload",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L686",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_build_parser",
-      "source": "lead_pipeline_build_parser",
-      "target": "lead_pipeline_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/lead_pipeline.py",
-      "source_location": "L695",
-      "weight": 1.0,
-      "_src": "lead_pipeline_main",
-      "_tgt": "lead_pipeline_print_json",
-      "source": "lead_pipeline_print_json",
-      "target": "lead_pipeline_main",
       "confidence_score": 1.0
     },
     {
@@ -5296,846 +3048,6 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_persist_pipeline_state_to_db",
-      "source": "output_store",
-      "target": "output_store_persist_pipeline_state_to_db",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L75",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_iso_now",
-      "source": "output_store",
-      "target": "output_store_iso_now",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L79",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_safe_segment",
-      "source": "output_store",
-      "target": "output_store_safe_segment",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L85",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_normalize_stage",
-      "source": "output_store",
-      "target": "output_store_normalize_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L93",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store",
-      "target": "output_store_normalize_status",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L101",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_normalize_links",
-      "source": "output_store",
-      "target": "output_store_normalize_links",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L119",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_to_int",
-      "source": "output_store",
-      "target": "output_store_to_int",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L128",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_to_float",
-      "source": "output_store",
-      "target": "output_store_to_float",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L137",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_escape_md",
-      "source": "output_store",
-      "target": "output_store_escape_md",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L141",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_ensure_dirs",
-      "source": "output_store",
-      "target": "output_store_ensure_dirs",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L162",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_read_lead_index",
-      "source": "output_store",
-      "target": "output_store_read_lead_index",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L181",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_write_lead_index",
-      "source": "output_store",
-      "target": "output_store_write_lead_index",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L190",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store",
-      "target": "output_store_upsert_lead",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L209",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_merge_links",
-      "source": "output_store",
-      "target": "output_store_merge_links",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L228",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_research_ingest",
-      "source": "output_store",
-      "target": "output_store_apply_research_ingest",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L266",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_lead_qualify",
-      "source": "output_store",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L316",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_outreach_email",
-      "source": "output_store",
-      "target": "output_store_apply_outreach_email",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L339",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_reply_parse",
-      "source": "output_store",
-      "target": "output_store_apply_reply_parse",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L368",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_call_sheet_build",
-      "source": "output_store",
-      "target": "output_store_apply_call_sheet_build",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L398",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_worker_result",
-      "source": "output_store",
-      "target": "output_store_apply_worker_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L434",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_apply_stage",
-      "source": "output_store",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L450",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_priority_sort_key",
-      "source": "output_store",
-      "target": "output_store_priority_sort_key",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L459",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_write_call_sheet",
-      "source": "output_store",
-      "target": "output_store_write_call_sheet",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L507",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_write_dashboard_summary",
-      "source": "output_store",
-      "target": "output_store_write_dashboard_summary",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L555",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_relative",
-      "source": "output_store",
-      "target": "output_store_relative",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L559",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_persist_stage_result",
-      "source": "output_store",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L619",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_read_payload",
-      "source": "output_store",
-      "target": "output_store_read_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L632",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_build_parser",
-      "source": "output_store",
-      "target": "output_store_build_parser",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L641",
-      "weight": 1.0,
-      "_src": "output_store",
-      "_tgt": "output_store_main",
-      "source": "output_store",
-      "target": "output_store_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L597",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_persist_pipeline_state_to_db",
-      "source": "output_store_persist_pipeline_state_to_db",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L573",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_iso_now",
-      "source": "output_store_iso_now",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L576",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_safe_segment",
-      "source": "output_store_safe_segment",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L567",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_normalize_stage",
-      "source": "output_store_normalize_stage",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L278",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store_normalize_status",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L328",
-      "weight": 1.0,
-      "_src": "output_store_apply_outreach_email",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store_normalize_status",
-      "target": "output_store_apply_outreach_email",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L351",
-      "weight": 1.0,
-      "_src": "output_store_apply_reply_parse",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store_normalize_status",
-      "target": "output_store_apply_reply_parse",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L380",
-      "weight": 1.0,
-      "_src": "output_store_apply_call_sheet_build",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store_normalize_status",
-      "target": "output_store_apply_call_sheet_build",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L416",
-      "weight": 1.0,
-      "_src": "output_store_apply_worker_result",
-      "_tgt": "output_store_normalize_status",
-      "source": "output_store_normalize_status",
-      "target": "output_store_apply_worker_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L291",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_normalize_links",
-      "source": "output_store_normalize_links",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L305",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_to_int",
-      "source": "output_store_to_int",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L387",
-      "weight": 1.0,
-      "_src": "output_store_apply_call_sheet_build",
-      "_tgt": "output_store_to_int",
-      "source": "output_store_to_int",
-      "target": "output_store_apply_call_sheet_build",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L453",
-      "weight": 1.0,
-      "_src": "output_store_priority_sort_key",
-      "_tgt": "output_store_to_int",
-      "source": "output_store_to_int",
-      "target": "output_store_priority_sort_key",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L301",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_to_float",
-      "source": "output_store_to_float",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L429",
-      "weight": 1.0,
-      "_src": "output_store_apply_worker_result",
-      "_tgt": "output_store_to_float",
-      "source": "output_store_to_float",
-      "target": "output_store_apply_worker_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L493",
-      "weight": 1.0,
-      "_src": "output_store_write_call_sheet",
-      "_tgt": "output_store_escape_md",
-      "source": "output_store_escape_md",
-      "target": "output_store_write_call_sheet",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L543",
-      "weight": 1.0,
-      "_src": "output_store_write_dashboard_summary",
-      "_tgt": "output_store_escape_md",
-      "source": "output_store_escape_md",
-      "target": "output_store_write_dashboard_summary",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L574",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_ensure_dirs",
-      "source": "output_store_ensure_dirs",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L586",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_read_lead_index",
-      "source": "output_store_read_lead_index",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L590",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_write_lead_index",
-      "source": "output_store_write_lead_index",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L240",
-      "weight": 1.0,
-      "_src": "output_store_apply_research_ingest",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_research_ingest",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L279",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L327",
-      "weight": 1.0,
-      "_src": "output_store_apply_outreach_email",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_outreach_email",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L350",
-      "weight": 1.0,
-      "_src": "output_store_apply_reply_parse",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_reply_parse",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L379",
-      "weight": 1.0,
-      "_src": "output_store_apply_call_sheet_build",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_call_sheet_build",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L408",
-      "weight": 1.0,
-      "_src": "output_store_apply_worker_result",
-      "_tgt": "output_store_upsert_lead",
-      "source": "output_store_upsert_lead",
-      "target": "output_store_apply_worker_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L256",
-      "weight": 1.0,
-      "_src": "output_store_apply_research_ingest",
-      "_tgt": "output_store_merge_links",
-      "source": "output_store_merge_links",
-      "target": "output_store_apply_research_ingest",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L309",
-      "weight": 1.0,
-      "_src": "output_store_apply_lead_qualify",
-      "_tgt": "output_store_merge_links",
-      "source": "output_store_merge_links",
-      "target": "output_store_apply_lead_qualify",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L436",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_research_ingest",
-      "source": "output_store_apply_research_ingest",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L438",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_lead_qualify",
-      "source": "output_store_apply_lead_qualify",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L440",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_outreach_email",
-      "source": "output_store_apply_outreach_email",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L442",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_reply_parse",
-      "source": "output_store_apply_reply_parse",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L444",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_call_sheet_build",
-      "source": "output_store_apply_call_sheet_build",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L446",
-      "weight": 1.0,
-      "_src": "output_store_apply_stage",
-      "_tgt": "output_store_apply_worker_result",
-      "source": "output_store_apply_worker_result",
-      "target": "output_store_apply_stage",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L589",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_apply_stage",
-      "source": "output_store_apply_stage",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L594",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_write_call_sheet",
-      "source": "output_store_write_call_sheet",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L595",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_write_dashboard_summary",
-      "source": "output_store_write_dashboard_summary",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L607",
-      "weight": 1.0,
-      "_src": "output_store_persist_stage_result",
-      "_tgt": "output_store_relative",
-      "source": "output_store_relative",
-      "target": "output_store_persist_stage_result",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L652",
-      "weight": 1.0,
-      "_src": "output_store_main",
-      "_tgt": "output_store_persist_stage_result",
-      "source": "output_store_persist_stage_result",
-      "target": "output_store_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L647",
-      "weight": 1.0,
-      "_src": "output_store_main",
-      "_tgt": "output_store_read_payload",
-      "source": "output_store_read_payload",
-      "target": "output_store_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/output_store.py",
-      "source_location": "L643",
-      "weight": 1.0,
-      "_src": "output_store_main",
-      "_tgt": "output_store_build_parser",
-      "source": "output_store_build_parser",
-      "target": "output_store_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
       "source_file": "market_validation/source_discovery.py",
       "source_location": "L57",
       "weight": 1.0,
@@ -6803,210 +3715,6 @@
       "_tgt": "market_trends_build_parser",
       "source": "market_trends_build_parser",
       "target": "market_trends_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L14",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_iso_now",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_iso_now",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L18",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_get_gmail_service",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_get_gmail_service",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L44",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_decode_email_body",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_decode_email_body",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L84",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_extract_headers",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_extract_headers",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L91",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_fetch_email_replies",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_fetch_email_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L158",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_build_reply_payload",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_build_reply_payload",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L219",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_fetch_and_build_replies",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_fetch_and_build_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L236",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_build_parser",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_build_parser",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L247",
-      "weight": 1.0,
-      "_src": "gmail_inbox",
-      "_tgt": "gmail_inbox_main",
-      "source": "gmail_inbox",
-      "target": "gmail_inbox_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L149",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_email_replies",
-      "_tgt": "gmail_inbox_iso_now",
-      "source": "gmail_inbox_iso_now",
-      "target": "gmail_inbox_fetch_email_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L99",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_email_replies",
-      "_tgt": "gmail_inbox_get_gmail_service",
-      "source": "gmail_inbox_get_gmail_service",
-      "target": "gmail_inbox_fetch_email_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L137",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_email_replies",
-      "_tgt": "gmail_inbox_decode_email_body",
-      "source": "gmail_inbox_decode_email_body",
-      "target": "gmail_inbox_fetch_email_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L131",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_email_replies",
-      "_tgt": "gmail_inbox_extract_headers",
-      "source": "gmail_inbox_extract_headers",
-      "target": "gmail_inbox_fetch_email_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L227",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_and_build_replies",
-      "_tgt": "gmail_inbox_fetch_email_replies",
-      "source": "gmail_inbox_fetch_email_replies",
-      "target": "gmail_inbox_fetch_and_build_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L233",
-      "weight": 1.0,
-      "_src": "gmail_inbox_fetch_and_build_replies",
-      "_tgt": "gmail_inbox_build_reply_payload",
-      "source": "gmail_inbox_build_reply_payload",
-      "target": "gmail_inbox_fetch_and_build_replies",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L253",
-      "weight": 1.0,
-      "_src": "gmail_inbox_main",
-      "_tgt": "gmail_inbox_fetch_and_build_replies",
-      "source": "gmail_inbox_fetch_and_build_replies",
-      "target": "gmail_inbox_main",
-      "confidence_score": 1.0
-    },
-    {
-      "relation": "calls",
-      "confidence": "EXTRACTED",
-      "source_file": "market_validation/gmail_inbox.py",
-      "source_location": "L250",
-      "weight": 1.0,
-      "_src": "gmail_inbox_main",
-      "_tgt": "gmail_inbox_build_parser",
-      "source": "gmail_inbox_build_parser",
-      "target": "gmail_inbox_main",
       "confidence_score": 1.0
     },
     {
