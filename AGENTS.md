@@ -27,7 +27,9 @@ This project has a graphify knowledge graph at graphify-out/.
 | `research.py` | (functions) | Low-level SQLite CRUD + deduplication |
 | `research_runner.py` | (functions) | Gather/qualify pipeline |
 | `company_enrichment.py` | (functions) | Find contacts, emails |
+| `dashboard.py` | (functions) | HTML dashboard + server with REST API |
 | `dashboard_export.py` | (functions) | Reports, call sheets |
+| `email_sender.py` | (functions) | Email queue (prep/approve/delete) |
 
 ### Usage (Simple 3-Step Pipeline)
 
@@ -85,21 +87,42 @@ print(export_markdown_call_sheet(status="qualified"))
 | `qualify()` | AI assessment + volume estimation |
 | `enrich(company_name, location?)` | Find contacts via 8 sources |
 
+### Dashboard
+
+```bash
+# Start dashboard server (default port 8787)
+python3 -m market_validation.dashboard
+
+# Static HTML mode (no server)
+python3 -m market_validation.dashboard --static
+
+# Custom port
+python3 -m market_validation.dashboard --port 9000
+```
+
+**Features:**
+- Project selector with URL persistence (`?research_id=...`)
+- Inline company row editing (click "Edit Row" → Save/Cancel/Delete)
+- Email queue management (Approve/Edit/Delete)
+- KPI dashboard (research count, companies, pending/sent emails)
+
 ### Duplicate Prevention
 
 - **Companies**: Normalized name matching (case/space insensitive)
-- **Contacts**: Normalized name matching per company
+- **Contacts**: Removed - user emails company, not specific people
 
 ### Database
 
-- `output/market-research.sqlite3` - Companies, contacts, call notes
+- `output/market-research.sqlite3` - Companies, call notes (contacts table removed)
 
 ### Verified Working (2024-04-10)
 
 - ✅ Simple 3-step pipeline (find/qualify/enrich)
 - ✅ 8-source contact enrichment
-- ✅ Duplicate prevention (companies + contacts)
+- ✅ Duplicate prevention (companies)
 - ✅ Gather/qualify pipeline
 - ✅ Call sheet generation
 - ✅ Add call notes
 - ✅ Outreach message generation
+- ✅ Dashboard server with inline editing
+- ✅ REST API for CRUD operations
