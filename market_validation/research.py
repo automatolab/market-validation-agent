@@ -54,6 +54,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             research_id TEXT NOT NULL,
             market TEXT NOT NULL,
             company_name TEXT NOT NULL,
+            company_name_normalized TEXT,
             website TEXT,
             location TEXT,
             phone TEXT,
@@ -84,6 +85,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             company_id TEXT NOT NULL,
             research_id TEXT NOT NULL,
             name TEXT,
+            name_normalized TEXT,
             title TEXT,
             email TEXT,
             phone TEXT,
@@ -92,6 +94,8 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
             FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
             FOREIGN KEY (research_id) REFERENCES researches(id) ON DELETE CASCADE
         );
+        
+        CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name_normalized);
 
         CREATE TABLE IF NOT EXISTS call_notes (
             id TEXT PRIMARY KEY,
@@ -269,17 +273,24 @@ def add_company(
 
     with _connect(db_file) as conn:
         _ensure_schema(conn)
+        
+        normalized_name = " ".join(company_name.strip().lower().split())
 
         existing = conn.execute(
-            "SELECT id FROM companies WHERE research_id = ? AND company_name = ?",
-            (research_id, company_name),
+            """SELECT id, company_name FROM companies 
+               WHERE research_id = ? AND (
+                   company_name = ? OR 
+                   company_name_normalized = ? OR
+                   company_name_normalized = ?
+               )""",
+            (research_id, company_name, normalized_name, f"%{normalized_name}%"),
         ).fetchone()
 
         if existing:
             return {
                 "result": "skipped",
                 "company_id": existing[0],
-                "reason": "Company already exists",
+                "reason": f"Company already exists: '{existing[1]}'",
             }
 
         def _to_json(val):
@@ -303,14 +314,15 @@ def add_company(
 
         conn.execute(
             """INSERT INTO companies 
-               (id, research_id, market, company_name, website, location, phone, email, 
+               (id, research_id, market, company_name, company_name_normalized, website, location, phone, email, 
                 status, hours, menu_items, prices, ratings, reviews_count, notes, raw_data, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 company_id,
                 research_id,
                 market,
                 company_name,
+                normalized_name,
                 website,
                 location,
                 phone,
@@ -382,6 +394,12 @@ def update_company(
     }
 
 
+def _normalize_name(name: str | None) -> str | None:
+    if not name:
+        return None
+    return " ".join(name.strip().lower().split())
+
+
 def add_contact(
     company_id: str,
     research_id: str,
@@ -393,18 +411,35 @@ def add_contact(
     root: str | Path = ".",
     db_path: str | None = None,
 ) -> dict[str, Any]:
+    if not name:
+        return {"result": "skipped", "reason": "No name provided"}
+
     contact_id = str(uuid.uuid4())[:8]
     now = _iso_now()
+    normalized_name = _normalize_name(name)
 
     root_path = Path(root).resolve()
     db_file = resolve_db_path(root_path, db_path)
 
     with _connect(db_file) as conn:
         _ensure_schema(conn)
+
+        existing = conn.execute(
+            "SELECT id FROM contacts WHERE company_id = ? AND name_normalized = ?",
+            (company_id, normalized_name),
+        ).fetchone()
+
+        if existing:
+            return {
+                "result": "skipped",
+                "contact_id": existing[0],
+                "reason": "Contact already exists",
+            }
+
         conn.execute(
-            """INSERT INTO contacts (id, company_id, research_id, name, title, email, phone, source, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (contact_id, company_id, research_id, name, title, email, phone, source, now),
+            """INSERT INTO contacts (id, company_id, research_id, name, name_normalized, title, email, phone, source, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (contact_id, company_id, research_id, name.strip(), normalized_name, title, email, phone, source, now),
         )
 
     return {

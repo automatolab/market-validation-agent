@@ -104,7 +104,6 @@ manager.export_markdown()          # Export to markdown
 ```python
 from market_validation.agent import Agent
 
-# Does the actual research work
 agent = Agent()
 
 # Adaptive research - agent figures out what to search
@@ -126,13 +125,26 @@ deep = agent.research_company_deep(
     location="San Jose, CA",
     focus_areas=["contacts", "decision_makers", "pricing"]
 )
+
+# AGGRESSIVE deep discovery - tries 8 different sources
+discovery = agent.deep_discovery("Jackie's Place", "San Jose, CA")
+print(f"Sources: {discovery['sources_tried']}")
+print(f"Findings: {discovery['findings']}")
 ```
 
-**The Agent is the main research engine.** It:
-- Adapts search strategies based on findings
-- Digs deeper when info is insufficient
-- Tries multiple approaches
-- Works for ANY market/product/geography
+**The Agent has 3 research modes:**
+
+1. **adaptive_research()** - Strategic goal-based research
+2. **research_company_deep()** - Multi-phase deep dive on one company  
+3. **deep_discovery()** - AGGRESSIVE - tries 8 different sources:
+   - Official website + all pages
+   - LinkedIn for people
+   - Business directories (Yelp, Google, BBB, Crunchbase)
+   - News archives
+   - Review sites (sentiment analysis)
+   - Social media (Instagram, Facebook, TikTok)
+   - State business registry
+   - Supplier pages
 
 ## Complete Workflow
 
