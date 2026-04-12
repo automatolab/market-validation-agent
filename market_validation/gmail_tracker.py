@@ -71,19 +71,33 @@ def _save_email(data: dict[str, Any]) -> None:
     (EMAIL_QUEUE_DIR / f"{data['id']}.json").write_text(json.dumps(data, indent=2))
 
 
-def _find_gmail_thread(service, message_id: str) -> str | None:
-    """Find the Gmail threadId for a sent message using its RFC822 Message-ID header."""
-    try:
-        results = service.users().messages().list(
-            userId="me",
-            q=f"rfc822msgid:{message_id}",
-            maxResults=1,
-        ).execute()
-        msgs = results.get("messages", [])
-        if msgs:
-            return msgs[0].get("threadId")
-    except Exception:
-        pass
+def _find_gmail_thread(service, message_id: str, to_email: str = "", subject: str = "") -> str | None:
+    """
+    Find the Gmail threadId for a sent message.
+    Tries rfc822msgid first; falls back to in:sent search by recipient + subject.
+    """
+    # Try exact Message-ID match
+    for q in [f"rfc822msgid:{message_id}", f"rfc822msgid:<{message_id}>"]:
+        try:
+            results = service.users().messages().list(userId="me", q=q, maxResults=1).execute()
+            msgs = results.get("messages", [])
+            if msgs:
+                return msgs[0].get("threadId")
+        except Exception:
+            pass
+
+    # Fallback: search sent folder by recipient + subject
+    if to_email and subject:
+        safe_subject = subject.replace('"', "")[:80]
+        q = f'in:sent to:{to_email} subject:"{safe_subject}"'
+        try:
+            results = service.users().messages().list(userId="me", q=q, maxResults=1).execute()
+            msgs = results.get("messages", [])
+            if msgs:
+                return msgs[0].get("threadId")
+        except Exception:
+            pass
+
     return None
 
 
@@ -102,17 +116,19 @@ def _thread_has_reply(service, thread_id: str, sent_message_id: str) -> dict[str
         messages = thread.get("messages", [])
         # More than 1 message in thread = reply exists
         if len(messages) > 1:
-            # Return the latest non-sent message info
             reply_msg = messages[-1]
             headers = {
                 h["name"].lower(): h["value"]
                 for h in reply_msg.get("payload", {}).get("headers", [])
             }
+            # snippet is returned by the API even in metadata format
+            snippet = reply_msg.get("snippet", "")
             return {
                 "from": headers.get("from", ""),
                 "date": headers.get("date", ""),
                 "subject": headers.get("subject", ""),
                 "gmail_msg_id": reply_msg.get("id"),
+                "snippet": snippet[:300] if snippet else "",
             }
     except Exception:
         pass
@@ -121,32 +137,59 @@ def _thread_has_reply(service, thread_id: str, sent_message_id: str) -> dict[str
 
 def check_replies(service) -> list[str]:
     """
-    For each sent email with a message_id, find its Gmail thread and check for replies.
-    Returns list of queue email IDs that were marked replied.
+    For each sent email, search all mail (not just inbox) for a reply from the recipient.
+    Captures reply snippet. Skips emails already marked replied with a snippet.
     """
     sent = _load_sent_emails()
     replied_ids: list[str] = []
 
     for email_data in sent:
-        if email_data.get("replied_at"):
+        # Skip if already have full reply info
+        if email_data.get("replied_at") and email_data.get("reply_snippet"):
             continue
 
-        message_id = email_data.get("message_id", "").strip("<>")
-        if not message_id:
-            continue
+        to_addr = email_data.get("to_email", "")
+        subject = email_data.get("subject", "")
+        safe_subject = subject.replace('"', "").replace("\\", "")[:60]
 
-        thread_id = _find_gmail_thread(service, message_id)
-        if not thread_id:
-            continue
+        # in:anywhere includes inbox, sent, archive, and trash
+        query = f'from:{to_addr} subject:"Re: {safe_subject}" in:anywhere newer_than:60d'
+        try:
+            results = service.users().messages().list(
+                userId="me", q=query, maxResults=1
+            ).execute()
+            messages = results.get("messages", [])
+            if not messages:
+                continue
 
-        reply_info = _thread_has_reply(service, thread_id, message_id)
-        if reply_info:
-            email_data["replied_at"] = _iso_now()
+            # Fetch the reply message to get snippet + headers
+            msg = service.users().messages().get(
+                userId="me",
+                id=messages[0]["id"],
+                format="metadata",
+                metadataHeaders=["From", "Date", "Subject"],
+            ).execute()
+            headers = {
+                h["name"].lower(): h["value"]
+                for h in msg.get("payload", {}).get("headers", [])
+            }
+            snippet = msg.get("snippet", "")
+
+            email_data["replied_at"] = email_data.get("replied_at") or _iso_now()
             email_data["status"] = "replied"
-            email_data["reply_from"] = reply_info.get("from", "")
-            email_data["reply_subject"] = reply_info.get("subject", "")
+            email_data["reply_from"] = headers.get("from", "")
+            email_data["reply_subject"] = headers.get("subject", "")
+            # Gmail snippets contain HTML entities — decode them
+            import html as _html
+            clean = _html.unescape(snippet)
+            # Strip quoted original (attribution line + body)
+            import re as _re
+            clean = _re.split(r'\s+On\s+\w{3},\s+\w{3}|\s+wrote:', clean)[0].strip()
+            email_data["reply_snippet"] = clean[:300]
             _save_email(email_data)
             replied_ids.append(email_data["id"])
+        except Exception:
+            continue
 
     return replied_ids
 

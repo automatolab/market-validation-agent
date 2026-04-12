@@ -17,5 +17,6 @@
   "message_id": "<177597912152.61070.14767773445614706392@nmhp.tail3d5ccc.ts.net>",
   "replied_at": "2026-04-12T07:35:27Z",
   "reply_from": "John Smith <automato.lab@gmail.com>",
-  "reply_subject": "Re: [Test 2] Reply to this to test auto-tracking"
+  "reply_subject": "Re: [Test 2] Reply to this to test auto-tracking",
+  "reply_snippet": "test"
 }

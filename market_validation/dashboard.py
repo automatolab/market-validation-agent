@@ -213,6 +213,11 @@ def _html_template(interactive: bool) -> str:
     .status-clicked {{ background: #f0e8fb; color: #6b21a8; border-color: #d0b3ee; }}
     .status-replied {{ background: #e8f7ed; color: #1d7b3a; border-color: #c2e5cd; font-weight:600; }}
     .status-bounced {{ background: #fde8e8; color: #b91c1c; border-color: #f5c2c2; }}
+    .status-date {{ margin-top: 3px; font-size: 12px; color: var(--muted); }}
+    .preview-cell {{ font-size: 13px; min-width: 260px; }}
+    .sent-content {{ color: var(--muted); white-space: pre-wrap; line-height: 1.5; }}
+    .reply-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1d7b3a; margin-bottom: 4px; }}
+    .reply-content {{ white-space: pre-wrap; line-height: 1.5; color: var(--text); }}
     .action-link {{ margin-right: 10px; white-space: nowrap; }}
     .editing-row td {{ background: #fffdf4; }}
     .cell-input {{ width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; }}
@@ -484,31 +489,35 @@ def _html_template(interactive: bool) -> str:
       let body = '';
       for (const e of rows) {{
         const status = e.status || 'pending';
-        const preview = esc(e.body || '').slice(0, 120);
-        const approve = status === 'pending'
-          ? `<a class="action-link" href="#" onclick="approveEmail('${{esc(e.id)}}'); return false;">Approve</a>`
-          : `<span class="muted">Sent ${{esc((e.sent_at || '').slice(0, 10))}}</span>`;
-        const edit = status === 'pending'
-          ? `<a class="action-link" href="#" onclick="editEmail('${{esc(e.id)}}'); return false;">Edit</a>`
-          : '';
-        const del = status === 'pending'
-          ? `<a class="action-link" href="#" onclick="deleteEmail('${{esc(e.id)}}'); return false;">Delete</a>`
-          : '';
-        const openedCell = e.opened_at
-          ? `<span class="badge status-opened" title="${{esc(e.opened_at)}}">${{esc(e.opened_at.slice(0,10))}}</span>`
-          : '<span class="muted">—</span>';
-        const replyInfo = e.replied_at
-          ? `<span class="badge status-replied" title="From: ${{esc(e.reply_from||'')}}&#10;${{esc(e.replied_at)}}">${{esc(e.replied_at.slice(0,10))}}</span>`
-          : '<span class="muted">—</span>';
+
+        // Date of the most recent status event
+        const statusDate = status === 'replied' ? e.replied_at
+          : status === 'bounced' ? e.bounced_at
+          : status === 'opened' ? e.opened_at
+          : status === 'sent' ? e.sent_at
+          : null;
+        const dateLabel = statusDate ? statusDate.slice(0, 10) : '';
+
+        // Preview column: show reply content when replied, otherwise sent body
+        let previewCell = '';
+        if (status === 'replied' && e.reply_snippet) {{
+          previewCell = `<div class="reply-label">↩ Their reply</div><div class="reply-content">${{esc(e.reply_snippet)}}</div>`;
+        }} else {{
+          previewCell = `<div class="sent-content">${{esc(e.body || '-')}}</div>`;
+        }}
+
         body += `
           <tr>
-            <td><strong>${{esc(e.subject || '-')}}</strong><div class="muted">${{esc(e.company_name || '-')}}</div></td>
-            <td><a href="mailto:${{esc(e.to_email || '')}}">${{esc(e.to_email || '-')}}</a></td>
-            <td><span class="badge ${{statusClass(status)}}">${{esc(status)}}</span></td>
-            <td>${{openedCell}}</td>
-            <td>${{replyInfo}}</td>
-            <td class="muted">${{preview || '-'}}</td>
-            <td>${{approve}}${{edit}}${{del}}</td>
+            <td>
+              <strong>${{esc(e.subject || '-')}}</strong>
+              ${{e.company_name ? `<div class="muted" style="font-size:12px;margin-top:2px">${{esc(e.company_name)}}</div>` : ''}}
+            </td>
+            <td style="white-space:nowrap"><a href="mailto:${{esc(e.to_email || '')}}">${{esc(e.to_email || '-')}}</a></td>
+            <td>
+              <span class="badge ${{statusClass(status)}}">${{esc(status)}}</span>
+              ${{dateLabel ? `<div class="status-date">${{dateLabel}}</div>` : ''}}
+            </td>
+            <td class="preview-cell">${{previewCell}}</td>
           </tr>
         `;
       }}
@@ -518,12 +527,9 @@ def _html_template(interactive: bool) -> str:
           <thead>
             <tr>
               <th>Subject</th>
-              <th>Recipient</th>
+              <th>To</th>
               <th>Status</th>
-              <th>Opened</th>
-              <th>Replied</th>
-              <th>Preview</th>
-              <th>Actions</th>
+              <th>Content</th>
             </tr>
           </thead>
           <tbody>${{body}}</tbody>
