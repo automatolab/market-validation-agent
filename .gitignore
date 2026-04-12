@@ -9,3 +9,5 @@ __pycache__/
 .env
 output/*.sqlite3
 cache/
+config/gmail_credentials.json
+config/gmail_token.json

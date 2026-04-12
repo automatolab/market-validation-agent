@@ -1,0 +1,18 @@
+{
+  "id": "-EidkAqo",
+  "created_at": "2026-04-12T07:25:03Z",
+  "status": "sent",
+  "to_email": "automato.lab@gmail.com",
+  "subject": "[Tracking Test] Reply or ignore to test Gmail API monitoring",
+  "body": "Hi,\n\nThis email tests the full tracking pipeline:\n\n1. Open tracking (pixel fires when you open this)\n2. Click tracking: http://localhost:8787\n3. Reply tracking - just reply to this email and hit Sync Gmail in the dashboard\n\nAutomato Lab",
+  "company_name": "Tracking Test",
+  "contact_name": null,
+  "research_id": null,
+  "company_id": null,
+  "approved": true,
+  "sent_at": "2026-04-12T07:25:05Z",
+  "opened_at": null,
+  "clicked_at": null,
+  "clicks": [],
+  "message_id": "<177597870367.59851.14828119402477548070@nmhp.tail3d5ccc.ts.net>"
+}

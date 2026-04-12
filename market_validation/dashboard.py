@@ -181,7 +181,7 @@ def _html_template(interactive: bool) -> str:
     .header {{ display: flex; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }}
     .title h1 {{ margin: 0; font-size: clamp(22px, 3vw, 34px); }}
     .title p {{ margin: 6px 0 0; color: var(--muted); }}
-    .kpis {{ display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 10px; width: min(640px, 100%); }}
+    .kpis {{ display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; width: min(520px, 100%); }}
     .kpi {{ background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); }}
     .kpi .v {{ font-size: 24px; font-weight: 700; }}
     .kpi .l {{ font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }}
@@ -209,6 +209,10 @@ def _html_template(interactive: bool) -> str:
     .priority-low {{ background: #edf2f7; color: #4f6071; border-color: #dfe7ef; }}
     .status-pending {{ background: #fff4de; color: var(--warn); border-color: #ecd6a7; }}
     .status-sent {{ background: #e8f7ed; color: var(--ok); border-color: #c2e5cd; }}
+    .status-opened {{ background: #e8f0fb; color: #1a56b0; border-color: #b3cfee; }}
+    .status-clicked {{ background: #f0e8fb; color: #6b21a8; border-color: #d0b3ee; }}
+    .status-replied {{ background: #e8f7ed; color: #1d7b3a; border-color: #c2e5cd; font-weight:600; }}
+    .status-bounced {{ background: #fde8e8; color: #b91c1c; border-color: #f5c2c2; }}
     .action-link {{ margin-right: 10px; white-space: nowrap; }}
     .editing-row td {{ background: #fffdf4; }}
     .cell-input {{ width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; }}
@@ -216,7 +220,7 @@ def _html_template(interactive: bool) -> str:
     @media (max-width: 980px) {{
       .app {{ padding: 14px; }}
       .header {{ flex-direction: column; align-items: stretch; }}
-      .kpis {{ grid-template-columns: repeat(2, minmax(120px, 1fr)); width: 100%; }}
+      .kpis {{ grid-template-columns: repeat(3, minmax(100px, 1fr)); width: 100%; }}
       .select {{ min-width: 100%; }}
     }}
   </style>
@@ -233,6 +237,9 @@ def _html_template(interactive: bool) -> str:
         <div class='kpi'><div class='v'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
         <div class='kpi'><div class='v'>__PENDING_COUNT__</div><div class='l'>Pending Emails</div></div>
         <div class='kpi'><div class='v'>__SENT_COUNT__</div><div class='l'>Sent Emails</div></div>
+        <div class='kpi'><div class='v'>__OPENED_COUNT__</div><div class='l'>Opened</div></div>
+        <div class='kpi'><div class='v'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
+        <div class='kpi'><div class='v'>__BOUNCED_COUNT__</div><div class='l'>Bounced</div></div>
       </div>
     </div>
     <section class='panel'>
@@ -246,7 +253,10 @@ def _html_template(interactive: bool) -> str:
       </div>
     </section>
     <section class='panel'>
-      <div class='panel-head'><h2 id='emailsTitle'>Email Queue</h2></div>
+      <div class='panel-head'>
+        <h2 id='emailsTitle'>Email Queue</h2>
+        <span id='syncStatus' class='count-pill' style='font-size:12px;color:var(--muted)'></span>
+      </div>
       <div class='panel-body'>
         <div class='toolbar'><span id='emailCount' class='count-pill'>0 rows</span></div>
         <div id='emailsWrap' class='table-wrap'></div>
@@ -298,7 +308,35 @@ def _html_template(interactive: bool) -> str:
     }}
 
     function statusClass(v) {{
-      return (v || '').toLowerCase() === 'sent' ? 'status-sent' : 'status-pending';
+      const s = (v || '').toLowerCase();
+      if (s === 'replied') return 'status-replied';
+      if (s === 'bounced') return 'status-bounced';
+      if (s === 'clicked') return 'status-clicked';
+      if (s === 'opened') return 'status-opened';
+      if (s === 'sent') return 'status-sent';
+      return 'status-pending';
+    }}
+
+    async function syncGmail() {{
+      if (!INTERACTIVE) return;
+      const el = document.getElementById('syncStatus');
+      el.textContent = 'Syncing Gmail…';
+      try {{
+        const res = await apiPost('/api/email/sync', {{}});
+        if (res.result === 'ok') {{
+          const parts = [];
+          if (res.replied_count) parts.push(`${{res.replied_count}} replied`);
+          if (res.bounced_count) parts.push(`${{res.bounced_count}} bounced`);
+          el.textContent = parts.length ? `Gmail: ${{parts.join(', ')}}` : `Gmail synced ${{res.synced_at ? res.synced_at.slice(11,16) + ' UTC' : ''}}`;
+          if (res.replied_count || res.bounced_count) {{
+            setTimeout(() => window.location.reload(), 600);
+          }}
+        }} else {{
+          el.textContent = res.error ? `Gmail: ${{res.error}}` : 'Gmail sync failed';
+        }}
+      }} catch(e) {{
+        el.textContent = 'Gmail offline';
+      }}
     }}
 
     function filteredCompanies() {{
@@ -446,7 +484,7 @@ def _html_template(interactive: bool) -> str:
       let body = '';
       for (const e of rows) {{
         const status = e.status || 'pending';
-        const preview = esc(e.body || '').slice(0, 140);
+        const preview = esc(e.body || '').slice(0, 120);
         const approve = status === 'pending'
           ? `<a class="action-link" href="#" onclick="approveEmail('${{esc(e.id)}}'); return false;">Approve</a>`
           : `<span class="muted">Sent ${{esc((e.sent_at || '').slice(0, 10))}}</span>`;
@@ -456,11 +494,19 @@ def _html_template(interactive: bool) -> str:
         const del = status === 'pending'
           ? `<a class="action-link" href="#" onclick="deleteEmail('${{esc(e.id)}}'); return false;">Delete</a>`
           : '';
+        const openedCell = e.opened_at
+          ? `<span class="badge status-opened" title="${{esc(e.opened_at)}}">${{esc(e.opened_at.slice(0,10))}}</span>`
+          : '<span class="muted">—</span>';
+        const replyInfo = e.replied_at
+          ? `<span class="badge status-replied" title="From: ${{esc(e.reply_from||'')}}&#10;${{esc(e.replied_at)}}">${{esc(e.replied_at.slice(0,10))}}</span>`
+          : '<span class="muted">—</span>';
         body += `
           <tr>
             <td><strong>${{esc(e.subject || '-')}}</strong><div class="muted">${{esc(e.company_name || '-')}}</div></td>
             <td><a href="mailto:${{esc(e.to_email || '')}}">${{esc(e.to_email || '-')}}</a></td>
             <td><span class="badge ${{statusClass(status)}}">${{esc(status)}}</span></td>
+            <td>${{openedCell}}</td>
+            <td>${{replyInfo}}</td>
             <td class="muted">${{preview || '-'}}</td>
             <td>${{approve}}${{edit}}${{del}}</td>
           </tr>
@@ -474,6 +520,8 @@ def _html_template(interactive: bool) -> str:
               <th>Subject</th>
               <th>Recipient</th>
               <th>Status</th>
+              <th>Opened</th>
+              <th>Replied</th>
               <th>Preview</th>
               <th>Actions</th>
             </tr>
@@ -499,7 +547,7 @@ def _html_template(interactive: bool) -> str:
         const raw = c.last_source_health || null;
         const parsed = raw ? JSON.parse(raw) : null;
         const pretty = parsed ? JSON.stringify(parsed, null, 2) : 'No source health available';
-        alert('Source health for ' + (c.company_name || '') + '\n\n' + pretty);
+        alert('Source health for ' + (c.company_name || '') + '\\n\\n' + pretty);
       }} catch (err) {{
         alert('Failed to parse source health: ' + err);
       }}
@@ -681,6 +729,12 @@ def _html_template(interactive: bool) -> str:
     }}
 
     wire();
+
+    // Auto-sync Gmail on load then every 60 seconds
+    if (INTERACTIVE) {{
+      syncGmail();
+      setInterval(syncGmail, 60000);
+    }}
   </script>
 </body>
 </html>
@@ -698,7 +752,10 @@ def generate_html(
     emails = data["emails"]
 
     pending_count = sum(1 for e in emails if e.get("status") == "pending")
-    sent_count = sum(1 for e in emails if e.get("status") == "sent")
+    sent_count = sum(1 for e in emails if e.get("status") in ("sent", "opened", "replied", "bounced"))
+    opened_count = sum(1 for e in emails if e.get("opened_at"))
+    replied_count = sum(1 for e in emails if e.get("replied_at"))
+    bounced_count = sum(1 for e in emails if e.get("bounced_at"))
 
     payload_json = json.dumps(data, ensure_ascii=True).replace("</", "<\\/")
     html = _html_template(interactive=interactive)
@@ -708,6 +765,9 @@ def generate_html(
         .replace("__COMPANY_COUNT__", str(len(companies)))
         .replace("__PENDING_COUNT__", str(pending_count))
         .replace("__SENT_COUNT__", str(sent_count))
+        .replace("__OPENED_COUNT__", str(opened_count))
+        .replace("__REPLIED_COUNT__", str(replied_count))
+        .replace("__BOUNCED_COUNT__", str(bounced_count))
         .replace("__RESEARCH_OPTIONS__", _render_research_options(researches))
         .replace("__PAYLOAD_JSON__", payload_json)
         .replace("__INTERACTIVE__", "true" if interactive else "false")
@@ -735,6 +795,8 @@ def _make_handler(host: str, port: int):
     from urllib.parse import urlparse
 
     from market_validation.email_sender import approve_email, delete_email, update_queued_email
+    from market_validation.email_tracker import TRANSPARENT_GIF, record_open
+    from market_validation.gmail_tracker import sync_all as gmail_sync_all
     from market_validation.research import add_company, delete_company, update_company
 
     class Handler(BaseHTTPRequestHandler):
@@ -747,7 +809,24 @@ def _make_handler(host: str, port: int):
             self.wfile.write(body)
 
         def do_GET(self):
-            path = urlparse(self.path).path
+            from urllib.parse import parse_qs, unquote, urlparse as _up
+
+            parsed = _up(self.path)
+            path = parsed.path
+
+            # Open-tracking pixel
+            if path.startswith("/api/email/track/open/"):
+                email_id = path.split("/api/email/track/open/", 1)[1].strip("/")
+                record_open(email_id)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/gif")
+                self.send_header("Content-Length", str(len(TRANSPARENT_GIF)))
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+                self.end_headers()
+                self.wfile.write(TRANSPARENT_GIF)
+                return
+
+
             if path == "/":
                 html_path = Path("output/dashboard.html")
                 generate_html(output_path=html_path, open_browser=False, interactive=True)
@@ -813,6 +892,9 @@ def _make_handler(host: str, port: int):
 
                 if path == "/api/email/delete":
                     return self._json(delete_email(data["email_id"]))
+
+                if path == "/api/email/sync":
+                    return self._json(gmail_sync_all())
 
             except Exception as exc:
                 return self._json({"result": "error", "error": str(exc)}, 400)

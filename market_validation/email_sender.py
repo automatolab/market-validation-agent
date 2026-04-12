@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import base64
+import email.utils
 import json
 import os
 import smtplib
 from datetime import datetime, timezone
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
@@ -38,6 +40,7 @@ def send_email(
     to_email: str,
     subject: str,
     body: str,
+    html_body: str | None = None,
     from_email: str | None = None,
 ) -> dict[str, Any]:
     from_email = from_email or os.getenv("FROM_EMAIL")
@@ -45,10 +48,21 @@ def send_email(
         raise ValueError("FROM_EMAIL environment variable is required")
 
     try:
-        msg = MIMEText(body, "plain")
-        msg["From"] = from_email
-        msg["To"] = to_email
-        msg["Subject"] = subject
+        message_id = email.utils.make_msgid()
+        if html_body:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = from_email
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg["Message-ID"] = message_id
+            msg.attach(MIMEText(body, "plain"))
+            msg.attach(MIMEText(html_body, "html"))
+        else:
+            msg = MIMEText(body, "plain")
+            msg["From"] = from_email
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            msg["Message-ID"] = message_id
 
         server = _get_smtp_connection()
         server.sendmail(from_email, [to_email], msg.as_string())
@@ -59,6 +73,7 @@ def send_email(
             "sent_at": _iso_now(),
             "to": to_email,
             "subject": subject,
+            "message_id": message_id,
         }
     except Exception as e:
         return {
@@ -179,6 +194,9 @@ def prep_email(
         "company_id": company_id,
         "approved": False,
         "sent_at": None,
+        "opened_at": None,
+        "clicked_at": None,
+        "clicks": [],
     }
 
     queue_file = EMAIL_QUEUE_DIR / f"{email_id}.json"
@@ -218,17 +236,25 @@ def approve_email(email_id: str) -> dict[str, Any]:
     if email_data.get("approved"):
         return {"result": "error", "error": "Email already approved"}
 
-    # Send the email
+    # Build HTML version with tracking pixel + click-wrapping
+    try:
+        from market_validation.email_tracker import build_html_body
+        html_body = build_html_body(email_data["body"], email_id)
+    except Exception:
+        html_body = None
+
     result = send_email(
         to_email=email_data["to_email"],
         subject=email_data["subject"],
         body=email_data["body"],
+        html_body=html_body,
     )
 
     if result.get("result") == "ok":
         email_data["status"] = "sent"
         email_data["approved"] = True
         email_data["sent_at"] = result.get("sent_at")
+        email_data["message_id"] = result.get("message_id")
         queue_file.write_text(json.dumps(email_data, indent=2))
 
     return result
