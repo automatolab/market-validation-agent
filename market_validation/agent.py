@@ -735,8 +735,10 @@ def _heuristic_qualification(
             priority = "low"
 
         volume_estimate = None
+        volume_unit = None
         if status == "qualified":
             volume_estimate = 900 if priority == "high" else 450
+            volume_unit = "weekly deliveries"
 
         results.append(
             {
@@ -745,6 +747,7 @@ def _heuristic_qualification(
                 "score": score,
                 "priority": priority,
                 "volume_estimate": volume_estimate,
+                "volume_unit": volume_unit,
                 "notes": f"Heuristic qualification (keyword matches={hits})",
             }
         )
@@ -1343,7 +1346,7 @@ For each company, assess:
    - Pain points: do they have a problem your product could solve?
    - Buying signals: are they spending in this category? Active customers?
    - Urgency: seasonal demand, recent news suggesting immediate need
-3. Volume estimate: approximate revenue/size/usage
+3. Volume estimate: approximate revenue/size/usage with unit (e.g., "$500K/year", "800/week", "1000/monthly customers", "small/medium/large")
 4. Priority tier: high (strong signals), medium (some signals), low (weak signals)
 5. Status: qualified (clear fit), uncertain (maybe), not_relevant (no fit)
 
@@ -1358,7 +1361,8 @@ Return JSON:
       "status": "qualified|uncertain|not_relevant",
       "score": 0-100,
       "priority": "high|medium|low",
-      "volume_estimate": "estimate or null",
+      "volume_estimate": "numeric value or null",
+      "volume_unit": "unit like $/year, /week, /month, customers, or small/medium/large",
       "market_signals": ["list of positive signals found"],
       "pain_points": ["specific problems that make them a good prospect"],
       "notes": "concise assessment with key reasons"
@@ -1391,6 +1395,7 @@ Return JSON:
         for r in result.get("results", []):
             cid = r.get("company_id")
             volume_estimate = _to_float(r.get("volume_estimate"))
+            volume_unit = r.get("volume_unit") or None
             score = _clamp_score(r.get("score"))
             status = _normalize_qualification_status(r.get("status", "new"))
             priority = _normalize_priority(r.get("priority"), score)
@@ -1412,6 +1417,7 @@ Return JSON:
                 "priority_score": score,
                 "priority_tier": priority,
                 "volume_estimate": volume_estimate,
+                "volume_unit": volume_unit,
                 "notes": combined_notes,
             }
             update_company(cid, self.research_id, fields, root=self.root)
