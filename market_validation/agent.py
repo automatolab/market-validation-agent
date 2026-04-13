@@ -100,9 +100,6 @@ def _infer_market_profile(market: str, product: str | None) -> dict[str, Any]:
         blocked_tokens.update({"season", "episode", "joey chestnut", "chopped", "man v. food"})
 
     banned_name_tokens: set[str] = set()
-    # Keep these exclusions narrow to brisket-focused research only
-    if "brisket" in text:
-        banned_name_tokens.update({"korean", "hot pot", "pho", "lechon"})
 
     return {
         "category": category,
@@ -620,10 +617,8 @@ def _build_retry_queries(market: str, geography: str, product: str | None) -> li
     if category == "food":
         retries.extend(
             [
-                f"barbecue smokehouse {geography}",
-                f"texas bbq {geography}",
-                f"bbq catering {geography}",
-                f"{search_term} bbq {geography}",
+                f"{search_term} catering {geography}",
+                f"{search_term} restaurant {geography}",
             ]
         )
     elif category == "saas":
@@ -1195,13 +1190,18 @@ Return JSON:
         
         company_list = [{"id": str(c[0]), "name": str(c[1]), "notes": c[2], "phone": c[3], "website": c[4], "location": c[5]} for c in companies]
         
-        prompt = f"""Evaluate these companies for relevance to our market.
+        prompt = f"""Evaluate these companies as potential sales targets for our market research.
 
 For each company, assess:
-1. How relevant are they? (0-100)
-2. Estimated volume (if B2B) or size (if B2C)
-3. Priority tier: high/medium/low
-4. Status: qualified/uncertain/not_relevant
+1. Relevance score (0-100): how well do they match the target market?
+2. Market potential signals - look for:
+   - Growth indicators: expanding, hiring, new locations, investment/funding
+   - Pain points: do they have a problem your product could solve?
+   - Buying signals: are they spending in this category? Active customers?
+   - Urgency: seasonal demand, recent news suggesting immediate need
+3. Volume estimate: approximate revenue/size/usage
+4. Priority tier: high (strong signals), medium (some signals), low (weak signals)
+5. Status: qualified (clear fit), uncertain (maybe), not_relevant (no fit)
 
 Companies:
 {json.dumps(company_list, indent=2)}
@@ -1214,8 +1214,10 @@ Return JSON:
       "status": "qualified|uncertain|not_relevant",
       "score": 0-100,
       "priority": "high|medium|low",
-      "volume_estimate": "estimate",
-      "notes": "why qualified or not"
+      "volume_estimate": "estimate or null",
+      "market_signals": ["list of positive signals found"],
+      "pain_points": ["specific problems that make them a good prospect"],
+      "notes": "concise assessment with key reasons"
     }}
   ]
 }}"""
@@ -1235,12 +1237,25 @@ Return JSON:
             score = _clamp_score(r.get("score"))
             status = _normalize_qualification_status(r.get("status", "new"))
             priority = _normalize_priority(r.get("priority"), score)
+
+            # Combine notes with market_signals and pain_points for richer context
+            notes_parts = []
+            if r.get("notes"):
+                notes_parts.append(str(r["notes"]))
+            if r.get("market_signals"):
+                signals = r["market_signals"] if isinstance(r["market_signals"], list) else [r["market_signals"]]
+                notes_parts.append("Signals: " + "; ".join(str(s) for s in signals))
+            if r.get("pain_points"):
+                pains = r["pain_points"] if isinstance(r["pain_points"], list) else [r["pain_points"]]
+                notes_parts.append("Pain points: " + "; ".join(str(p) for p in pains))
+            combined_notes = " | ".join(notes_parts) if notes_parts else None
+
             fields = {
                 "status": status,
                 "priority_score": score,
                 "priority_tier": priority,
                 "volume_estimate": volume_estimate,
-                "notes": r.get("notes"),
+                "notes": combined_notes,
             }
             update_company(cid, self.research_id, fields, root=self.root)
             if status == "qualified":
@@ -1357,13 +1372,13 @@ Return JSON:
     def _search_website(self, company: str, location: str | None) -> dict:
         """Source 1: Official website."""
         loc = f" {location}" if location else ""
-        prompt = f"""Find info for "{company}"{loc}.
+        prompt = f"""Find the official website for "{company}"{loc} and extract contact information.
 
-Search for official website, then extract from it:
-- Contact page: email, phone
-- About page: owners, team
-- Menu: items and prices
-- Catering: info and contact
+Search for their official website, then extract:
+- Contact page: email addresses, phone numbers
+- About/Team page: owners, founders, key decision makers and their titles
+- Any contact forms, purchasing or sales contact info
+- Signs of company size, growth, or market activity
 
 Return JSON:
 {{
@@ -1371,8 +1386,7 @@ Return JSON:
   "website": "url",
   "emails": ["email@..."],
   "phones": ["555-123-4567"],
-  "owners": ["Name - Title"],
-  "catering_contact": "email or url",
+  "contacts": [{{"name": "Name", "title": "Title"}}],
   "notes": "What you found"
 }}"""
         return self._run(prompt, timeout=120) or {"found": False}
@@ -1469,14 +1483,15 @@ Return JSON:
     def _search_registry(self, company: str, location: str | None) -> dict:
         """Source 7: Business registry."""
         loc = f" {location}" if location else ""
-        prompt = f"""Find "{company}"{loc} in business registry.
+        prompt = f"""Find "{company}"{loc} in public business registries.
 
-Search: CA Secretary of State business lookup
+Search: state/national business registries, OpenCorporates, SEC EDGAR (if public), or local business registration databases.
 
 Return JSON:
 {{
   "found": true/false,
   "entity_type": "LLC/Corp/etc",
+  "state": "state of registration",
   "officers": ["Name - Title"],
   "notes": "Registry findings"
 }}"""

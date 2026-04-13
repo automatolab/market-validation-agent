@@ -115,6 +115,27 @@ python3 -m market_validation.dashboard --port 9000
 
 - `output/market-research.sqlite3` - Companies, call notes (contacts table removed)
 
+### Search Backends (`multi_search.py`)
+
+| Backend | Coverage | Notes |
+|---------|----------|-------|
+| Nominatim (OpenStreetMap) | Physical businesses worldwide | Best for local businesses with addresses |
+| DuckDuckGo (DDGS) | General web | Best general-purpose fallback |
+| Wikipedia | Reference only | Filtered out for local business queries |
+| BBB | US businesses | Good for verifying established companies |
+| OpenCorporates | Registered companies | Often blocked by captcha |
+| Manta | US business directory | Good geographic coverage for all US regions |
+
+### Qualify: Market Potential Signals
+
+The `qualify()` step explicitly prompts AI to detect:
+- **Growth indicators**: expansion, hiring, new locations, funding
+- **Pain points**: specific problems that make a company a good prospect
+- **Buying signals**: active spending in the category
+- **Urgency signals**: seasonal demand, recent news
+
+These are stored in company notes as: `Signals: ... | Pain points: ...`
+
 ### Verified Working (2024-04-10)
 
 - ✅ Simple 3-step pipeline (find/qualify/enrich)

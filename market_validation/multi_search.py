@@ -277,70 +277,39 @@ def _from_opencorporates(query: str, num_results: int = 8) -> list[SearchResult]
     return results
 
 
-def _from_city_directory(query: str, num_results: int = 8) -> list[SearchResult]:
-    """
-    Best-effort city directory templates.
-    Currently includes Visit San Jose search template.
-    """
+def _from_manta(query: str, num_results: int = 8) -> list[SearchResult]:
+    """Search Manta.com business directory — covers all US geographies."""
+    resp = _safe_get("https://www.manta.com/search", {"search[q]": query}, timeout=20)
+    if resp is None or resp.status_code != 200:
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
     results: list[SearchResult] = []
+    seen: set[str] = set()
 
-    templates = [
-        {
-            "name": "visit_san_jose",
-            "url": "https://www.sanjose.org/search",
-            "param": "keys",
-            "allow_path_tokens": ("/eat", "/food", "/dining", "/restaurant", "/places-to-eat", "/directory"),
-        }
-    ]
-
-    tokens = [
-        t
-        for t in re.split(r"\s+", query.lower())
-        if len(t) >= 3 and t not in {"san", "jose", "california", "restaurant", "restaurants", "near", "best"}
-    ]
-
-    for t in templates:
-        resp = _safe_get(t["url"], {t["param"]: query}, timeout=20)
-        if resp is None or resp.status_code != 200:
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "")
+        text = a.get_text(" ", strip=True)
+        if not text or len(text) < 3:
             continue
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        count = 0
-        for a in soup.find_all("a", href=True):
-            href = a.get("href", "")
-            text = a.get_text(" ", strip=True)
-            if not text or len(text) < 3:
-                continue
-            if href.startswith("/"):
-                absolute = urljoin(t["url"], href)
-            elif href.startswith("http"):
-                absolute = href
-            else:
-                continue
-            if "search" in absolute:
-                continue
-            lower_url = absolute.lower()
-            if not any(tok in lower_url for tok in t["allow_path_tokens"]):
-                continue
-            lower_text = text.lower()
-            if lower_text.strip() in {"restaurants", "dining", "food", "eat"}:
-                continue
-            if tokens and not any(tok in lower_text for tok in tokens):
-                continue
-
-            results.append(
-                SearchResult(
-                    title=text,
-                    url=absolute,
-                    snippet=f"City directory ({t['name']}) result",
-                    source="city_directory",
-                )
+        if "/c/" not in href and "/mt/" not in href:
+            continue
+        absolute = urljoin("https://www.manta.com", href) if href.startswith("/") else href
+        if absolute in seen:
+            continue
+        seen.add(absolute)
+        results.append(
+            SearchResult(
+                title=text,
+                url=absolute,
+                snippet=f"Manta business directory result for: {query}",
+                source="manta",
             )
-            count += 1
-            if count >= num_results:
-                break
+        )
+        if len(results) >= num_results:
+            break
 
-    return results[:num_results]
+    return results
 
 
 def search_all_backends(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -355,7 +324,7 @@ def search_all_backends(query: str, num_results: int = 10) -> list[dict[str, str
         _from_wikipedia,
         _from_bbb,
         _from_opencorporates,
-        _from_city_directory,
+        _from_manta,
     ]
 
     for backend in backends:
@@ -397,7 +366,7 @@ def quick_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
         batches.append(_from_wikipedia(query, max(4, num_results // 2)))
         batches.append(_from_bbb(query, max(4, num_results // 2)))
         batches.append(_from_opencorporates(query, max(3, num_results // 3)))
-        batches.append(_from_city_directory(query, max(3, num_results // 3)))
+        batches.append(_from_manta(query, max(3, num_results // 3)))
 
     deduped: dict[tuple[str, str], SearchResult] = {}
     for batch in batches:

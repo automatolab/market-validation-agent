@@ -17,29 +17,31 @@ def enrich_company_contact(
     website: str | None,
     location: str | None,
 ) -> dict[str, Any]:
-    if not website:
-        return {
-            "result": "skipped",
-            "reason": "No website provided",
-            "company_name": company_name,
-        }
+    website_hint = f"Start by visiting their website at {website}." if website else f'Start by searching for "{company_name}" official website.'
+    location_hint = f" They are located in {location}." if location else ""
 
-    prompt = f"""Find contact information for "{company_name}" at {website}.
-    
-If the website is provided, try to find:
-1. Contact email addresses (purchasing, sales, info@)
+    prompt = f"""Find contact information for "{company_name}".{location_hint}
+
+{website_hint}
+
+Find:
+1. Contact email addresses (purchasing, sales, info@, owner@)
 2. Phone numbers
 3. Contact form URLs
 4. Social media links (LinkedIn, Facebook)
-5. Key personnel names and titles (owner, chef, purchasing manager)
+5. Key personnel: owner, founder, decision maker, purchasing manager
 
-Search for: "{company_name} contact", "{company_name} owner", "{company_name} purchasing"
+Search queries to try:
+- "{company_name} contact email"
+- "{company_name} owner"
+- "{company_name} purchasing manager"
+- "{company_name} LinkedIn"
 
 Return JSON:
 {{
   "company_name": "{company_name}",
-  "website": "{website}",
-  "emails_found": ["email1@example.com", "email2@example.com"],
+  "website": "url if found",
+  "emails_found": ["email1@example.com"],
   "phones_found": ["555-123-4567"],
   "contacts": [
     {{"name": "John Smith", "title": "Owner", "source": "website"}},
@@ -140,7 +142,7 @@ def enrich_research_companies(
         location = company[4]
         current_email = company[5]
 
-        if not website and not location:
+        if not website and not location and not company_name:
             continue
 
         result = enrich_company_contact(company_name, website, location)
