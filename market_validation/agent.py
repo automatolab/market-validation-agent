@@ -62,7 +62,7 @@ def _infer_market_profile(market: str, product: str | None) -> dict[str, Any]:
         "saas": ("saas", "software", "api", "platform", "cloud", "automation"),
         "food": ("restaurant", "food", "bbq", "barbecue", "catering", "cafe", "coffee", "dining"),
         "healthcare": ("clinic", "medical", "health", "dental", "hospital", "pharma"),
-        "industrial": ("manufacturer", "manufacturing", "industrial", "factory", "supplier", "wholesale"),
+        "industrial": ("manufacturer", "manufacturing", "industrial", "factory", "supplier", "wholesale", "robot", "robotics", "drone", "automation", "aerospace", "defense", "semiconductor", "hardware"),
         "services": ("agency", "consulting", "consultant", "legal", "accounting", "services"),
     }
 
@@ -90,7 +90,7 @@ def _infer_market_profile(market: str, product: str | None) -> dict[str, Any]:
         "food": {"restaurant", "dining", "catering", "grill", "kitchen", "eatery", "bbq", "barbecue", "smokehouse"},
         "saas": {"saas", "software", "platform", "api", "cloud", "automation", "tool", "solution", "app"},
         "healthcare": {"clinic", "medical", "health", "hospital", "dental", "care", "provider"},
-        "industrial": {"manufacturer", "manufacturing", "industrial", "supplier", "factory", "distributor"},
+        "industrial": {"manufacturer", "manufacturing", "industrial", "supplier", "factory", "distributor", "robot", "robotics", "drone", "automation", "aerospace", "semiconductor", "hardware", "systems"},
         "services": {"services", "agency", "consulting", "consultant", "firm", "provider"},
         "general": {"company", "business", "provider", "services"},
     }
@@ -257,6 +257,48 @@ def _dedupe_companies(companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return list(deduped.values())
 
 
+_JUNK_NAME_PATTERNS = [
+    "search results for",
+    "better business bureau",
+    "privacy policy",
+    "cookie policy",
+    "terms of service",
+    "site map",
+    "yellow pages",
+    "yelp search",
+]
+
+_BLOCKED_URL_HOSTS = {
+    "bbb.org", "www.bbb.org",
+    "wikipedia.org", "www.wikipedia.org",
+    "opencorporates.com", "www.opencorporates.com",
+    "yellowpages.com", "www.yellowpages.com",
+    "yelp.com", "www.yelp.com",
+    "tripadvisor.com", "www.tripadvisor.com",
+    "google.com", "www.google.com",
+    "sanjose.org", "www.sanjose.org",
+}
+
+
+def _is_junk_company(c: dict[str, Any]) -> bool:
+    name = str(c.get("company_name", "")).lower().strip()
+    if not name or len(name) < 3:
+        return True
+    if any(pat in name for pat in _JUNK_NAME_PATTERNS):
+        return True
+    # Block if website is a known directory/aggregator host
+    url = str(c.get("website") or c.get("evidence_url") or "").strip()
+    if url:
+        try:
+            from urllib.parse import urlparse
+            host = (urlparse(url).netloc or "").lower().lstrip("www.")
+            if host in {h.lstrip("www.") for h in _BLOCKED_URL_HOSTS}:
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def _filter_relevant_companies(
     companies: list[dict[str, Any]],
     market: str,
@@ -269,6 +311,8 @@ def _filter_relevant_companies(
 
     filtered: list[dict[str, Any]] = []
     for c in companies:
+        if _is_junk_company(c):
+            continue
         company_name = str(c.get("company_name", "")).strip()
         hay = " ".join(
             str(c.get(field, "")).lower()
@@ -276,8 +320,6 @@ def _filter_relevant_companies(
         )
         low_name = company_name.lower()
         if banned_name_tokens and any(tok in low_name for tok in banned_name_tokens):
-            continue
-        if c.get("source") == "city_directory" and str(c.get("company_name", "")).strip().lower() == "restaurants":
             continue
         if any(bt in hay for bt in blocked_tokens):
             continue
@@ -449,8 +491,10 @@ def _primary_queries(market: str, geography: str, product: str | None) -> list[s
     elif category == "industrial":
         queries.extend(
             [
+                f"{search_term} companies {geography}",
                 f"{search_term} manufacturers {geography}",
-                f"{search_term} suppliers {geography}",
+                f"{search_term} startups {geography}",
+                f"{search_term} firms {geography}",
             ]
         )
     elif category == "services":
@@ -464,7 +508,7 @@ def _primary_queries(market: str, geography: str, product: str | None) -> list[s
     return _unique_in_order([q.strip() for q in queries if q.strip()])
 
 
-def _opencode_hints(market: str, geography: str, product: str | None) -> tuple[str, str]:
+def _ai_search_hints(market: str, geography: str, product: str | None) -> tuple[str, str]:
     search_term = product or market
     category = _infer_market_profile(market, product)["category"]
 
@@ -642,8 +686,9 @@ def _build_retry_queries(market: str, geography: str, product: str | None) -> li
         retries.extend(
             [
                 f"{search_term} manufacturer {geography}",
-                f"{search_term} industrial supplier {geography}",
-                f"{search_term} wholesale {geography}",
+                f"{search_term} company {geography}",
+                f"{search_term} startup {geography}",
+                f"{search_term} firm {geography}",
             ]
         )
     elif category == "services":
@@ -753,58 +798,105 @@ class Agent:
         
         self.last_result: dict[str, Any] = {}
     
-    def _run(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
-        """Run opencode and return JSON."""
+    @staticmethod
+    def _detect_agent() -> str:
+        """
+        Detect best available AI agent to use for web-search prompts.
+        Preference order: claude (Claude Code CLI) → opencode → none
+        """
+        import shutil
+        if shutil.which("claude"):
+            return "claude"
+        if shutil.which("opencode"):
+            return "opencode"
+        return "none"
+
+    @staticmethod
+    def _parse_json_from_text(text: str) -> dict[str, Any] | None:
+        """Extract the first valid JSON object or array from arbitrary text."""
+        # Strip fenced code blocks
+        if "```json" in text:
+            text = text.split("```json", 1)[1].split("```", 1)[0]
+        elif "```" in text:
+            text = text.split("```", 1)[1].split("```", 1)[0]
+        text = text.strip()
+
+        start = text.find("{")
+        arr_start = text.find("[")
+        if arr_start >= 0 and (start < 0 or arr_start < start):
+            start = arr_start
+
+        if start < 0:
+            return None
+
+        if text[start] == "{":
+            end = text.rfind("}")
+            if end > start:
+                try:
+                    return json.loads(text[start : end + 1])
+                except json.JSONDecodeError:
+                    pass
+        elif text[start] == "[":
+            end = text.rfind("]")
+            if end > start:
+                try:
+                    return {"companies": json.loads(text[start : end + 1])}
+                except json.JSONDecodeError:
+                    pass
+        return None
+
+    def _run_claude(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+        """Run via Claude Code CLI (`claude -p`)."""
+        try:
+            result = subprocess.run(
+                ["claude", "-p", prompt, "--output-format", "text"],
+                capture_output=True, text=True, timeout=timeout,
+                cwd=str(self.root),
+            )
+        except subprocess.TimeoutExpired:
+            return {"result": "error", "error": "Timeout (claude)"}
+        if result.returncode != 0:
+            return {"result": "error", "error": result.stderr or "claude failed"}
+        parsed = self._parse_json_from_text(result.stdout.strip())
+        return parsed if parsed else {"result": "error", "error": "No JSON (claude)"}
+
+    def _run_opencode(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+        """Run via opencode CLI."""
         try:
             result = subprocess.run(
                 ["opencode", "run", "--dangerously-skip-permissions", "--dir", str(self.root), prompt],
                 capture_output=True, text=True, timeout=timeout,
             )
         except subprocess.TimeoutExpired:
-            return {"result": "error", "error": "Timeout"}
-        
+            return {"result": "error", "error": "Timeout (opencode)"}
         if result.returncode != 0:
-            return {"result": "error", "error": result.stderr or "Failed"}
-        
-        text = result.stdout.strip()
-        
-        # Try to find JSON in various formats:
-        # 1. Standalone JSON object
-        # 2. JSON inside code blocks (```json ... ```)
-        # 3. JSON array inside code blocks
-        
-        # Extract fenced JSON block if present
-        if "```json" in text:
-            text = text.split("```json", 1)[1]
-            text = text.split("```", 1)[0]
-        elif "```" in text:
-            text = text.split("```", 1)[1]
-            text = text.split("```", 1)[0]
-        text = text.strip()
-        
-        # Find JSON object or array
-        start = text.find("{")
-        if start < 0:
-            start = text.find("[")
-        
-        if start >= 0:
-            # Find matching closing bracket
-            if text[start] == "{":
-                end = text.rfind("}")
-                if end > start:
-                    try:
-                        return json.loads(text[start:end+1])
-                    except json.JSONDecodeError:
-                        pass
-            elif text[start] == "[":
-                end = text.rfind("]")
-                if end > start:
-                    try:
-                        return {"companies": json.loads(text[start:end+1])}
-                    except json.JSONDecodeError:
-                        pass
-        
-        return {"result": "error", "error": "No JSON in output"}
+            return {"result": "error", "error": result.stderr or "opencode failed"}
+        parsed = self._parse_json_from_text(result.stdout.strip())
+        return parsed if parsed else {"result": "error", "error": "No JSON (opencode)"}
+
+    def _run(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+        """
+        Run a prompt via the best available AI agent.
+        Tries: claude (Claude Code CLI) → opencode → error.
+        Both CLIs can browse the web, so either can handle research queries.
+        """
+        agent = self._detect_agent()
+
+        if agent == "claude":
+            result = self._run_claude(prompt, timeout=timeout)
+            if result.get("result") != "error":
+                return result
+            # claude failed — try opencode as fallback
+            if self._detect_agent() != "none":
+                import shutil
+                if shutil.which("opencode"):
+                    return self._run_opencode(prompt, timeout=timeout)
+            return result
+
+        if agent == "opencode":
+            return self._run_opencode(prompt, timeout=timeout)
+
+        return {"result": "error", "error": "No AI agent available (install claude or opencode)"}
     
     def find(self, market: str, geography: str, product: str | None = None) -> dict[str, Any]:
         """
@@ -847,10 +939,23 @@ class Agent:
             if search_results:
                 sources_used.append("multi_search")
                 for r in search_results:
+                    snippet = r.get("snippet", "")
+                    # Nominatim stores "display_name | phone=+1..." in snippet — extract them
+                    extracted_phone = ""
+                    extracted_location = ""
+                    if r.get("source") == "nominatim" and snippet:
+                        parts = [p.strip() for p in snippet.split("|")]
+                        for part in parts:
+                            if part.startswith("phone="):
+                                extracted_phone = part[len("phone="):].strip()
+                            elif not part.startswith("cuisine=") and not extracted_location:
+                                extracted_location = part  # first part is display_name / address
                     all_companies.append({
                         "company_name": r.get("title", ""),
                         "website": r.get("url", ""),
-                        "description": r.get("snippet", ""),
+                        "location": extracted_location,
+                        "phone": extracted_phone,
+                        "description": snippet,
                         "evidence_url": r.get("url", ""),
                         "source": r.get("source", "search"),
                     })
@@ -1055,19 +1160,18 @@ class Agent:
                 }
             )
         
-        # If we have companies from direct search, use them
-        if unique_companies:
-            result = {
-                "result": "ok",
-                "companies": unique_companies,
-                "sources_used": _unique_in_order(sources_used),
-                "method": "direct_search" if sources_used else "opencode",
-                "source_health": source_health,
-            }
-        else:
-            # Fall back to opencode AI search
-            sources_used = ["opencode"]
-            opencode_sources, opencode_queries = _opencode_hints(market=market, geography=geography, product=product)
+        # Determine if quality is poor enough to warrant opencode supplementation.
+        # Trigger opencode when: no direct results OR final quality gate still failing
+        # with fewer than the minimum expected companies.
+        thresholds = _quality_gate_thresholds(market, product)
+        final_quality_passed, _ = _passes_quality_gate(unique_companies, market=market, product=product)
+        needs_opencode = (
+            not unique_companies
+            or (not final_quality_passed and len(unique_companies) < max(thresholds["min_total"] * 2, 10))
+        )
+
+        if needs_opencode:
+            ai_sources, ai_queries = _ai_search_hints(market=market, geography=geography, product=product)
             prompt = f"""Find businesses in {geography} that offer {search_term}.
 
 For each business, find:
@@ -1075,8 +1179,8 @@ For each business, find:
 - What they sell/offer related to {search_term}
 - How established they are (reviews, years in business)
 
-Search sources: {opencode_sources}
-Search queries: {opencode_queries}
+Search sources: {ai_sources}
+Search queries: {ai_queries}
 
 Return JSON:
 {{
@@ -1091,17 +1195,56 @@ Return JSON:
     }}
   ]
 }}"""
-            
-            result = self._run(prompt, timeout=180)
-            result["method"] = "opencode"
-            result["sources_used"] = sources_used
+
+            ai_agent = self._detect_agent()
+            ai_result = self._run(prompt, timeout=180)
             source_health.append(
                 {
-                    "stage": "opencode_fallback",
-                    "results": len(result.get("companies", [])) if isinstance(result, dict) else 0,
-                    "status": "ok" if isinstance(result, dict) and result.get("result") != "error" else "error",
+                    "stage": "ai_fallback" if not unique_companies else "ai_supplement",
+                    "agent": ai_agent,
+                    "results": len(ai_result.get("companies", [])) if isinstance(ai_result, dict) else 0,
+                    "status": "ok" if isinstance(ai_result, dict) and ai_result.get("result") != "error" else "error",
                 }
             )
+
+            ai_label = f"ai:{ai_agent}"
+            if isinstance(ai_result, dict) and ai_result.get("companies"):
+                sources_used.append(ai_label)
+                if unique_companies:
+                    # Merge AI results with what we already have
+                    merged = _dedupe_companies(
+                        _normalize_companies(unique_companies + ai_result["companies"])
+                    )
+                    unique_companies = _filter_relevant_companies(merged, market=market, product=product)
+                    result = {
+                        "result": "ok",
+                        "companies": unique_companies,
+                        "sources_used": _unique_in_order(sources_used),
+                        "method": f"direct_search+{ai_agent}",
+                        "source_health": source_health,
+                    }
+                else:
+                    ai_result["method"] = ai_agent
+                    ai_result["sources_used"] = sources_used
+                    result = ai_result
+            elif unique_companies:
+                result = {
+                    "result": "ok",
+                    "companies": unique_companies,
+                    "sources_used": _unique_in_order(sources_used),
+                    "method": "direct_search",
+                    "source_health": source_health,
+                }
+            else:
+                result = {"result": "error", "error": "No companies found"}
+        else:
+            result = {
+                "result": "ok",
+                "companies": unique_companies,
+                "sources_used": _unique_in_order(sources_used),
+                "method": "direct_search",
+                "source_health": source_health,
+            }
         
         if result.get("result") == "error":
             return result
@@ -1189,8 +1332,9 @@ Return JSON:
             return {"result": "ok", "qualified": 0, "message": "No companies to qualify"}
         
         company_list = [{"id": str(c[0]), "name": str(c[1]), "notes": c[2], "phone": c[3], "website": c[4], "location": c[5]} for c in companies]
-        
-        prompt = f"""Evaluate these companies as potential sales targets for our market research.
+
+        def _qualify_batch(batch: list[dict]) -> list[dict]:
+            prompt = f"""Evaluate these companies as potential sales targets for our market research.
 
 For each company, assess:
 1. Relevance score (0-100): how well do they match the target market?
@@ -1204,7 +1348,7 @@ For each company, assess:
 5. Status: qualified (clear fit), uncertain (maybe), not_relevant (no fit)
 
 Companies:
-{json.dumps(company_list, indent=2)}
+{json.dumps(batch, indent=2)}
 
 Return JSON:
 {{
@@ -1221,15 +1365,28 @@ Return JSON:
     }}
   ]
 }}"""
+            r = self._run(prompt, timeout=200)
+            return r.get("results") if isinstance(r, dict) and r.get("results") else []
 
-        result = self._run(prompt, timeout=180)
+        # Batch into groups of 8 to avoid opencode timeouts
+        BATCH_SIZE = 8
+        all_results: list[dict] = []
+        for i in range(0, len(company_list), BATCH_SIZE):
+            batch = company_list[i:i + BATCH_SIZE]
+            batch_results = _qualify_batch(batch)
+            if batch_results:
+                all_results.extend(batch_results)
+            else:
+                # Heuristic fallback for this batch only
+                batch_companies = companies[i:i + BATCH_SIZE]
+                all_results.extend(_heuristic_qualification(batch_companies, market=research_market, product=research_product))
 
-        if result.get("result") == "error" or not result.get("results"):
-            fallback = _heuristic_qualification(companies, market=research_market, product=research_product)
-            result = {"result": "ok", "results": fallback, "method": "heuristic"}
-        else:
-            result["method"] = "opencode"
-        
+        method = self._detect_agent() if all_results and not all(
+            "Heuristic" in str(r.get("notes", "")) for r in all_results
+        ) else "heuristic"
+
+        result = {"result": "ok", "results": all_results, "method": method}
+
         qualified = 0
         for r in result.get("results", []):
             cid = r.get("company_id")
@@ -1497,29 +1654,208 @@ Return JSON:
 }}"""
         return self._run(prompt, timeout=90) or {"found": False}
 
+    def enrich_all(self, statuses: list[str] | None = None) -> dict[str, Any]:
+        """
+        Run enrichment (phone, email, contact) on all companies matching the given statuses.
+        Default: qualified companies only.
+        Updates phone, email, location in DB for each company found.
+        """
+        if not self.research_id:
+            return {"result": "error", "error": "No research_id set"}
+
+        from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company
+
+        if statuses is None:
+            statuses = ["qualified"]
+
+        db = resolve_db_path(self.root)
+        placeholders = ",".join("?" * len(statuses))
+        with _connect(db) as conn:
+            _ensure_schema(conn)
+            conn.row_factory = None
+            companies = conn.execute(
+                f"""SELECT id, company_name, website, location, phone, email
+                    FROM companies
+                    WHERE research_id = ? AND status IN ({placeholders})
+                    ORDER BY priority_score DESC NULLS LAST""",
+                (self.research_id, *statuses),
+            ).fetchall()
+
+        if not companies:
+            return {"result": "ok", "enriched": 0, "message": "No companies to enrich"}
+
+        enriched = 0
+        emails_found = 0
+        phones_found = 0
+
+        for company in companies:
+            cid, company_name, website, location, current_phone, current_email = company
+
+            # Build a focused prompt to find phone + email + contacts
+            website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
+            location_hint = f" Located in {location}." if location else ""
+
+            prompt = f"""Find contact information for "{company_name}".{location_hint}
+{website_hint}
+
+Priority: find a direct phone number and a contact email address.
+Also look for: owner name, purchasing/sales manager name and title.
+
+Search:
+- Their official website contact/about page
+- Google: "{company_name} phone email contact"
+- LinkedIn: "{company_name}" company page
+- Business directories: Yelp, Google Maps, BBB, YellowPages
+
+Return JSON only:
+{{
+  "company_name": "{company_name}",
+  "phone": "best phone number found or null",
+  "email": "best contact email found or null",
+  "website": "official website URL or null",
+  "location": "full street address or null",
+  "contacts": [{{"name": "Name", "title": "Title"}}],
+  "notes": "brief summary of what was found"
+}}"""
+
+            result = self._run(prompt, timeout=150)
+
+            if result.get("result") == "error":
+                continue
+
+            updates: dict[str, Any] = {}
+            if result.get("phone") and not current_phone:
+                updates["phone"] = str(result["phone"])
+                phones_found += 1
+            if result.get("email") and not current_email:
+                updates["email"] = str(result["email"])
+                emails_found += 1
+            if result.get("website") and not website:
+                updates["website"] = str(result["website"])
+            if result.get("location") and not location:
+                updates["location"] = str(result["location"])
+
+            # Append contact findings to notes
+            if result.get("contacts") or result.get("notes"):
+                db_conn = _connect(db)
+                with db_conn:
+                    db_conn.row_factory = None
+                    current_notes = (db_conn.execute("SELECT notes FROM companies WHERE id=?", (cid,)).fetchone() or [None])[0] or ""
+                parts = []
+                if result.get("contacts"):
+                    contacts_str = "; ".join(
+                        f"{c.get('name','?')} ({c.get('title','?')})"
+                        for c in result["contacts"]
+                        if isinstance(c, dict)
+                    )
+                    if contacts_str:
+                        parts.append(f"Contacts: {contacts_str}")
+                if result.get("notes"):
+                    parts.append(str(result["notes"]))
+                if parts:
+                    suffix = " | " + " | ".join(parts)
+                    updates["notes"] = current_notes + suffix if current_notes else suffix
+
+            if updates:
+                update_company(str(cid), self.research_id, updates, root=self.root)
+                enriched += 1
+
+        return {
+            "result": "ok",
+            "enriched": enriched,
+            "emails_found": emails_found,
+            "phones_found": phones_found,
+            "total_companies": len(companies),
+        }
+
+
+    def research(
+        self,
+        market: str,
+        geography: str,
+        product: str | None = None,
+        enrich_statuses: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Full pipeline: find → qualify → enrich_all.
+
+        This is the default way to run a complete market research.
+        Automatically runs all three steps and returns a combined summary.
+
+        Args:
+            market:          Market category (e.g. "BBQ restaurants", "robotics")
+            geography:       Location (e.g. "San Jose, California")
+            product:         Specific product/service within the market (optional)
+            enrich_statuses: Which company statuses to enrich. Default: ["qualified", "new"]
+        """
+        if enrich_statuses is None:
+            enrich_statuses = ["qualified", "new"]
+
+        print(f"[research] Step 1/3: find — {product or market} in {geography}")
+        find_result = self.find(market, geography, product)
+        companies_found = len(find_result.get("companies", []))
+        print(f"[research] → {companies_found} companies found via {find_result.get('method')}")
+
+        print(f"[research] Step 2/3: qualify")
+        qualify_result = self.qualify()
+        print(f"[research] → {qualify_result.get('qualified')}/{qualify_result.get('assessed')} qualified via {qualify_result.get('method')}")
+
+        print(f"[research] Step 3/3: enrich_all (statuses={enrich_statuses})")
+        enrich_result = self.enrich_all(statuses=enrich_statuses)
+        print(f"[research] → enriched={enrich_result.get('enriched')}/{enrich_result.get('total_companies')} | phones={enrich_result.get('phones_found')} emails={enrich_result.get('emails_found')}")
+
+        return {
+            "result": "ok",
+            "research_id": self.research_id,
+            "find": find_result,
+            "qualify": qualify_result,
+            "enrich": enrich_result,
+            "summary": {
+                "companies_found": companies_found,
+                "qualified": qualify_result.get("qualified", 0),
+                "phones_found": enrich_result.get("phones_found", 0),
+                "emails_found": enrich_result.get("emails_found", 0),
+            },
+        }
+
 
 def main():
     """CLI entry point."""
     import argparse
     parser = argparse.ArgumentParser(description="Market Research Agent")
-    parser.add_argument("command", choices=["find", "qualify", "enrich"])
+    parser.add_argument("command", choices=["research", "find", "qualify", "enrich", "enrich-all"])
     parser.add_argument("--research-id", help="Research ID")
     parser.add_argument("--market", help="Market/product")
     parser.add_argument("--geography", help="Geography")
-    parser.add_argument("--company", help="Company name for enrich")
-    
+    parser.add_argument("--product", help="Specific product (optional)")
+    parser.add_argument("--company", help="Company name for single enrich")
+
     args = parser.parse_args()
     agent = Agent(research_id=args.research_id)
-    
+
     import json
-    if args.command == "find":
-        result = agent.find(args.market, args.geography)
+    if args.command == "research":
+        if not args.market or not args.geography:
+            parser.error("research requires --market and --geography")
+        from market_validation.research import create_research
+        rid = create_research(
+            name=f"{args.product or args.market} in {args.geography}",
+            market=args.market,
+            product=args.product,
+            geography=args.geography,
+        )["research_id"]
+        agent.research_id = rid
+        result = agent.research(args.market, args.geography, args.product)
+    elif args.command == "find":
+        result = agent.find(args.market, args.geography, args.product)
     elif args.command == "qualify":
         result = agent.qualify()
     elif args.command == "enrich":
         result = agent.enrich(args.company)
-    
-    print(json.dumps(result, indent=2))
+    elif args.command == "enrich-all":
+        result = agent.enrich_all()
+
+    print(json.dumps(result, indent=2, default=str))
 
 
 if __name__ == "__main__":

@@ -63,7 +63,8 @@ def _load_data() -> dict[str, Any]:
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'qualified' THEN 1 ELSE 0 END) as qualified,
                     SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted,
-                    SUM(CASE WHEN email IS NOT NULL AND TRIM(email) <> '' THEN 1 ELSE 0 END) as with_email
+                    SUM(CASE WHEN email IS NOT NULL AND TRIM(email) <> '' THEN 1 ELSE 0 END) as with_email,
+                    SUM(CASE WHEN phone IS NOT NULL AND TRIM(phone) <> '' THEN 1 ELSE 0 END) as with_phone
                 FROM companies
                 WHERE research_id = ?
                 """,
@@ -83,6 +84,7 @@ def _load_data() -> dict[str, Any]:
                     "qualified": stats[1] or 0,
                     "contacted": stats[2] or 0,
                     "with_email": stats[3] or 0,
+                    "with_phone": stats[4] or 0,
                 }
             )
 
@@ -181,7 +183,7 @@ def _html_template(interactive: bool) -> str:
     .header {{ display: flex; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }}
     .title h1 {{ margin: 0; font-size: clamp(22px, 3vw, 34px); }}
     .title p {{ margin: 6px 0 0; color: var(--muted); }}
-    .kpis {{ display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; width: min(520px, 100%); }}
+    .kpis {{ display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; width: min(760px, 100%); }}
     .kpi {{ background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); }}
     .kpi .v {{ font-size: 24px; font-weight: 700; }}
     .kpi .l {{ font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }}
@@ -240,11 +242,12 @@ def _html_template(interactive: bool) -> str:
       <div class='kpis'>
         <div class='kpi'><div class='v'>__RESEARCH_COUNT__</div><div class='l'>Research Projects</div></div>
         <div class='kpi'><div class='v'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
+        <div class='kpi'><div class='v'>__QUALIFIED_COUNT__</div><div class='l'>Qualified</div></div>
+        <div class='kpi'><div class='v'>__PHONE_COUNT__</div><div class='l'>With Phone</div></div>
+        <div class='kpi'><div class='v'>__EMAIL_COUNT__</div><div class='l'>With Email</div></div>
         <div class='kpi'><div class='v'>__PENDING_COUNT__</div><div class='l'>Pending Emails</div></div>
-        <div class='kpi'><div class='v'>__SENT_COUNT__</div><div class='l'>Sent Emails</div></div>
-        <div class='kpi'><div class='v'>__OPENED_COUNT__</div><div class='l'>Opened</div></div>
+        <div class='kpi'><div class='v'>__SENT_COUNT__</div><div class='l'>Sent</div></div>
         <div class='kpi'><div class='v'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
-        <div class='kpi'><div class='v'>__BOUNCED_COUNT__</div><div class='l'>Bounced</div></div>
       </div>
     </div>
     <section class='panel'>
@@ -385,11 +388,13 @@ def _html_template(interactive: bool) -> str:
       let body = '';
       for (const c of rows) {{
         const isEditing = editingCompanyId === c.id;
-        const email = c.email ? `<a href="mailto:${{esc(c.email)}}">${{esc(c.email)}}</a>` : '-';
+        const email = c.email ? `<a href="mailto:${{esc(c.email)}}">${{esc(c.email)}}</a>` : '<span class="muted">-</span>';
         const phoneHref = c.phone ? String(c.phone).replace(/\\s+/g, '') : '';
-        const phone = c.phone ? `<a href="tel:${{esc(phoneHref)}}">${{esc(c.phone)}}</a>` : '-';
+        const phone = c.phone ? `<a href="tel:${{esc(phoneHref)}}">${{esc(c.phone)}}</a>` : '<span class="muted">-</span>';
+        const websiteHost = c.website ? (() => {{ try {{ return new URL(c.website).hostname.replace(/^www\\./, ''); }} catch(e) {{ return c.website; }} }})() : '';
+        const websiteCell = c.website ? `<a href="${{esc(c.website)}}" target="_blank" rel="noopener" title="${{esc(c.website)}}">${{esc(websiteHost)}}</a>` : '<span class="muted">-</span>';
         const volume = c.volume_estimate ? `${{esc(c.volume_estimate)}} ${{esc(c.volume_unit || '')}}` : '-';
-        const notes = esc(c.notes || '').slice(0, 120);
+        const notes = esc(c.notes || '').slice(0, 160);
 
         if (isEditing) {{
           const pri = (c.priority_tier || 'low').toLowerCase();
@@ -397,6 +402,7 @@ def _html_template(interactive: bool) -> str:
           body += `
             <tr class="editing-row">
               <td><input class="cell-input" id="edit-company_name-${{esc(c.id)}}" value="${{esc(c.company_name || '')}}" /></td>
+              <td><input class="cell-input" id="edit-website-${{esc(c.id)}}" value="${{esc(c.website || '')}}" /></td>
               <td><input class="cell-input" id="edit-location-${{esc(c.id)}}" value="${{esc(c.location || '')}}" /></td>
               <td><input class="cell-input" id="edit-phone-${{esc(c.id)}}" value="${{esc(c.phone || '')}}" /></td>
               <td><input class="cell-input" id="edit-email-${{esc(c.id)}}" value="${{esc(c.email || '')}}" /></td>
@@ -435,19 +441,17 @@ def _html_template(interactive: bool) -> str:
 
         body += `
           <tr>
-            <td><strong>${{esc(c.company_name)}}</strong><div class="muted">${{esc(c.research_name || '')}}</div></td>
-            <td>${{esc(c.location || '-')}}</td>
-            <td>${{phone}}</td>
-            <td>${{email}}</td>
+            <td><strong>${{esc(c.company_name)}}</strong><div class="muted" style="font-size:12px">${{esc(c.research_name || '')}}</div></td>
+            <td style="font-size:13px">${{websiteCell}}</td>
+            <td style="font-size:13px">${{esc(c.location || '')}}</td>
+            <td style="white-space:nowrap">${{phone}}</td>
+            <td style="font-size:13px">${{email}}</td>
             <td>${{volume}}</td>
             <td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
             <td>${{esc(c.status || '-')}}</td>
-            <td>
-              ${{c.last_source_health ? `<a href="#" onclick="viewSourceHealth('${{esc(c.id)}}'); return false;">View</a>` : '<span class="muted">-</span>'}}
-            </td>
-            <td class="muted">${{notes || '-'}}</td>
-            <td>
-              <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit Row</a>
+            <td class="muted" style="font-size:13px;max-width:280px">${{notes || '-'}}</td>
+            <td style="white-space:nowrap">
+              <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit</a>
               <a class="action-link" href="#" onclick="deleteCompany('${{esc(c.id)}}'); return false;">Delete</a>
             </td>
           </tr>
@@ -459,13 +463,13 @@ def _html_template(interactive: bool) -> str:
           <thead>
             <tr>
               <th>Company</th>
+              <th>Website</th>
               <th>Location</th>
               <th>Phone</th>
               <th>Email</th>
               <th>Volume</th>
               <th>Priority</th>
               <th>Status</th>
-              <th>Sources</th>
               <th>Notes</th>
               <th>Actions</th>
             </tr>
@@ -602,6 +606,7 @@ def _html_template(interactive: bool) -> str:
 
       const fields = {{
         company_name: getVal('company_name').trim(),
+        website: getVal('website'),
         location: getVal('location'),
         phone: getVal('phone'),
         email: getVal('email'),
@@ -627,7 +632,7 @@ def _html_template(interactive: bool) -> str:
         return refreshDataFromServer();
       }}
 
-      const cmd = 'python3 -c "from market_validation.research import update_company; print(update_company(\\'' + escSingle(c.id) + '\\',\\'' + escSingle(c.research_id) + '\\', {{\\'company_name\\':\\'' + escSingle(fields.company_name) + '\\',\\'location\\':\\'' + escSingle(fields.location) + '\\',\\'phone\\':\\'' + escSingle(fields.phone) + '\\',\\'email\\':\\'' + escSingle(fields.email) + '\\',\\'status\\':\\'' + escSingle(fields.status) + '\\',\\'priority_tier\\':\\'' + escSingle(fields.priority_tier) + '\\',\\'notes\\':\\'' + escSingle(fields.notes) + '\\',\\'volume_estimate\\':\\'' + escSingle(fields.volume_estimate) + '\\',\\'volume_unit\\':\\'' + escSingle(fields.volume_unit) + '\\'}}))"';
+      const cmd = 'python3 -c "from market_validation.research import update_company; print(update_company(\\'' + escSingle(c.id) + '\\',\\'' + escSingle(c.research_id) + '\\', {{\\'company_name\\':\\'' + escSingle(fields.company_name) + '\\',\\'website\\':\\'' + escSingle(fields.website) + '\\',\\'location\\':\\'' + escSingle(fields.location) + '\\',\\'phone\\':\\'' + escSingle(fields.phone) + '\\',\\'email\\':\\'' + escSingle(fields.email) + '\\',\\'status\\':\\'' + escSingle(fields.status) + '\\',\\'priority_tier\\':\\'' + escSingle(fields.priority_tier) + '\\',\\'notes\\':\\'' + escSingle(fields.notes) + '\\',\\'volume_estimate\\':\\'' + escSingle(fields.volume_estimate) + '\\',\\'volume_unit\\':\\'' + escSingle(fields.volume_unit) + '\\'}}))"';
       runCommandPrompt(cmd);
       editingCompanyId = null;
       renderCompanies();
@@ -759,9 +764,10 @@ def generate_html(
 
     pending_count = sum(1 for e in emails if e.get("status") == "pending")
     sent_count = sum(1 for e in emails if e.get("status") in ("sent", "opened", "replied", "bounced"))
-    opened_count = sum(1 for e in emails if e.get("opened_at"))
     replied_count = sum(1 for e in emails if e.get("replied_at"))
-    bounced_count = sum(1 for e in emails if e.get("bounced_at"))
+    qualified_count = sum(1 for c in companies if c.get("status") == "qualified")
+    phone_count = sum(1 for c in companies if c.get("phone"))
+    email_count = sum(1 for c in companies if c.get("email"))
 
     payload_json = json.dumps(data, ensure_ascii=True).replace("</", "<\\/")
     html = _html_template(interactive=interactive)
@@ -769,11 +775,12 @@ def generate_html(
         html.replace("__GENERATED_AT__", _escape_html(_iso_now()))
         .replace("__RESEARCH_COUNT__", str(len(researches)))
         .replace("__COMPANY_COUNT__", str(len(companies)))
+        .replace("__QUALIFIED_COUNT__", str(qualified_count))
+        .replace("__PHONE_COUNT__", str(phone_count))
+        .replace("__EMAIL_COUNT__", str(email_count))
         .replace("__PENDING_COUNT__", str(pending_count))
         .replace("__SENT_COUNT__", str(sent_count))
-        .replace("__OPENED_COUNT__", str(opened_count))
         .replace("__REPLIED_COUNT__", str(replied_count))
-        .replace("__BOUNCED_COUNT__", str(bounced_count))
         .replace("__RESEARCH_OPTIONS__", _render_research_options(researches))
         .replace("__PAYLOAD_JSON__", payload_json)
         .replace("__INTERACTIVE__", "true" if interactive else "false")

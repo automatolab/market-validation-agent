@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +9,34 @@ from typing import Any
 def _iso_now() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _run_ai_prompt(prompt: str, timeout: int = 120, cwd: str = ".") -> str:
+    """
+    Run an AI prompt via the best available agent CLI.
+    Tries: claude (Claude Code) → opencode → raises RuntimeError.
+    Returns raw stdout text.
+    """
+    import shutil
+    import subprocess as _sp
+
+    if shutil.which("claude"):
+        result = _sp.run(
+            ["claude", "-p", prompt, "--output-format", "text"],
+            capture_output=True, text=True, timeout=timeout, cwd=cwd,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+
+    if shutil.which("opencode"):
+        result = _sp.run(
+            ["opencode", "run", "--dangerously-skip-permissions", "--dir", cwd, prompt],
+            capture_output=True, text=True, timeout=timeout,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+    raise RuntimeError("No AI agent available (install claude or opencode)")
 
 
 def enrich_company_contact(
@@ -54,24 +81,8 @@ Return JSON:
 Only include fields where information was actually found. Return empty arrays/objects if nothing found."""
 
     try:
-        result = subprocess.run(
-            [
-                "opencode", "run", "--dangerously-skip-permissions", "--dir", ".",
-                prompt,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        output = _run_ai_prompt(prompt, timeout=120)
 
-        if result.returncode != 0:
-            return {
-                "result": "failed",
-                "error": result.stderr,
-                "company_name": company_name,
-            }
-
-        output = result.stdout.strip()
         json_start = output.find("{")
         if json_start < 0:
             return {
@@ -83,7 +94,7 @@ Only include fields where information was actually found. Return empty arrays/ob
         json_text = output[json_start:]
         json_end = json_text.rfind("}")
         if json_end > 0:
-            json_text = json_text[:json_end+1]
+            json_text = json_text[:json_end + 1]
 
         data = json.loads(json_text)
         return {
@@ -92,12 +103,6 @@ Only include fields where information was actually found. Return empty arrays/ob
             **data,
         }
 
-    except subprocess.TimeoutExpired:
-        return {
-            "result": "failed",
-            "error": "Timeout",
-            "company_name": company_name,
-        }
     except Exception as e:
         return {
             "result": "failed",

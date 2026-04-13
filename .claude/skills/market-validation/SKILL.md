@@ -11,7 +11,12 @@ Specialized instructions for Claude Code when working with the Market Validation
 from market_validation.agent import Agent
 from market_validation.research import create_research
 
+# Option 1: One-call pipeline (find → qualify → enrich_all)
 rid = create_research(name='...', market='...', product='...', geography='...')['research_id']
+agent = Agent(research_id=rid)
+result = agent.research('<market>', '<geography>', '<product>')  # Full pipeline
+
+# Option 2: Manual 3-step
 agent = Agent(research_id=rid)
 agent.find('<market>', '<geography>', '<product>')  # Discover companies
 agent.qualify()                                      # Score and rank
@@ -99,12 +104,24 @@ manager.add_call_note(company_id='<id>', author='<name>', note='<notes>', next_a
 python3 -m market_validation.dashboard
 ```
 
+### CLI Usage
+```bash
+# One-call pipeline (recommended default)
+python -m market_validation.agent research --market "BBQ restaurants" --geography "San Jose, California" --product "smokers"
+
+# Manual steps
+python -m market_validation.agent find --market "BBQ restaurants" --geography "San Jose"
+python -m market_validation.agent qualify --research-id <id>
+python -m market_validation.agent enrich-all --research-id <id>
+```
+
 ## Tips
 
-1. Use `Agent` class for the 3-step pipeline
-2. Companies are deduplicated by normalized name
-3. Email goes to company, not individual contacts
-4. Dashboard server mode supports inline row editing
+1. Use `Agent.research()` for the full one-call pipeline (default)
+2. Use manual 3-step if you need more control
+3. Companies are deduplicated by normalized name
+4. Email goes to company, not individual contacts
+5. Dashboard server mode supports inline row editing
 
 ## File Locations
 

@@ -69,7 +69,9 @@ def _detect_market_type(market: str, target_product: str) -> str:
     ]
     tech_keywords = [
         "software", "saas", "tech", "app", "platform", "cloud", "ai",
-        "ml", "data", "cyber", "security", "fintech", "healthtech"
+        "ml", "data", "cyber", "security", "fintech", "healthtech",
+        "robot", "robotics", "drone", "automation", "aerospace", "semiconductor",
+        "hardware", "embedded", "iot", "sensor", "vision", "lidar"
     ]
     healthcare_keywords = [
         "hospital", "clinic", "medical", "health", "doctor", "dental",

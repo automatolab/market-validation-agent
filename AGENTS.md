@@ -31,7 +31,29 @@ This project has a graphify knowledge graph at graphify-out/.
 | `dashboard_export.py` | (functions) | Reports, call sheets |
 | `email_sender.py` | (functions) | Email queue (prep/approve/delete) |
 
-### Usage (Simple 3-Step Pipeline)
+### Usage (One-Call Pipeline)
+
+```python
+from market_validation.agent import Agent
+from market_validation.research import create_research
+
+# Create research and run full pipeline in one call
+rid = create_research(
+    name="My Market Research",
+    market="<market_or_product>",
+    product="<specific_product>",
+    geography="<location>"
+)["research_id"]
+
+agent = Agent(research_id=rid)
+result = agent.research("<market>", "<geography>", "<product>")
+# Returns: {find_result, qualify_result, enrich_result, summary}
+
+# Or use CLI:
+# python -m market_validation.agent research --market "BBQ restaurants" --geography "San Jose, California" --product "smokers"
+```
+
+### Usage (Manual 3-Step)
 
 ```python
 from market_validation.agent import Agent
@@ -83,9 +105,11 @@ print(export_markdown_call_sheet(status="qualified"))
 
 | Method | Purpose |
 |--------|---------|
+| `research(market, geography, product?)` | **Full pipeline** - find → qualify → enrich_all (one call) |
 | `find(market, geography, product?)` | Discover companies via web search |
 | `qualify()` | AI assessment + volume estimation |
 | `enrich(company_name, location?)` | Find contacts via 8 sources |
+| `enrich_all(statuses?)` | Enrich all companies matching status (default: qualified/new) |
 
 ### Dashboard
 
@@ -138,6 +162,7 @@ These are stored in company notes as: `Signals: ... | Pain points: ...`
 
 ### Verified Working (2024-04-10)
 
+- ✅ One-call pipeline (research() - find → qualify → enrich_all)
 - ✅ Simple 3-step pipeline (find/qualify/enrich)
 - ✅ 8-source contact enrichment
 - ✅ Duplicate prevention (companies)
