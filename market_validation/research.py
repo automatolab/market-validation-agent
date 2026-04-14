@@ -99,6 +99,39 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(status);
         CREATE INDEX IF NOT EXISTS idx_companies_priority ON companies(priority_score DESC);
         CREATE INDEX IF NOT EXISTS idx_call_notes_company ON call_notes(company_id);
+
+        CREATE TABLE IF NOT EXISTS market_validations (
+            id TEXT PRIMARY KEY,
+            research_id TEXT NOT NULL,
+            market TEXT NOT NULL,
+            geography TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            -- Market Sizing
+            tam_low REAL, tam_high REAL, tam_currency TEXT DEFAULT 'USD',
+            tam_sources TEXT, tam_confidence INTEGER,
+            sam_low REAL, sam_high REAL, sam_sources TEXT, sam_confidence INTEGER,
+            som_low REAL, som_high REAL, som_sources TEXT, som_confidence INTEGER,
+            -- Demand
+            demand_score REAL, demand_trend TEXT, demand_seasonality TEXT,
+            demand_pain_points TEXT, demand_sources TEXT,
+            -- Competition
+            competitive_intensity REAL, competitor_count INTEGER,
+            market_concentration TEXT, direct_competitors TEXT,
+            indirect_competitors TEXT, funding_signals TEXT,
+            -- Signals
+            job_posting_volume TEXT, news_sentiment TEXT,
+            regulatory_risks TEXT, technology_maturity TEXT,
+            signals_data TEXT,
+            -- Scorecard
+            market_attractiveness REAL, competitive_score REAL,
+            demand_validation REAL, risk_score REAL,
+            overall_score REAL, verdict TEXT, verdict_reasoning TEXT,
+            -- Meta
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            FOREIGN KEY (research_id) REFERENCES researches(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_validations_research ON market_validations(research_id);
     """)
     # Ensure older databases get the new column for source health
     try:
@@ -491,6 +524,157 @@ def search_companies(
         "result": "ok",
         "count": len(rows),
         "companies": [dict(r) for r in rows],
+    }
+
+
+def create_validation(
+    research_id: str,
+    market: str,
+    geography: str | None = None,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    validation_id = str(uuid.uuid4())[:8]
+    now = _iso_now()
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        conn.execute(
+            """INSERT INTO market_validations (id, research_id, market, geography, status, created_at, updated_at)
+               VALUES (?, ?, ?, ?, 'pending', ?, ?)""",
+            (validation_id, research_id, market, geography, now, now),
+        )
+
+    return {
+        "result": "ok",
+        "validation_id": validation_id,
+        "research_id": research_id,
+        "created_at": now,
+    }
+
+
+def get_validation(
+    validation_id: str,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM market_validations WHERE id = ?", (validation_id,)
+        ).fetchone()
+
+    if not row:
+        return {"result": "not_found", "validation_id": validation_id}
+
+    data = dict(row)
+    # Parse JSON fields
+    for key in ("tam_sources", "sam_sources", "som_sources", "demand_seasonality",
+                "demand_pain_points", "demand_sources", "direct_competitors",
+                "indirect_competitors", "funding_signals", "regulatory_risks", "signals_data"):
+        if data.get(key):
+            try:
+                data[key] = json.loads(data[key])
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return {"result": "ok", "validation": data}
+
+
+def get_validation_by_research(
+    research_id: str,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM market_validations WHERE research_id = ? ORDER BY created_at DESC LIMIT 1",
+            (research_id,),
+        ).fetchone()
+
+    if not row:
+        return {"result": "not_found", "research_id": research_id}
+
+    data = dict(row)
+    for key in ("tam_sources", "sam_sources", "som_sources", "demand_seasonality",
+                "demand_pain_points", "demand_sources", "direct_competitors",
+                "indirect_competitors", "funding_signals", "regulatory_risks", "signals_data"):
+        if data.get(key):
+            try:
+                data[key] = json.loads(data[key])
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return {"result": "ok", "validation": data}
+
+
+def update_validation(
+    validation_id: str,
+    fields: dict[str, Any],
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    now = _iso_now()
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+
+    valid_fields = {
+        "status", "market", "geography",
+        "tam_low", "tam_high", "tam_currency", "tam_sources", "tam_confidence",
+        "sam_low", "sam_high", "sam_sources", "sam_confidence",
+        "som_low", "som_high", "som_sources", "som_confidence",
+        "demand_score", "demand_trend", "demand_seasonality",
+        "demand_pain_points", "demand_sources",
+        "competitive_intensity", "competitor_count", "market_concentration",
+        "direct_competitors", "indirect_competitors", "funding_signals",
+        "job_posting_volume", "news_sentiment", "regulatory_risks",
+        "technology_maturity", "signals_data",
+        "market_attractiveness", "competitive_score", "demand_validation",
+        "risk_score", "overall_score", "verdict", "verdict_reasoning",
+    }
+
+    json_fields = {
+        "tam_sources", "sam_sources", "som_sources", "demand_seasonality",
+        "demand_pain_points", "demand_sources", "direct_competitors",
+        "indirect_competitors", "funding_signals", "regulatory_risks", "signals_data",
+    }
+
+    updates = []
+    values = []
+    for key, value in fields.items():
+        if key in valid_fields:
+            if key in json_fields and isinstance(value, (list, dict)):
+                value = json.dumps(value)
+            updates.append(f"{key} = ?")
+            values.append(value)
+
+    if not updates:
+        return {"result": "ok", "validation_id": validation_id, "updated": False}
+
+    updates.append("updated_at = ?")
+    values.append(now)
+    values.append(validation_id)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        cursor = conn.execute(
+            f"UPDATE market_validations SET {', '.join(updates)} WHERE id = ?",
+            values,
+        )
+
+    return {
+        "result": "ok",
+        "validation_id": validation_id,
+        "updated": cursor.rowcount > 0,
     }
 
 

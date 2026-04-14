@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,57 +14,16 @@ def get_google_trends_data(
     keyword: str,
     geography: str = "US",
     timeframe: str = "today 3-m",
+    retries: int = 3,
 ) -> dict[str, Any]:
+    """
+    Fetch Google Trends data for a keyword with retry/backoff for rate limits.
+
+    Retries up to `retries` times with exponential backoff (5s, 15s, 45s).
+    Returns a result dict regardless — callers should check for "error" or "skipped".
+    """
     try:
         from pytrends.request import TrendReq
-
-        pytrends = TrendReq(hl="en-US", tz=360)
-        pytrends.build_payload(
-            kw_list=[keyword],
-            cat=0,
-            timeframe=timeframe,
-            geo=geography,
-            gprop="",
-        )
-
-        interest_over_time = pytrends.interest_over_time()
-        interest_by_region = pytrends.interest_by_region()
-        related_queries = pytrends.related_queries()
-
-        result = {
-            "result": "ok",
-            "keyword": keyword,
-            "geography": geography,
-            "timeframe": timeframe,
-            "fetched_at": _iso_now(),
-        }
-
-        if not interest_over_time.empty:
-            data = interest_over_time[keyword].tolist()
-            result["interest_values"] = data
-            result["interest_avg"] = round(sum(data) / len(data), 2) if data else 0
-            result["interest_peak"] = max(data) if data else 0
-            result["interest_trend"] = "rising" if len(data) >= 2 and data[-1] > data[0] else "falling"
-
-        if not interest_by_region.empty:
-            region_data = interest_by_region[keyword].sort_values(ascending=False).head(10)
-            result["top_regions"] = [
-                {"region": str(idx), "interest": int(val)}
-                for idx, val in region_data.items()
-                if val > 0
-            ]
-
-        if related_queries and keyword in related_queries:
-            queries = related_queries[keyword]
-            if queries and queries.get("top") is not None:
-                result["related_queries"] = [
-                    {"query": str(row["query"]), "value": int(row["value"])}
-                    for _, row in queries["top"].iterrows()
-                    if row.get("value") is not None and str(row.get("value")).replace("+", "").isdigit()
-                ][:10]
-
-        return result
-
     except ImportError:
         return {
             "result": "ok",
@@ -73,14 +33,77 @@ def get_google_trends_data(
             "skipped": True,
             "reason": "pytrends not installed. Run: pip install pytrends",
         }
-    except Exception as e:
-        return {
-            "result": "ok",
-            "keyword": keyword,
-            "geography": geography,
-            "fetched_at": _iso_now(),
-            "error": str(e),
-        }
+
+    last_err: str = ""
+    for attempt in range(retries):
+        try:
+            pytrends = TrendReq(hl="en-US", tz=360, timeout=(10, 30))
+            pytrends.build_payload(
+                kw_list=[keyword],
+                cat=0,
+                timeframe=timeframe,
+                geo=geography,
+                gprop="",
+            )
+
+            interest_over_time = pytrends.interest_over_time()
+            interest_by_region = pytrends.interest_by_region()
+            related_queries = pytrends.related_queries()
+
+            result: dict[str, Any] = {
+                "result": "ok",
+                "keyword": keyword,
+                "geography": geography,
+                "timeframe": timeframe,
+                "fetched_at": _iso_now(),
+            }
+
+            if not interest_over_time.empty:
+                data = interest_over_time[keyword].tolist()
+                result["interest_values"] = data
+                result["interest_avg"] = round(sum(data) / len(data), 2) if data else 0
+                result["interest_peak"] = max(data) if data else 0
+                result["interest_trend"] = "rising" if len(data) >= 2 and data[-1] > data[0] else "falling"
+
+            if not interest_by_region.empty:
+                region_data = interest_by_region[keyword].sort_values(ascending=False).head(10)
+                result["top_regions"] = [
+                    {"region": str(idx), "interest": int(val)}
+                    for idx, val in region_data.items()
+                    if val > 0
+                ]
+
+            if related_queries and keyword in related_queries:
+                queries = related_queries[keyword]
+                if queries and queries.get("top") is not None:
+                    result["related_queries"] = [
+                        {"query": str(row["query"]), "value": int(row["value"])}
+                        for _, row in queries["top"].iterrows()
+                        if row.get("value") is not None and str(row.get("value")).replace("+", "").isdigit()
+                    ][:10]
+
+            return result
+
+        except Exception as e:
+            last_err = str(e)
+            is_rate_limit = any(
+                indicator in str(e).lower()
+                for indicator in ("429", "too many requests", "rate limit", "response code: 429")
+            )
+            if is_rate_limit and attempt < retries - 1:
+                wait = 5 * (3 ** attempt)  # 5s, 15s, 45s
+                print(f"[market_trends] pytrends rate limited (attempt {attempt + 1}/{retries}), waiting {wait}s...")
+                time.sleep(wait)
+                continue
+            break  # Non-rate-limit error, don't retry
+
+    return {
+        "result": "ok",
+        "keyword": keyword,
+        "geography": geography,
+        "fetched_at": _iso_now(),
+        "error": last_err,
+    }
 
 
 def get_market_demand_report(
@@ -94,7 +117,7 @@ def get_market_demand_report(
         f"buy {target_product}",
     ]
 
-    report = {
+    report: dict[str, Any] = {
         "result": "ok",
         "target_product": target_product,
         "geography": geography,
@@ -104,7 +127,7 @@ def get_market_demand_report(
 
     for kw in keywords:
         data = get_google_trends_data(kw, geography)
-        if data.get("result") == "ok" and not data.get("skipped"):
+        if data.get("result") == "ok" and not data.get("skipped") and not data.get("error"):
             report["keywords"][kw] = {
                 "interest_avg": data.get("interest_avg", 0),
                 "interest_peak": data.get("interest_peak", 0),

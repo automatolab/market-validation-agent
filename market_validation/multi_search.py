@@ -120,23 +120,27 @@ def _from_nominatim(query: str, num_results: int = 10) -> list[SearchResult]:
 
 
 def _from_ddgs(query: str, num_results: int = 10) -> list[SearchResult]:
+    DDGS = None
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS  # type: ignore[no-redef]
     except Exception:
-        return []
+        try:
+            from duckduckgo_search import DDGS  # type: ignore[no-redef]
+        except Exception:
+            return []
 
     try:
         results: list[SearchResult] = []
-        with DDGS() as ddgs:
-            for row in ddgs.text(query, max_results=max(1, min(num_results, 25))):
-                results.append(
-                    SearchResult(
-                        title=row.get("title", ""),
-                        url=row.get("href", ""),
-                        snippet=row.get("body", ""),
-                        source="ddgs",
-                    )
+        ddgs = DDGS()
+        for row in ddgs.text(query, max_results=max(1, min(num_results, 25))):
+            results.append(
+                SearchResult(
+                    title=row.get("title", ""),
+                    url=row.get("href", row.get("url", "")),
+                    snippet=row.get("body", row.get("snippet", "")),
+                    source="ddgs",
                 )
+            )
         return results[:num_results]
     except Exception:
         return []

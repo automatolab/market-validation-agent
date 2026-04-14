@@ -135,6 +135,53 @@ def _load_data() -> dict[str, Any]:
                 }
             )
 
+        # Load validation data for each research
+        validations: dict[str, dict[str, Any]] = {}
+        try:
+            val_rows = conn.execute(
+                """SELECT id, research_id, market, geography, status,
+                          tam_low, tam_high, tam_currency, tam_confidence,
+                          sam_low, sam_high, sam_confidence,
+                          som_low, som_high, som_confidence,
+                          demand_score, demand_trend, demand_pain_points,
+                          competitive_intensity, competitor_count, market_concentration,
+                          direct_competitors, indirect_competitors,
+                          job_posting_volume, news_sentiment,
+                          regulatory_risks, technology_maturity,
+                          market_attractiveness, competitive_score,
+                          demand_validation, risk_score,
+                          overall_score, verdict, verdict_reasoning,
+                          created_at
+                   FROM market_validations
+                   ORDER BY created_at DESC"""
+            ).fetchall()
+            col_names = [
+                "id", "research_id", "market", "geography", "status",
+                "tam_low", "tam_high", "tam_currency", "tam_confidence",
+                "sam_low", "sam_high", "sam_confidence",
+                "som_low", "som_high", "som_confidence",
+                "demand_score", "demand_trend", "demand_pain_points",
+                "competitive_intensity", "competitor_count", "market_concentration",
+                "direct_competitors", "indirect_competitors",
+                "job_posting_volume", "news_sentiment",
+                "regulatory_risks", "technology_maturity",
+                "market_attractiveness", "competitive_score",
+                "demand_validation", "risk_score",
+                "overall_score", "verdict", "verdict_reasoning",
+                "created_at",
+            ]
+            for vrow in val_rows:
+                vdict = dict(zip(col_names, vrow))
+                rid = vdict["research_id"]
+                if rid not in validations:
+                    validations[rid] = vdict
+        except Exception:
+            pass  # Table may not exist in older databases
+
+    # Attach validation to researches
+    for r in researches:
+        r["validation"] = validations.get(r["id"])
+
     emails: list[dict[str, Any]] = []
     EMAIL_QUEUE_DIR.mkdir(parents=True, exist_ok=True)
     for file in sorted(EMAIL_QUEUE_DIR.glob("*.json")):
@@ -144,6 +191,7 @@ def _load_data() -> dict[str, Any]:
         "researches": researches,
         "companies": companies,
         "emails": emails,
+        "validations": validations,
     }
 
 
@@ -260,6 +308,12 @@ def _html_template(interactive: bool) -> str:
         </div>
       </div>
     </section>
+    <section class='panel' id='validationPanel' style='display:none'>
+      <div class='panel-head'><h2>Market Validation</h2><span id='verdictBadge' class='count-pill'></span></div>
+      <div class='panel-body'>
+        <div id='validationWrap'></div>
+      </div>
+    </section>
     <section class='panel'>
       <div class='panel-head'>
         <h2 id='emailsTitle'>Email Queue</h2>
@@ -302,6 +356,48 @@ def _html_template(interactive: bool) -> str:
     function selectedResearch() {{
       if (!selectedResearchId) return null;
       return DATA.researches.find((r) => r.id === selectedResearchId) || null;
+    }}
+
+    function renderValidation() {{
+      const panel = document.getElementById('validationPanel');
+      const wrap = document.getElementById('validationWrap');
+      const badge = document.getElementById('verdictBadge');
+      const ref = selectedResearch();
+      if (!ref || !ref.validation) {{ panel.style.display = 'none'; return; }}
+      panel.style.display = '';
+      const v = ref.validation;
+      const verdictColors = {{ strong_go: '#1d7b3a', go: '#0b5ca8', cautious: '#996900', no_go: '#c41e3a' }};
+      const verdictLabels = {{ strong_go: 'STRONG GO', go: 'GO', cautious: 'CAUTIOUS', no_go: 'NO GO' }};
+      const vc = verdictColors[v.verdict] || '#5e7083';
+      badge.style.background = vc; badge.style.color = '#fff'; badge.style.padding = '4px 12px';
+      badge.style.borderRadius = '8px'; badge.style.fontWeight = '700';
+      badge.textContent = (verdictLabels[v.verdict] || v.verdict || 'N/A') + ' (' + (v.overall_score || 0) + '/100)';
+
+      const fmt = (n) => n == null ? '-' : typeof n === 'number' ? n.toLocaleString('en-US', {{style:'currency',currency:'USD',maximumFractionDigits:0}}) : n;
+      const bar = (score, label) => `<div style="margin:4px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${{label}}</span><span>${{score != null ? Math.round(score) : '-'}}/100</span></div><div style="background:#e8ecf0;border-radius:4px;height:8px;overflow:hidden"><div style="width:${{Math.min(100,score||0)}}%;height:100%;background:${{vc}};border-radius:4px"></div></div></div>`;
+
+      let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">';
+      // Scorecard
+      html += '<div>' + bar(v.market_attractiveness, 'Market Attractiveness') + bar(v.demand_validation, 'Demand Validation') + bar(100-(v.competitive_score||0), 'Competitive Advantage') + bar(100-(v.risk_score||0), 'Risk (inverted)') + '</div>';
+      // TAM/SAM/SOM
+      html += '<div style="font-size:14px"><strong>Market Sizing</strong>';
+      html += `<div style="margin:6px 0">TAM: ${{fmt(v.tam_low)}} - ${{fmt(v.tam_high)}} <span class="muted">(conf: ${{v.tam_confidence || '-'}}%)</span></div>`;
+      html += `<div style="margin:6px 0">SAM: ${{fmt(v.sam_low)}} - ${{fmt(v.sam_high)}} <span class="muted">(conf: ${{v.sam_confidence || '-'}}%)</span></div>`;
+      html += `<div style="margin:6px 0">SOM: ${{fmt(v.som_low)}} - ${{fmt(v.som_high)}} <span class="muted">(conf: ${{v.som_confidence || '-'}}%)</span></div>`;
+      html += '</div>';
+      // Signals
+      html += '<div style="font-size:14px"><strong>Market Signals</strong>';
+      html += `<div style="margin:6px 0">Demand trend: <strong>${{v.demand_trend || '-'}}</strong></div>`;
+      html += `<div style="margin:6px 0">Competition: <strong>${{v.market_concentration || '-'}}</strong> (${{v.competitor_count || '-'}} competitors)</div>`;
+      html += `<div style="margin:6px 0">Hiring: <strong>${{v.job_posting_volume || '-'}}</strong></div>`;
+      html += `<div style="margin:6px 0">News: <strong>${{v.news_sentiment || '-'}}</strong></div>`;
+      html += `<div style="margin:6px 0">Tech maturity: <strong>${{v.technology_maturity || '-'}}</strong></div>`;
+      html += '</div>';
+      html += '</div>';
+      if (v.verdict_reasoning) {{
+        html += `<div style="margin-top:12px;padding:12px;background:#f8f9fa;border-radius:8px;font-size:14px;line-height:1.5"><strong>Analysis:</strong> ${{esc(v.verdict_reasoning)}}</div>`;
+      }}
+      wrap.innerHTML = html;
     }}
 
     function companyById(id) {{
@@ -721,6 +817,7 @@ def _html_template(interactive: bool) -> str:
       else next.searchParams.delete('research_id');
       window.history.replaceState({{}}, '', next.toString());
       setResearchLabel();
+      renderValidation();
       renderCompanies();
       renderEmails();
     }}
@@ -735,6 +832,7 @@ def _html_template(interactive: bool) -> str:
       }}
 
       setResearchLabel();
+      renderValidation();
       renderCompanies();
       renderEmails();
     }}
@@ -854,6 +952,12 @@ def _make_handler(host: str, port: int):
             if path == "/api/refresh":
                 generate_html(open_browser=False, interactive=True)
                 return self._json({"result": "ok"})
+
+            if path.startswith("/api/validation/"):
+                research_id = path.split("/api/validation/", 1)[1].strip("/")
+                from market_validation.research import get_validation_by_research
+                result = get_validation_by_research(research_id)
+                return self._json(result)
 
             return self._json({"result": "error", "error": "not found"}, 404)
 

@@ -901,10 +901,137 @@ class Agent:
 
         return {"result": "error", "error": "No AI agent available (install claude or opencode)"}
     
+    def validate(self, market: str, geography: str, product: str | None = None) -> dict[str, Any]:
+        """
+        STEP 0: Validate the market before company discovery.
+
+        Runs four sub-modules (sizing, demand, competition, signals) and
+        produces a validation scorecard with a go/no-go verdict.
+
+        Each sub-module gathers data from free web sources and optionally
+        uses AI synthesis for richer analysis.
+        """
+        from market_validation.market_sizing import estimate_market_size
+        from market_validation.demand_analysis import analyze_demand
+        from market_validation.competitive_landscape import analyze_competition
+        from market_validation.market_signals import gather_market_signals
+        from market_validation.validation_scorecard import compute_scorecard
+        from market_validation.research import (
+            create_validation, update_validation,
+        )
+
+        print(f"[validate] Starting market validation: {product or market} in {geography}")
+
+        # Create validation record
+        val = create_validation(
+            research_id=self.research_id,
+            market=market,
+            geography=geography,
+            root=self.root,
+        )
+        vid = val["validation_id"]
+        update_validation(vid, {"status": "running"}, root=self.root)
+
+        # Run all 4 sub-modules in parallel (each does its own web searches + AI call)
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        _defaults: dict[str, Any] = {
+            "sizing": {},
+            "demand": {"demand_score": 50, "demand_trend": "stable"},
+            "competition": {"competitive_intensity": 50, "market_concentration": "moderate"},
+            "signals": {"regulatory_risks": [], "technology_maturity": "growing"},
+        }
+        _tasks = {
+            "sizing": (estimate_market_size, (market, geography, product), {"run_ai": self._run}),
+            "demand": (analyze_demand, (market, geography, product), {"run_ai": self._run}),
+            "competition": (analyze_competition, (market, geography, product), {"run_ai": self._run}),
+            "signals": (gather_market_signals, (market, geography, product), {"run_ai": self._run}),
+        }
+        _labels = {
+            "sizing": "Estimating market size (TAM/SAM/SOM)",
+            "demand": "Analyzing demand signals",
+            "competition": "Mapping competitive landscape",
+            "signals": "Gathering market signals",
+        }
+        results_map: dict[str, Any] = {}
+        print("[validate]   Running 4 modules in parallel...")
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {
+                executor.submit(fn, *args, **kwargs): key
+                for key, (fn, args, kwargs) in _tasks.items()
+            }
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    results_map[key] = future.result()
+                    print(f"[validate]   ✓ {_labels[key]}")
+                except Exception as e:
+                    print(f"[validate]   ! {_labels[key]} failed: {e}")
+                    results_map[key] = _defaults[key]
+
+        sizing = results_map["sizing"]
+        demand = results_map["demand"]
+        competition = results_map["competition"]
+        signals = results_map["signals"]
+
+        # Compute scorecard
+        print("[validate]   Computing scorecard...")
+        scorecard = compute_scorecard(sizing, demand, competition, signals, run_ai=self._run)
+
+        # Store everything in the database
+        db_fields: dict[str, Any] = {"status": "complete"}
+        # Sizing
+        for key in ("tam_low", "tam_high", "tam_confidence", "tam_sources",
+                     "sam_low", "sam_high", "sam_confidence", "sam_sources",
+                     "som_low", "som_high", "som_confidence", "som_sources"):
+            if key in sizing:
+                db_fields[key] = sizing[key]
+        # Demand
+        for key in ("demand_score", "demand_trend", "demand_seasonality",
+                     "demand_pain_points", "demand_sources"):
+            if key in demand:
+                db_fields[key] = demand[key]
+        # Competition
+        for key in ("competitive_intensity", "competitor_count", "market_concentration",
+                     "direct_competitors", "indirect_competitors", "funding_signals"):
+            if key in competition:
+                db_fields[key] = competition[key]
+        # Signals
+        for key in ("job_posting_volume", "news_sentiment", "regulatory_risks",
+                     "technology_maturity", "signals_data"):
+            if key in signals:
+                db_fields[key] = signals[key]
+        # Scorecard
+        db_fields.update({
+            "market_attractiveness": scorecard.get("market_attractiveness"),
+            "competitive_score": scorecard.get("competitive_score"),
+            "demand_validation": scorecard.get("demand_validation"),
+            "risk_score": scorecard.get("risk_score"),
+            "overall_score": scorecard.get("overall_score"),
+            "verdict": scorecard.get("verdict"),
+            "verdict_reasoning": scorecard.get("verdict_reasoning"),
+        })
+
+        update_validation(vid, db_fields, root=self.root)
+
+        verdict = scorecard.get("verdict", "unknown")
+        overall = scorecard.get("overall_score", 0)
+        print(f"[validate] Done — verdict: {verdict} ({overall}/100)")
+
+        return {
+            "result": "ok",
+            "validation_id": vid,
+            "sizing": sizing,
+            "demand": demand,
+            "competition": competition,
+            "signals": signals,
+            "scorecard": scorecard,
+        }
+
     def find(self, market: str, geography: str, product: str | None = None) -> dict[str, Any]:
         """
         STEP 1: Find companies in a market.
-        
+
         Searches web for businesses matching the criteria.
         Uses multi-backend search + source configs + opencode AI.
         Stores results in database.
@@ -1321,24 +1448,50 @@ Return JSON:
             return {"result": "error", "error": "Research not found"}
         research_market = str(research.get("research", {}).get("market") or "")
         research_product = research.get("research", {}).get("product")
-        
+
+        # Pull market validation context to sharpen qualification scoring
+        market_context = ""
+        try:
+            from market_validation.research import get_validation_by_research
+            val_result = get_validation_by_research(self.research_id, root=self.root)
+            if val_result.get("result") == "ok" and val_result.get("validation"):
+                v = val_result["validation"]
+                verdict = v.get("verdict", "unknown")
+                overall = v.get("overall_score", 0)
+                demand_trend = v.get("demand_trend", "unknown")
+                pain_points = v.get("demand_pain_points") or []
+                competitive_intensity = v.get("competitive_intensity", 50)
+                wtp = v.get("willingness_to_pay", "unknown")
+                market_context = f"""
+Market Validation Context (pre-computed):
+- Market verdict: {verdict} (overall score: {overall}/100)
+- Demand trend: {demand_trend}
+- Competitive intensity: {competitive_intensity}/100
+- Willingness to pay: {wtp}
+- Identified customer pain points: {", ".join(pain_points[:3]) if pain_points else "none identified"}
+
+Use this context to calibrate scores — companies in a {verdict.replace("_", " ")} market should reflect that reality.
+"""
+        except Exception:
+            pass
+
         with _connect(db) as conn:
             _ensure_schema(conn)
             conn.row_factory = None
             companies = conn.execute(
-                """SELECT id, company_name, notes, phone, website, location 
+                """SELECT id, company_name, notes, phone, website, location
                    FROM companies WHERE research_id = ? AND status = 'new'""",
                 (self.research_id,)
             ).fetchall()
-        
+
         if not companies:
             return {"result": "ok", "qualified": 0, "message": "No companies to qualify"}
-        
+
         company_list = [{"id": str(c[0]), "name": str(c[1]), "notes": c[2], "phone": c[3], "website": c[4], "location": c[5]} for c in companies]
 
         def _qualify_batch(batch: list[dict]) -> list[dict]:
             prompt = f"""Evaluate these companies as potential sales targets for our market research.
-
+{market_context}
 For each company, assess:
 1. Relevance score (0-100): how well do they match the target market?
 2. Market potential signals - look for:
@@ -1781,36 +1934,53 @@ Return JSON only:
         geography: str,
         product: str | None = None,
         enrich_statuses: list[str] | None = None,
+        validate: bool = False,
     ) -> dict[str, Any]:
         """
-        Full pipeline: find → qualify → enrich_all.
+        Full pipeline: [validate →] find → qualify → enrich_all.
 
         This is the default way to run a complete market research.
-        Automatically runs all three steps and returns a combined summary.
+        Automatically runs all steps and returns a combined summary.
 
         Args:
             market:          Market category (e.g. "BBQ restaurants", "robotics")
             geography:       Location (e.g. "San Jose, California")
             product:         Specific product/service within the market (optional)
             enrich_statuses: Which company statuses to enrich. Default: ["qualified", "new"]
+            validate:        If True, run market validation (Step 0) before find.
         """
         if enrich_statuses is None:
             enrich_statuses = ["qualified", "new"]
 
-        print(f"[research] Step 1/3: find — {product or market} in {geography}")
+        total_steps = 4 if validate else 3
+        step = 0
+
+        validate_result = None
+        if validate:
+            step += 1
+            print(f"[research] Step {step}/{total_steps}: validate — {product or market} in {geography}")
+            validate_result = self.validate(market, geography, product)
+            verdict = validate_result.get("scorecard", {}).get("verdict", "unknown")
+            overall = validate_result.get("scorecard", {}).get("overall_score", 0)
+            print(f"[research] → verdict: {verdict} ({overall}/100)")
+
+        step += 1
+        print(f"[research] Step {step}/{total_steps}: find — {product or market} in {geography}")
         find_result = self.find(market, geography, product)
         companies_found = len(find_result.get("companies", []))
         print(f"[research] → {companies_found} companies found via {find_result.get('method')}")
 
-        print(f"[research] Step 2/3: qualify")
+        step += 1
+        print(f"[research] Step {step}/{total_steps}: qualify")
         qualify_result = self.qualify()
         print(f"[research] → {qualify_result.get('qualified')}/{qualify_result.get('assessed')} qualified via {qualify_result.get('method')}")
 
-        print(f"[research] Step 3/3: enrich_all (statuses={enrich_statuses})")
+        step += 1
+        print(f"[research] Step {step}/{total_steps}: enrich_all (statuses={enrich_statuses})")
         enrich_result = self.enrich_all(statuses=enrich_statuses)
         print(f"[research] → enriched={enrich_result.get('enriched')}/{enrich_result.get('total_companies')} | phones={enrich_result.get('phones_found')} emails={enrich_result.get('emails_found')}")
 
-        return {
+        result: dict[str, Any] = {
             "result": "ok",
             "research_id": self.research_id,
             "find": find_result,
@@ -1823,18 +1993,24 @@ Return JSON only:
                 "emails_found": enrich_result.get("emails_found", 0),
             },
         }
+        if validate_result:
+            result["validate"] = validate_result
+            result["summary"]["verdict"] = validate_result.get("scorecard", {}).get("verdict")
+            result["summary"]["overall_score"] = validate_result.get("scorecard", {}).get("overall_score")
+        return result
 
 
 def main():
     """CLI entry point."""
     import argparse
     parser = argparse.ArgumentParser(description="Market Research Agent")
-    parser.add_argument("command", choices=["research", "find", "qualify", "enrich", "enrich-all"])
+    parser.add_argument("command", choices=["research", "validate", "find", "qualify", "enrich", "enrich-all"])
     parser.add_argument("--research-id", help="Research ID")
     parser.add_argument("--market", help="Market/product")
     parser.add_argument("--geography", help="Geography")
     parser.add_argument("--product", help="Specific product (optional)")
     parser.add_argument("--company", help="Company name for single enrich")
+    parser.add_argument("--validate", action="store_true", help="Run market validation before research pipeline")
 
     args = parser.parse_args()
     agent = Agent(research_id=args.research_id)
@@ -1851,7 +2027,20 @@ def main():
             geography=args.geography,
         )["research_id"]
         agent.research_id = rid
-        result = agent.research(args.market, args.geography, args.product)
+        result = agent.research(args.market, args.geography, args.product, validate=args.validate)
+    elif args.command == "validate":
+        if not args.market or not args.geography:
+            parser.error("validate requires --market and --geography")
+        if not args.research_id:
+            from market_validation.research import create_research
+            rid = create_research(
+                name=f"Validation: {args.product or args.market} in {args.geography}",
+                market=args.market,
+                product=args.product,
+                geography=args.geography,
+            )["research_id"]
+            agent.research_id = rid
+        result = agent.validate(args.market, args.geography, args.product)
     elif args.command == "find":
         result = agent.find(args.market, args.geography, args.product)
     elif args.command == "qualify":
