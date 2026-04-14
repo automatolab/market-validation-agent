@@ -18,51 +18,6 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 DEFAULT_SOURCE_CONFIGS: dict[str, dict[str, Any]] = {
-    "brisket-bbq": {
-        "name": "brisket-bbq",
-        "description": "Data sources for discovering BBQ restaurants that use brisket",
-        "search_queries": [
-            "{product} {geography} restaurant",
-            "best {product} {geography} BBQ",
-            "{product} catering {geography}",
-            "Texas BBQ {geography}",
-            "smokehouse {geography} reviews",
-        ],
-        "urls": [
-            {
-                "name": "Yelp BBQ",
-                "url": "https://www.yelp.com/search?find_desc=Barbecue+Restaurant&find_loc={geography}",
-                "type": "directory",
-            },
-            {
-                "name": "Google Maps BBQ",
-                "url": "https://www.google.com/maps/search/BBQ+Restaurant/{geography}",
-                "type": "maps",
-            },
-        ],
-        "directories": [
-            {
-                "name": "Yelp",
-                "search_url": "https://www.yelp.com/search?find_desc={product}&find_loc={geography}",
-                "type": "restaurant",
-            },
-            {
-                "name": "TripAdvisor",
-                "search_url": "https://www.tripadvisor.com/Search?q={product}+{geography}",
-                "type": "restaurant",
-            },
-            {
-                "name": "Google Maps",
-                "search_url": "https://www.google.com/maps/search/BBQ+Restaurant/{geography}",
-                "type": "maps",
-            },
-            {
-                "name": "YellowPages",
-                "search_url": "https://www.yellowpages.com/search?search_terms={product}&geo_location_terms={geography}",
-                "type": "directory",
-            },
-        ],
-    },
     "restaurants": {
         "name": "restaurants",
         "description": "Generic sources for restaurant market research",
@@ -168,15 +123,7 @@ def load_source_config(market_type: str | None = None) -> dict[str, Any]:
     market_lower = normalized
     
     # Keyword matching
-    if any(kw in market_lower for kw in ["bbq", "brisket", "smoke", "grill"]):
-        config_file = sources_dir / "brisket-bbq.yaml"
-        if config_file.exists():
-            loaded = _load_yaml(config_file)
-            if loaded:
-                return loaded
-        return copy.deepcopy(DEFAULT_SOURCE_CONFIGS["brisket-bbq"])
-    
-    if any(kw in market_lower for kw in ["restaurant", "food", "cafe", "coffee", "dining"]):
+    if any(kw in market_lower for kw in ["restaurant", "food", "cafe", "coffee", "dining", "bbq", "barbecue", "catering", "brewery", "winery", "bakery", "deli", "butcher"]):
         config_file = sources_dir / "restaurants.yaml"
         if config_file.exists():
             loaded = _load_yaml(config_file)
@@ -202,9 +149,9 @@ def _normalize_market_key(value: str | None) -> str:
     text = " ".join(text.split())
 
     aliases = {
-        "bbq": "brisket-bbq",
-        "barbecue": "brisket-bbq",
-        "brisket": "brisket-bbq",
+        "bbq": "restaurants",
+        "barbecue": "restaurants",
+        "brisket": "restaurants",
         "restaurant": "restaurants",
         "restaurants": "restaurants",
         "food": "restaurants",

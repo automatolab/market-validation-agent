@@ -9,7 +9,9 @@ Modes:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,25 @@ def _iso_now() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+_STATE_ABBR: dict[str, str] = {
+    "california": "ca", "texas": "tx", "new york": "ny", "florida": "fl",
+    "illinois": "il", "pennsylvania": "pa", "ohio": "oh", "georgia": "ga",
+    "michigan": "mi", "washington": "wa", "arizona": "az", "colorado": "co",
+    "massachusetts": "ma", "virginia": "va", "oregon": "or", "north carolina": "nc",
+    "new jersey": "nj", "minnesota": "mn", "nevada": "nv", "utah": "ut",
+}
+
+
+def _geo_key(geo: str) -> str:
+    """Normalize a geography string for fuzzy matching (e.g. 'San Jose, CA' ≈ 'San Jose California')."""
+    g = geo.lower().strip()
+    for name, abbr in _STATE_ABBR.items():
+        g = g.replace(name, abbr)
+    g = re.sub(r"[^\w\s]", " ", g)
+    words = sorted(set(w for w in g.split() if len(w) > 1))
+    return " ".join(words)
 
 
 def _escape_html(value: Any) -> str:
@@ -41,6 +62,7 @@ def _load_data() -> dict[str, Any]:
     from market_validation.research import _connect, _ensure_schema, resolve_db_path
 
     db_file = resolve_db_path(Path("."))
+    print(f"[dashboard] loading data from {db_file}", file=sys.stderr)
     researches: list[dict[str, Any]] = []
     companies: list[dict[str, Any]] = []
 
@@ -105,8 +127,7 @@ def _load_data() -> dict[str, Any]:
                 c.volume_unit,
                 c.notes,
                 c.created_at,
-                r.name as research_name,
-                r.last_source_health as last_source_health
+                r.name as research_name
             FROM companies c
             JOIN researches r ON r.id = c.research_id
             ORDER BY c.priority_score DESC NULLS LAST, c.company_name
@@ -131,7 +152,6 @@ def _load_data() -> dict[str, Any]:
                     "notes": row[12],
                     "created_at": row[13],
                     "research_name": row[14],
-                    "last_source_health": row[15],
                 }
             )
 
@@ -143,15 +163,26 @@ def _load_data() -> dict[str, Any]:
                           tam_low, tam_high, tam_currency, tam_confidence,
                           sam_low, sam_high, sam_confidence,
                           som_low, som_high, som_confidence,
-                          demand_score, demand_trend, demand_pain_points,
+                          demand_score, demand_trend, demand_pain_points, demand_seasonality,
                           competitive_intensity, competitor_count, market_concentration,
-                          direct_competitors, indirect_competitors,
+                          direct_competitors, indirect_competitors, funding_signals,
                           job_posting_volume, news_sentiment,
                           regulatory_risks, technology_maturity,
                           market_attractiveness, competitive_score,
                           demand_validation, risk_score,
                           overall_score, verdict, verdict_reasoning,
-                          created_at
+                          created_at,
+                          archetype, archetype_label,
+                          unit_economics_score, gross_margin_low, gross_margin_high,
+                          cac_estimate_low, cac_estimate_high,
+                          ltv_estimate_low, ltv_estimate_high, payback_months,
+                          structural_attractiveness, timing_score, timing_verdict,
+                          timing_enablers, timing_headwinds,
+                          supplier_power, buyer_power, substitute_threat,
+                          entry_barrier_score, rivalry_score,
+                          icp_clarity, primary_segment,
+                          differentiation_opportunities,
+                          next_steps, key_risks, key_success_factors, archetype_red_flags
                    FROM market_validations
                    ORDER BY created_at DESC"""
             ).fetchall()
@@ -160,27 +191,68 @@ def _load_data() -> dict[str, Any]:
                 "tam_low", "tam_high", "tam_currency", "tam_confidence",
                 "sam_low", "sam_high", "sam_confidence",
                 "som_low", "som_high", "som_confidence",
-                "demand_score", "demand_trend", "demand_pain_points",
+                "demand_score", "demand_trend", "demand_pain_points", "demand_seasonality",
                 "competitive_intensity", "competitor_count", "market_concentration",
-                "direct_competitors", "indirect_competitors",
+                "direct_competitors", "indirect_competitors", "funding_signals",
                 "job_posting_volume", "news_sentiment",
                 "regulatory_risks", "technology_maturity",
                 "market_attractiveness", "competitive_score",
                 "demand_validation", "risk_score",
                 "overall_score", "verdict", "verdict_reasoning",
                 "created_at",
+                "archetype", "archetype_label",
+                "unit_economics_score", "gross_margin_low", "gross_margin_high",
+                "cac_estimate_low", "cac_estimate_high",
+                "ltv_estimate_low", "ltv_estimate_high", "payback_months",
+                "structural_attractiveness", "timing_score", "timing_verdict",
+                "timing_enablers", "timing_headwinds",
+                "supplier_power", "buyer_power", "substitute_threat",
+                "entry_barrier_score", "rivalry_score",
+                "icp_clarity", "primary_segment",
+                "differentiation_opportunities",
+                "next_steps", "key_risks", "key_success_factors", "archetype_red_flags",
             ]
             for vrow in val_rows:
                 vdict = dict(zip(col_names, vrow))
                 rid = vdict["research_id"]
                 if rid not in validations:
                     validations[rid] = vdict
-        except Exception:
-            pass  # Table may not exist in older databases
+        except Exception as _val_err:
+            print(f"[dashboard] WARNING: failed to load market_validations: {_val_err}", file=sys.stderr)
 
-    # Attach validation to researches
+    print(
+        f"[dashboard] loaded: {len(researches)} researches, "
+        f"{len(companies)} companies, {len(validations)} validations",
+        file=sys.stderr,
+    )
+
+    # Build a geography-keyed fallback so validation-only runs can cross-link
+    # to researches that have companies (and vice-versa).
+    # e.g. "San Jose, CA" and "San Jose, California" normalise to the same key.
+    val_by_geo: dict[str, dict[str, Any]] = {}
+    for rid, vdict in validations.items():
+        gk = _geo_key(vdict.get("geography") or "")
+        if gk and gk not in val_by_geo:
+            val_by_geo[gk] = vdict
+
+    # Attach validation to researches (exact match first, geo fallback second)
     for r in researches:
-        r["validation"] = validations.get(r["id"])
+        own_val = validations.get(r["id"])
+        if own_val:
+            r["validation"] = own_val
+        else:
+            gk = _geo_key(r.get("geography") or "")
+            cross = val_by_geo.get(gk)
+            if cross:
+                r["validation"] = dict(cross)
+                r["validation"]["_cross_linked"] = True  # UI hint
+                print(
+                    f"[dashboard] cross-linked validation from research "
+                    f"{cross['research_id']} → {r['id']} (geo={r.get('geography')})",
+                    file=sys.stderr,
+                )
+            else:
+                r["validation"] = None
 
     emails: list[dict[str, Any]] = []
     EMAIL_QUEUE_DIR.mkdir(parents=True, exist_ok=True)
@@ -315,16 +387,6 @@ def _html_template(interactive: bool) -> str:
       </div>
     </section>
     <section class='panel'>
-      <div class='panel-head'>
-        <h2 id='emailsTitle'>Email Queue</h2>
-        <span id='syncStatus' class='count-pill' style='font-size:12px;color:var(--muted)'></span>
-      </div>
-      <div class='panel-body'>
-        <div class='toolbar'><span id='emailCount' class='count-pill'>0 rows</span></div>
-        <div id='emailsWrap' class='table-wrap'></div>
-      </div>
-    </section>
-    <section class='panel'>
       <div class='panel-head'><h2 id='companiesTitle'>Companies</h2></div>
       <div class='panel-body'>
         <div class='toolbar'>
@@ -334,13 +396,27 @@ def _html_template(interactive: bool) -> str:
         <div id='companiesWrap' class='table-wrap'></div>
       </div>
     </section>
+    <section class='panel' id='emailPanel'>
+      <div class='panel-head'>
+        <h2 id='emailsTitle'>Email Queue</h2>
+        <span id='syncStatus' class='count-pill' style='font-size:12px;color:var(--muted)'></span>
+      </div>
+      <div class='panel-body'>
+        <div class='toolbar'><span id='emailCount' class='count-pill'>0 rows</span></div>
+        <div id='emailsWrap' class='table-wrap'></div>
+      </div>
+    </section>
   </div>
 
   <script id='dashboard-data' type='application/json'>__PAYLOAD_JSON__</script>
   <script>
     const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
     const params = new URLSearchParams(window.location.search);
-    let selectedResearchId = params.get('research_id') || '';
+    // Auto-select: URL param > first research with validation > first research
+    let selectedResearchId = params.get('research_id') || (function() {{
+      const withVal = DATA.researches.find(r => r.validation);
+      return withVal ? withVal.id : (DATA.researches[0] ? DATA.researches[0].id : '');
+    }})();
     const INTERACTIVE = __INTERACTIVE__;
     let editingCompanyId = null;
 
@@ -359,10 +435,12 @@ def _html_template(interactive: bool) -> str:
     }}
 
     function renderValidation() {{
+      try {{
       const panel = document.getElementById('validationPanel');
       const wrap = document.getElementById('validationWrap');
       const badge = document.getElementById('verdictBadge');
       const ref = selectedResearch();
+      console.log('[dashboard] renderValidation: ref=' + (ref ? ref.id : 'null') + ' has_validation=' + !!(ref && ref.validation) + (ref && ref.validation && ref.validation._cross_linked ? ' (cross-linked)' : ''));
       if (!ref || !ref.validation) {{ panel.style.display = 'none'; return; }}
       panel.style.display = '';
       const v = ref.validation;
@@ -374,30 +452,242 @@ def _html_template(interactive: bool) -> str:
       badge.textContent = (verdictLabels[v.verdict] || v.verdict || 'N/A') + ' (' + (v.overall_score || 0) + '/100)';
 
       const fmt = (n) => n == null ? '-' : typeof n === 'number' ? n.toLocaleString('en-US', {{style:'currency',currency:'USD',maximumFractionDigits:0}}) : n;
-      const bar = (score, label) => `<div style="margin:4px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${{label}}</span><span>${{score != null ? Math.round(score) : '-'}}/100</span></div><div style="background:#e8ecf0;border-radius:4px;height:8px;overflow:hidden"><div style="width:${{Math.min(100,score||0)}}%;height:100%;background:${{vc}};border-radius:4px"></div></div></div>`;
+      const pct = (n) => n == null ? '-' : (Math.round(n * 100)) + '%';
+      const bar = (score, label, sublabel) => {{
+        const s = score != null ? Math.round(score) : null;
+        const sub = sublabel ? `<span style="color:#888;font-size:11px;margin-left:4px">${{sublabel}}</span>` : '';
+        return `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${{label}}${{sub}}</span><span style="font-weight:600">${{s != null ? s : '-'}}/100</span></div><div style="background:#e8ecf0;border-radius:4px;height:7px;overflow:hidden;margin-top:3px"><div style="width:${{Math.min(100,s||0)}}%;height:100%;background:${{vc}};border-radius:4px"></div></div></div>`;
+      }};
+      const tag = (txt, color) => `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;background:${{color||'#e8ecf0'}};color:#333;margin:2px">${{esc(txt)}}</span>`;
+      const parseList = (val) => {{
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try {{ return JSON.parse(val); }} catch(e) {{ return [String(val)]; }}
+      }};
 
-      let html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">';
-      // Scorecard
-      html += '<div>' + bar(v.market_attractiveness, 'Market Attractiveness') + bar(v.demand_validation, 'Demand Validation') + bar(100-(v.competitive_score||0), 'Competitive Advantage') + bar(100-(v.risk_score||0), 'Risk (inverted)') + '</div>';
-      // TAM/SAM/SOM
-      html += '<div style="font-size:14px"><strong>Market Sizing</strong>';
-      html += `<div style="margin:6px 0">TAM: ${{fmt(v.tam_low)}} - ${{fmt(v.tam_high)}} <span class="muted">(conf: ${{v.tam_confidence || '-'}}%)</span></div>`;
-      html += `<div style="margin:6px 0">SAM: ${{fmt(v.sam_low)}} - ${{fmt(v.sam_high)}} <span class="muted">(conf: ${{v.sam_confidence || '-'}}%)</span></div>`;
-      html += `<div style="margin:6px 0">SOM: ${{fmt(v.som_low)}} - ${{fmt(v.som_high)}} <span class="muted">(conf: ${{v.som_confidence || '-'}}%)</span></div>`;
-      html += '</div>';
-      // Signals
-      html += '<div style="font-size:14px"><strong>Market Signals</strong>';
-      html += `<div style="margin:6px 0">Demand trend: <strong>${{v.demand_trend || '-'}}</strong></div>`;
-      html += `<div style="margin:6px 0">Competition: <strong>${{v.market_concentration || '-'}}</strong> (${{v.competitor_count || '-'}} competitors)</div>`;
-      html += `<div style="margin:6px 0">Hiring: <strong>${{v.job_posting_volume || '-'}}</strong></div>`;
-      html += `<div style="margin:6px 0">News: <strong>${{v.news_sentiment || '-'}}</strong></div>`;
-      html += `<div style="margin:6px 0">Tech maturity: <strong>${{v.technology_maturity || '-'}}</strong></div>`;
-      html += '</div>';
-      html += '</div>';
-      if (v.verdict_reasoning) {{
-        html += `<div style="margin-top:12px;padding:12px;background:#f8f9fa;border-radius:8px;font-size:14px;line-height:1.5"><strong>Analysis:</strong> ${{esc(v.verdict_reasoning)}}</div>`;
+      let html = '';
+      const section = (title, content) =>
+        `<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.04em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e8ecf0">${{title}}</div>${{content}}</div>`;
+      const row2 = (a, b) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">${{a}}${{b}}</div>`;
+      const card = (content, bg, border) => `<div style="background:${{bg||'#f8f9fa'}};border:1px solid ${{border||'#e8ecf0'}};border-radius:8px;padding:12px">${{content}}</div>`;
+      const kv = (k, v2) => `<div style="display:flex;justify-content:space-between;font-size:13px;margin:4px 0"><span style="color:#666">${{k}}</span><strong>${{v2}}</strong></div>`;
+
+      // ── Archetype pill ────────────────────────────────────────────────────
+      if (v.archetype_label) {{
+        html += `<div style="margin-bottom:12px">`;
+        html += `<span style="background:#e8ecf0;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:600">${{esc(v.archetype_label)}}</span>`;
+        if (v.archetype) html += `<span class="muted" style="font-size:12px;margin-left:8px">archetype: ${{esc(v.archetype)}}</span>`;
+        html += `</div>`;
       }}
+
+      // ── Overall scorecard (4 core bars + 4 module bars) ───────────────────
+      {{
+        let coreHtml = '';
+        coreHtml += bar(v.market_attractiveness, 'Market Attractiveness');
+        coreHtml += bar(v.demand_validation, 'Demand');
+        coreHtml += bar(v.competitive_score != null ? 100-v.competitive_score : null, 'Competitive Position', '(higher = less competition)');
+        coreHtml += bar(v.risk_score != null ? 100-v.risk_score : null, 'Risk Profile', '(higher = lower risk)');
+
+        let modHtml = '';
+        if (v.unit_economics_score != null) modHtml += bar(v.unit_economics_score, 'Unit Economics');
+        if (v.structural_attractiveness != null) modHtml += bar(v.structural_attractiveness, "Porter's Attractiveness");
+        if (v.timing_score != null) modHtml += bar(v.timing_score, 'Market Timing', v.timing_verdict ? '(' + esc(v.timing_verdict) + ')' : '');
+        if (v.icp_clarity != null) modHtml += bar(v.icp_clarity, 'ICP Clarity');
+
+        html += row2(
+          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Core Scores</div>' + coreHtml),
+          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Module Scores</div>' + modHtml)
+        );
+      }}
+
+      // ── Analysis reasoning ────────────────────────────────────────────────
+      if (v.verdict_reasoning) {{
+        html += `<div style="margin-bottom:16px;padding:12px 14px;background:#f8f9fa;border-left:4px solid ${{vc}};border-radius:0 6px 6px 0;font-size:14px;line-height:1.6"><strong>Analysis:</strong> ${{esc(v.verdict_reasoning)}}</div>`;
+      }}
+
+      // ── Market Sizing + Unit Economics ────────────────────────────────────
+      {{
+        let sizHtml = '';
+        sizHtml += kv('TAM', `${{fmt(v.tam_low)}} – ${{fmt(v.tam_high)}} <span class="muted">(conf: ${{v.tam_confidence||'-'}}%)</span>`);
+        sizHtml += kv('SAM', `${{fmt(v.sam_low)}} – ${{fmt(v.sam_high)}} <span class="muted">(conf: ${{v.sam_confidence||'-'}}%)</span>`);
+        sizHtml += kv('SOM', `${{fmt(v.som_low)}} – ${{fmt(v.som_high)}} <span class="muted">(conf: ${{v.som_confidence||'-'}}%)</span>`);
+        if (v.gross_margin_low != null) sizHtml += kv('Gross Margin', `${{pct(v.gross_margin_low)}} – ${{pct(v.gross_margin_high)}}`);
+        if (v.primary_segment) sizHtml += kv('Primary Segment', esc(v.primary_segment));
+
+        let econHtml = '';
+        if (v.cac_estimate_low != null || v.cac_estimate_high != null) {{
+          econHtml += kv('CAC', `${{fmt(v.cac_estimate_low)}} – ${{fmt(v.cac_estimate_high)}}`);
+        }}
+        if (v.ltv_estimate_low != null || v.ltv_estimate_high != null) {{
+          econHtml += kv('LTV', `${{fmt(v.ltv_estimate_low)}} – ${{fmt(v.ltv_estimate_high)}}`);
+        }}
+        if (v.payback_months != null) {{
+          econHtml += kv('Payback Period', `${{v.payback_months}} months`);
+        }}
+        if (v.cac_estimate_low != null && v.ltv_estimate_low != null) {{
+          const ltv_cac = v.ltv_estimate_low / (v.cac_estimate_high || 1);
+          econHtml += kv('LTV:CAC (conservative)', ltv_cac.toFixed(1) + 'x');
+        }}
+
+        html += row2(
+          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Market Sizing</div>' + sizHtml),
+          econHtml ? card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Unit Economics</div>' + econHtml) : ''
+        );
+      }}
+
+      // ── Demand Analysis ───────────────────────────────────────────────────
+      {{
+        const painPoints = parseList(v.demand_pain_points);
+        let demHtml = '';
+        demHtml += kv('Trend', `<span style="color:${{v.demand_trend==='rising'?'#1d7b3a':v.demand_trend==='falling'?'#c41e3a':'#996900'}};font-weight:700">${{esc(v.demand_trend||'-')}}</span>`);
+        demHtml += kv('Demand Score', `${{v.demand_score != null ? Math.round(v.demand_score) : '-'}}/100`);
+        if (v.demand_seasonality) demHtml += kv('Seasonality', esc(v.demand_seasonality));
+        demHtml += kv('Hiring Activity', esc(v.job_posting_volume||'-'));
+        demHtml += kv('News Sentiment', esc(v.news_sentiment||'-'));
+        if (painPoints.length) {{
+          demHtml += `<div style="margin-top:8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px">Pain Points</div>`;
+          painPoints.forEach(p => {{
+            demHtml += `<div style="font-size:13px;margin-bottom:4px;padding-left:10px;border-left:2px solid #ccc">▸ ${{esc(p)}}</div>`;
+          }});
+        }}
+        html += section('Demand Analysis', card(demHtml));
+      }}
+
+      // ── Competitive Landscape ─────────────────────────────────────────────
+      {{
+        const directComps = parseList(v.direct_competitors);
+        const indirectComps = parseList(v.indirect_competitors);
+        const fundingSignals = parseList(v.funding_signals);
+        let compHtml = '';
+        compHtml += kv('Intensity', `${{v.competitive_intensity != null ? Math.round(v.competitive_intensity) : '-'}}/100`);
+        compHtml += kv('Concentration', esc(v.market_concentration||'-'));
+        compHtml += kv('Competitor Count', v.competitor_count || '-');
+        if (directComps.length) {{
+          compHtml += `<div style="margin-top:8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px">Direct Competitors</div>`;
+          compHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">`;
+          directComps.slice(0,12).forEach(c => {{ compHtml += tag(c, '#fee2e2'); }});
+          compHtml += `</div>`;
+        }}
+        if (indirectComps.length) {{
+          compHtml += `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px">Indirect / Substitutes</div>`;
+          compHtml += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">`;
+          indirectComps.slice(0,8).forEach(c => {{ compHtml += tag(c, '#fef3c7'); }});
+          compHtml += `</div>`;
+        }}
+        if (fundingSignals.length) {{
+          compHtml += `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px">Funding Signals</div>`;
+          fundingSignals.slice(0,3).forEach(s => {{
+            compHtml += `<div style="font-size:12px;margin-bottom:3px;color:#555">• ${{esc(s)}}</div>`;
+          }});
+        }}
+        const diffOpps = parseList(v.differentiation_opportunities);
+        if (diffOpps.length) {{
+          compHtml += `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#1d7b3a;margin-top:8px;margin-bottom:4px">Differentiation Opportunities</div>`;
+          diffOpps.slice(0,4).forEach(d => {{
+            compHtml += `<div style="font-size:12px;margin-bottom:3px;color:#155724">→ ${{esc(d)}}</div>`;
+          }});
+        }}
+        html += section('Competitive Landscape', card(compHtml));
+      }}
+
+      // ── Porter's Five Forces ──────────────────────────────────────────────
+      {{
+        const hasPorters = v.supplier_power != null || v.buyer_power != null || v.substitute_threat != null || v.entry_barrier_score != null || v.rivalry_score != null;
+        if (hasPorters) {{
+          let pfHtml = '';
+          const pfBar = (score, label) => {{
+            const s = score != null ? Math.round(score) : null;
+            const col = s == null ? '#ccc' : s < 40 ? '#1d7b3a' : s < 65 ? '#996900' : '#c41e3a';
+            const label2 = s == null ? 'n/a' : (s < 40 ? 'low' : s < 65 ? 'medium' : 'high');
+            return `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${{label}}</span><span style="font-weight:600;color:${{col}}">${{s != null ? s : '-'}}/100 <span style="font-size:11px">${{label2}}</span></span></div><div style="background:#e8ecf0;border-radius:4px;height:5px;overflow:hidden;margin-top:2px"><div style="width:${{Math.min(100,s||0)}}%;height:100%;background:${{col}};border-radius:4px"></div></div></div>`;
+          }};
+          pfHtml += pfBar(v.supplier_power, 'Supplier Power');
+          pfHtml += pfBar(v.buyer_power, 'Buyer Power');
+          pfHtml += pfBar(v.substitute_threat, 'Substitute Threat');
+          pfHtml += pfBar(v.entry_barrier_score, 'Barriers to Entry');
+          pfHtml += pfBar(v.rivalry_score, 'Competitive Rivalry');
+          if (v.structural_attractiveness != null) {{
+            pfHtml += `<div style="margin-top:8px;font-size:12px;color:#555">Overall structural attractiveness: <strong>${{Math.round(v.structural_attractiveness)}}/100</strong></div>`;
+          }}
+          html += section("Porter's Five Forces", card(pfHtml));
+        }}
+      }}
+
+      // ── Market Timing ─────────────────────────────────────────────────────
+      {{
+        const enablers = parseList(v.timing_enablers);
+        const headwinds = parseList(v.timing_headwinds);
+        if (enablers.length || headwinds.length || v.timing_score != null) {{
+          let timHtml = '';
+          if (v.timing_score != null) {{
+            timHtml += kv('Timing Score', `${{Math.round(v.timing_score)}}/100 ${{v.timing_verdict ? '(' + esc(v.timing_verdict) + ')' : ''}}`);
+          }}
+          if (enablers.length || headwinds.length) {{
+            timHtml += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">`;
+            if (enablers.length) {{
+              timHtml += `<div><div style="font-size:12px;font-weight:700;color:#1d7b3a;margin-bottom:4px">Enablers</div>`;
+              enablers.forEach(e => {{ timHtml += `<div style="font-size:12px;margin-bottom:3px">✓ ${{esc(e)}}</div>`; }});
+              timHtml += `</div>`;
+            }}
+            if (headwinds.length) {{
+              timHtml += `<div><div style="font-size:12px;font-weight:700;color:#c41e3a;margin-bottom:4px">Headwinds</div>`;
+              headwinds.forEach(h => {{ timHtml += `<div style="font-size:12px;margin-bottom:3px">⚠ ${{esc(h)}}</div>`; }});
+              timHtml += `</div>`;
+            }}
+            timHtml += `</div>`;
+          }}
+          if (v.regulatory_risks) timHtml += kv('Regulatory', esc(v.regulatory_risks));
+          if (v.technology_maturity) timHtml += kv('Tech Maturity', esc(v.technology_maturity));
+          html += section('Market Timing & Signals', card(timHtml));
+        }}
+      }}
+
+      // ── Next Steps + Key Risks ────────────────────────────────────────────
+      {{
+        const nextSteps = parseList(v.next_steps);
+        const keyRisks = parseList(v.key_risks);
+        const ksf = parseList(v.key_success_factors);
+        const redFlags = parseList(v.archetype_red_flags);
+        if (nextSteps.length || keyRisks.length) {{
+          let nsHtml = '', krHtml = '';
+          if (nextSteps.length) {{
+            let content = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#1d7b3a;margin-bottom:8px">Next Steps</div>';
+            nextSteps.forEach((s, i) => {{
+              content += `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px"><span style="background:#1d7b3a;color:#fff;border-radius:50%;width:18px;height:18px;min-width:18px;display:flex;align-items:center;justify-content:center;font-size:11px">${{i+1}}</span><span>${{esc(s)}}</span></div>`;
+            }});
+            nsHtml = card(content, '#f0f7f0', '#d4edda');
+          }}
+          if (keyRisks.length) {{
+            let content = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#c41e3a;margin-bottom:8px">Key Risks</div>';
+            keyRisks.forEach(r => {{
+              content += `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px"><span style="color:#c41e3a;min-width:14px">▲</span><span>${{esc(r)}}</span></div>`;
+            }});
+            krHtml = card(content, '#fff8f0', '#f5c6cb');
+          }}
+          html += row2(nsHtml, krHtml);
+        }}
+        if (ksf.length || redFlags.length) {{
+          let ksfHtml = '', rfHtml = '';
+          if (ksf.length) {{
+            let content = `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#155724;margin-bottom:6px">Success Factors — ${{esc(v.archetype_label || 'this archetype')}}</div>`;
+            ksf.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px">✓ ${{esc(f)}}</div>`; }});
+            ksfHtml = card(content, '#fff', '#d4edda');
+          }}
+          if (redFlags.length) {{
+            let content = `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#721c24;margin-bottom:6px">Red Flags to Watch</div>`;
+            redFlags.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px">⚠ ${{esc(f)}}</div>`; }});
+            rfHtml = card(content, '#fff', '#f5c6cb');
+          }}
+          html += row2(ksfHtml, rfHtml);
+        }}
+      }}
+
       wrap.innerHTML = html;
+      }} catch(err) {{
+        document.getElementById('validationPanel').style.display = '';
+        document.getElementById('validationWrap').innerHTML = '<div style="color:red;padding:12px;font-family:monospace">renderValidation error: ' + err + '</div>';
+        console.error('renderValidation error:', err);
+      }}
     }}
 
     function companyById(id) {{
@@ -473,11 +763,16 @@ def _html_template(interactive: bool) -> str:
     function renderCompanies() {{
       const rows = filteredCompanies();
       const current = selectedResearch();
+      console.log('[dashboard] renderCompanies: selectedResearchId=' + (selectedResearchId||'(all)') + ' rows=' + rows.length + ' total_companies=' + DATA.companies.length);
       document.getElementById('companiesTitle').textContent = current ? `Companies - ${{current.name}}` : 'Companies';
       document.getElementById('companyCount').textContent = `${{rows.length}} rows`;
 
       if (!rows.length) {{
-        document.getElementById('companiesWrap').innerHTML = '<p class="empty">No companies for this project/filter.</p>';
+        const hasValidationOnly = current && current.total === 0 && current.validation;
+        const msg = hasValidationOnly
+          ? 'No companies discovered yet — this research only ran <strong>validate</strong>. Run <code>find()</code> to discover companies.'
+          : 'No companies for this project/filter.';
+        document.getElementById('companiesWrap').innerHTML = `<p class="empty">${{msg}}</p>`;
         return;
       }}
 
@@ -489,7 +784,6 @@ def _html_template(interactive: bool) -> str:
         const phone = c.phone ? `<a href="tel:${{esc(phoneHref)}}">${{esc(c.phone)}}</a>` : '<span class="muted">-</span>';
         const websiteHost = c.website ? (() => {{ try {{ return new URL(c.website).hostname.replace(/^www\\./, ''); }} catch(e) {{ return c.website; }} }})() : '';
         const websiteCell = c.website ? `<a href="${{esc(c.website)}}" target="_blank" rel="noopener" title="${{esc(c.website)}}">${{esc(websiteHost)}}</a>` : '<span class="muted">-</span>';
-        const volume = c.volume_estimate ? `${{esc(c.volume_estimate)}} ${{esc(c.volume_unit || '')}}` : '-';
         const notes = esc(c.notes || '').slice(0, 160);
 
         if (isEditing) {{
@@ -502,12 +796,6 @@ def _html_template(interactive: bool) -> str:
               <td><input class="cell-input" id="edit-location-${{esc(c.id)}}" value="${{esc(c.location || '')}}" /></td>
               <td><input class="cell-input" id="edit-phone-${{esc(c.id)}}" value="${{esc(c.phone || '')}}" /></td>
               <td><input class="cell-input" id="edit-email-${{esc(c.id)}}" value="${{esc(c.email || '')}}" /></td>
-              <td>
-                <div class="cell-split">
-                  <input class="cell-input" id="edit-volume_estimate-${{esc(c.id)}}" value="${{esc(c.volume_estimate || '')}}" />
-                  <input class="cell-input" id="edit-volume_unit-${{esc(c.id)}}" value="${{esc(c.volume_unit || '')}}" />
-                </div>
-              </td>
               <td>
                 <select class="cell-input" id="edit-priority_tier-${{esc(c.id)}}">
                   <option value="high" ${{pri === 'high' ? 'selected' : ''}}>high</option>
@@ -542,8 +830,7 @@ def _html_template(interactive: bool) -> str:
             <td style="font-size:13px">${{esc(c.location || '')}}</td>
             <td style="white-space:nowrap">${{phone}}</td>
             <td style="font-size:13px">${{email}}</td>
-            <td>${{volume}}</td>
-            <td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
+            <td style="font-size:13px;text-align:center">${{c.priority_score != null ? Math.round(c.priority_score) : '-'}}</td><td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
             <td>${{esc(c.status || '-')}}</td>
             <td class="muted" style="font-size:13px;max-width:280px">${{notes || '-'}}</td>
             <td style="white-space:nowrap">
@@ -563,8 +850,7 @@ def _html_template(interactive: bool) -> str:
               <th>Location</th>
               <th>Phone</th>
               <th>Email</th>
-              <th>Volume</th>
-              <th>Priority</th>
+              <th>Score</th><th>Priority</th>
               <th>Status</th>
               <th>Notes</th>
               <th>Actions</th>
@@ -646,21 +932,9 @@ def _html_template(interactive: bool) -> str:
       return res.json();
     }}
 
-    function viewSourceHealth(companyId) {{
-      const c = companyById(companyId);
-      if (!c) return;
-      try {{
-        const raw = c.last_source_health || null;
-        const parsed = raw ? JSON.parse(raw) : null;
-        const pretty = parsed ? JSON.stringify(parsed, null, 2) : 'No source health available';
-        alert('Source health for ' + (c.company_name || '') + '\\n\\n' + pretty);
-      }} catch (err) {{
-        alert('Failed to parse source health: ' + err);
-      }}
-    }}
-
     function setResearch(id) {{
       selectedResearchId = id || '';
+      console.log('[dashboard] setResearch ->', selectedResearchId || '(all)');
       const next = new URL(window.location.href);
       if (selectedResearchId) next.searchParams.set('research_id', selectedResearchId);
       else next.searchParams.delete('research_id');
@@ -668,6 +942,7 @@ def _html_template(interactive: bool) -> str:
       setResearchLabel();
       renderCompanies();
       renderEmails();
+      renderValidation();
     }}
 
     function runCommandPrompt(cmd) {{
@@ -709,8 +984,6 @@ def _html_template(interactive: bool) -> str:
         status: getVal('status') || 'new',
         priority_tier: getVal('priority_tier') || 'low',
         notes: getVal('notes'),
-        volume_estimate: getVal('volume_estimate'),
-        volume_unit: getVal('volume_unit'),
       }};
 
       if (!fields.company_name) {{
@@ -945,6 +1218,8 @@ def _make_handler(host: str, port: int):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.send_header("Content-Length", str(len(data)))
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.send_header("Pragma", "no-cache")
                 self.end_headers()
                 self.wfile.write(data)
                 return
@@ -1019,7 +1294,8 @@ def _make_handler(host: str, port: int):
             return self._json({"result": "error", "error": "not found"}, 404)
 
         def log_message(self, format, *args):
-            return
+            msg = format % args
+            print(f"[dashboard] {self.address_string()} {msg}", file=sys.stderr, flush=True)
 
     return Handler
 

@@ -112,6 +112,24 @@ def analyze_competition(
                 funding_snippets.append(s)
         time.sleep(1.2)
 
+    # Additional depth: GitHub (open-source competition), ProductHunt (tech market velocity)
+    extra_snippets: list[str] = []
+    try:
+        for extra_q in [
+            f"site:github.com {search_term} open source",
+            f"site:producthunt.com {search_term}",
+            f"site:g2.com {search_term} alternatives",
+            f"{market} market share dominant player",
+        ]:
+            for r in _search(extra_q, num_results=5):
+                s = r.get("snippet", "").strip()
+                t = r.get("title", "").strip()
+                if s:
+                    extra_snippets.append(f"[{t}]: {s[:200]}")
+            time.sleep(1.0)
+    except Exception:
+        pass
+
     # Deduplicate by domain
     seen_domains: set[str] = set()
     unique_candidates: list[dict[str, str]] = []
@@ -142,10 +160,25 @@ def analyze_competition(
 
     raw_count = len(unique_candidates)
 
+    # Scrape top competitor pages for real pricing + positioning data
+    scraped_profiles: list[dict] = []
+    try:
+        from market_validation.web_scraper import scrape_competitors_batch
+        # Only scrape the top candidates that have actual URLs (not directories)
+        scrape_urls = [
+            c["url"] for c in unique_candidates[:8]
+            if c.get("url") and c["url"].startswith("http")
+        ]
+        if scrape_urls:
+            scraped_profiles = scrape_competitors_batch(scrape_urls, delay=0.8)
+    except Exception:
+        pass
+
     result: dict[str, Any] = {
         "raw_candidate_count": raw_count,
         "competitors_found": unique_candidates[:30],
         "funding_snippet_count": len(funding_snippets),
+        "scraped_competitor_count": len([p for p in scraped_profiles if not p.get("error") and not p.get("skipped")]),
         # Heuristic defaults, overwritten by AI
         "competitive_intensity": 50,
         "competitor_count": raw_count,
@@ -155,12 +188,29 @@ def analyze_competition(
     if not run_ai:
         return result
 
+    # Build enriched candidate context: search snippet + scraped content + prices
+    def _competitor_line(c: dict) -> str:
+        line = f"- {c['name']} ({c['domain']}): {c.get('snippet', '')}"
+        # Look for matching scraped profile
+        for sp in scraped_profiles:
+            if not sp.get("error") and not sp.get("skipped"):
+                sp_domain = sp.get("url", "").split("//")[-1].split("/")[0].lstrip("www.")
+                if sp_domain == c.get("domain"):
+                    if sp.get("description"):
+                        line += f" | Description: {sp['description'][:150]}"
+                    if sp.get("price_signals"):
+                        line += f" | Prices: {', '.join(sp['price_signals'][:3])}"
+                    if sp.get("features"):
+                        line += f" | Features: {'; '.join(sp['features'][:3])}"
+                    break
+        return line
+
     # AI does the real work: classify candidates and assess competition
     candidate_text = "\n".join(
-        f"- {c['name']} ({c['domain']}): {c.get('snippet', '')}"
-        for c in unique_candidates[:25]
+        _competitor_line(c) for c in unique_candidates[:25]
     )
     funding_text = "\n".join(f"- {s}" for s in funding_snippets[:10])
+    extra_text = "\n".join(f"- {s}" for s in extra_snippets[:10]) if extra_snippets else "(none found)"
 
     prompt = f"""You are a competitive intelligence analyst. Analyze the competitive landscape for a business entering:
 
@@ -174,10 +224,13 @@ Raw search results ({raw_count} candidates — mix of real competitors, director
 Funding/growth signals from news:
 {funding_text or '(none found)'}
 
+Additional signals (GitHub, ProductHunt, G2, market share data):
+{extra_text}
+
 Your job:
-1. Identify which candidates are REAL competitors (businesses that compete in this market) vs. directories, review sites, aggregators, or market research firms — exclude the latter.
+1. Identify which candidates are REAL competitors vs. directories/aggregators/review sites — exclude the latter.
 2. Categorize real competitors as direct (same product/customer), indirect (different approach), or substitute.
-3. Assess the overall competitive landscape.
+3. Assess the overall competitive landscape for a NEW entrant.
 
 Return ONLY this JSON (no markdown fences):
 {{
@@ -188,9 +241,10 @@ Return ONLY this JSON (no markdown fences):
     "indirect_competitors": ["company name 1", ...],
     "substitutes": ["substitute 1", ...],
     "funding_signals": ["specific funding event or signal", ...],
-    "dominant_players": ["top 2-3 market leaders"],
-    "barriers_to_entry": ["specific barrier 1", "specific barrier 2"],
-    "notes": "1-2 sentences on competitive dynamics and what this means for a new entrant"
+    "dominant_players": ["top 2-3 market leaders by name"],
+    "barriers_to_entry": ["specific barrier 1 (e.g. capital requirements, licensing, network effects)", "specific barrier 2"],
+    "differentiation_opportunities": ["gap 1 incumbents miss", "gap 2"],
+    "notes": "2-3 sentences on competitive dynamics, dominant players, and what this means for a new entrant"
 }}
 
 Scoring guide for competitive_intensity:

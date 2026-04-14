@@ -35,6 +35,57 @@ def resolve_db_path(root: Path | str, db_path: str | None = None) -> Path:
     return candidate.resolve()
 
 
+def _add_columns_if_missing(conn: Any) -> None:
+    """Add new columns to market_validations for archetype, unit economics, Porter's 5 forces, timing, and customer segments."""
+    new_columns = [
+        # Archetype
+        ("archetype", "TEXT"),
+        ("archetype_confidence", "INTEGER"),
+        ("archetype_label", "TEXT"),
+        # Unit economics
+        ("gross_margin_low", "REAL"),
+        ("gross_margin_high", "REAL"),
+        ("gross_margin_confidence", "INTEGER"),
+        ("cac_estimate_low", "REAL"),
+        ("cac_estimate_high", "REAL"),
+        ("ltv_estimate_low", "REAL"),
+        ("ltv_estimate_high", "REAL"),
+        ("payback_months", "REAL"),
+        ("unit_economics_score", "REAL"),
+        ("unit_economics_data", "TEXT"),
+        # Porter's 5 forces
+        ("supplier_power", "REAL"),
+        ("buyer_power", "REAL"),
+        ("substitute_threat", "REAL"),
+        ("entry_barrier_score", "REAL"),
+        ("rivalry_score", "REAL"),
+        ("structural_attractiveness", "REAL"),
+        ("porters_data", "TEXT"),
+        # Timing
+        ("timing_score", "REAL"),
+        ("timing_verdict", "TEXT"),
+        ("timing_enablers", "TEXT"),
+        ("timing_headwinds", "TEXT"),
+        # Customer segments
+        ("customer_segments_data", "TEXT"),
+        ("icp_clarity", "REAL"),
+        ("primary_segment", "TEXT"),
+        # Actionable output
+        ("next_steps", "TEXT"),
+        ("key_risks", "TEXT"),
+        ("key_success_factors", "TEXT"),
+        ("archetype_red_flags", "TEXT"),
+        ("differentiation_opportunities", "TEXT"),
+    ]
+    for col_name, col_type in new_columns:
+        try:
+            conn.execute(
+                f"ALTER TABLE market_validations ADD COLUMN {col_name} {col_type}"
+            )
+        except Exception:
+            pass  # Column already exists
+
+
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS researches (
@@ -141,6 +192,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     except Exception:
         # Be permissive: if PRAGMA or ALTER fails, continue without breaking
         pass
+    _add_columns_if_missing(conn)
 
 
 def create_research(
@@ -427,6 +479,8 @@ def update_company(
                 value = json.dumps(value)
             if key in ("menu_items", "prices", "ratings", "raw_data") and isinstance(value, (list, dict)):
                 value = json.dumps(value)
+            if isinstance(value, str):
+                value = value.replace("\x00", "")
             updates.append(f"{key} = ?")
             values.append(value)
 
@@ -640,22 +694,59 @@ def update_validation(
         "technology_maturity", "signals_data",
         "market_attractiveness", "competitive_score", "demand_validation",
         "risk_score", "overall_score", "verdict", "verdict_reasoning",
+        # Archetype
+        "archetype", "archetype_confidence", "archetype_label",
+        # Unit economics
+        "gross_margin_low", "gross_margin_high", "gross_margin_confidence",
+        "cac_estimate_low", "cac_estimate_high", "ltv_estimate_low",
+        "ltv_estimate_high", "payback_months", "unit_economics_score",
+        "unit_economics_data",
+        # Porter's 5 forces
+        "supplier_power", "buyer_power", "substitute_threat",
+        "entry_barrier_score", "rivalry_score", "structural_attractiveness",
+        "porters_data",
+        # Timing
+        "timing_score", "timing_verdict", "timing_enablers", "timing_headwinds",
+        # Customer segments
+        "customer_segments_data", "icp_clarity", "primary_segment",
+        # Actionable output
+        "next_steps", "key_risks", "key_success_factors", "archetype_red_flags",
     }
 
     json_fields = {
         "tam_sources", "sam_sources", "som_sources", "demand_seasonality",
         "demand_pain_points", "demand_sources", "direct_competitors",
         "indirect_competitors", "funding_signals", "regulatory_risks", "signals_data",
+        # New JSON blob fields
+        "unit_economics_data", "porters_data", "customer_segments_data",
+        "timing_enablers", "timing_headwinds",
+        # Actionable output (stored as JSON arrays)
+        "next_steps", "key_risks", "key_success_factors", "archetype_red_flags",
     }
 
     updates = []
     values = []
+    skipped_none: list[str] = []
     for key, value in fields.items():
-        if key in valid_fields:
-            if key in json_fields and isinstance(value, (list, dict)):
-                value = json.dumps(value)
-            updates.append(f"{key} = ?")
-            values.append(value)
+        if key not in valid_fields:
+            continue
+        # Skip None — don't overwrite existing DB data with NULL.
+        # AI sometimes returns null for fields where the heuristic already
+        # computed a useful value; silently wiping those caused data loss.
+        if value is None:
+            skipped_none.append(key)
+            continue
+        if key in json_fields and isinstance(value, (list, dict)):
+            value = json.dumps(value)
+        # Strip null bytes — SQLite TEXT columns reject them
+        if isinstance(value, str):
+            value = value.replace("\x00", "")
+        updates.append(f"{key} = ?")
+        values.append(value)
+
+    if skipped_none:
+        import sys
+        print(f"[update_validation] skipped {len(skipped_none)} None fields: {skipped_none}", file=sys.stderr)
 
     if not updates:
         return {"result": "ok", "validation_id": validation_id, "updated": False}
@@ -670,6 +761,8 @@ def update_validation(
             f"UPDATE market_validations SET {', '.join(updates)} WHERE id = ?",
             values,
         )
+    import sys
+    print(f"[update_validation] saved {len(updates)-1} fields to {validation_id}", file=sys.stderr)
 
     return {
         "result": "ok",

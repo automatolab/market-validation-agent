@@ -12,7 +12,7 @@ from __future__ import annotations
 
 _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "saas": ("saas", "software", "api", "platform", "cloud", "automation", "app", "tool"),
-    "food": ("restaurant", "food", "bbq", "barbecue", "catering", "cafe", "coffee", "dining", "brisket", "meat", "grocery", "produce", "beverage"),
+    "food": ("restaurant", "food", "bbq", "barbecue", "catering", "cafe", "coffee", "dining", "grocery", "produce", "beverage", "butcher", "deli", "bakery", "brewery", "winery"),
     "healthcare": ("clinic", "medical", "health", "dental", "hospital", "pharma", "wellness", "therapy"),
     "industrial": ("manufacturer", "manufacturing", "industrial", "factory", "supplier", "wholesale", "robot", "robotics", "drone", "aerospace", "defense", "semiconductor", "hardware", "logistics"),
     "services": ("agency", "consulting", "consultant", "legal", "accounting", "services", "staffing", "marketing"),

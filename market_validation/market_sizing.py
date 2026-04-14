@@ -75,21 +75,42 @@ def estimate_market_size(
             f"{market} industry growth rate forecast",
         ]
 
+    all_search_results: list[dict[str, str]] = []
     for query in queries:
         results = _search(query, num_results=8)
         snippets = _collect_snippets(results)
         if snippets:
             all_snippets.extend(snippets)
             sources_used.append(query)
+            all_search_results.extend(results)
         time.sleep(1.2)
 
-    # Pull free structured data sources (BLS, EDGAR, Wikipedia) — no API key needed
+    # Deep-scrape top search result pages for richer content than snippets
+    try:
+        from market_validation.web_scraper import scrape_search_result_pages
+        scraped_pages = scrape_search_result_pages(
+            all_search_results, max_pages=4, max_chars_each=1200, delay=1.0
+        )
+        for page in scraped_pages:
+            content = page.get("content", "").strip()
+            title = page.get("title", "")
+            url = page.get("url", "")
+            if content and len(content) > 150:
+                all_snippets.append(f"[Full page — {title}]({url}): {content[:800]}")
+                sources_used.append(f"scraped: {url[:60]}")
+    except Exception:
+        pass
+
+    # Pull free structured data sources (BLS, EDGAR, Wikipedia, Yelp) — no paid API needed
     try:
         from market_validation.free_data_sources import (
-            bls_industry_data, edgar_search, wikipedia_industry_summary
+            bls_industry_data, edgar_search, wikipedia_industry_summary,
+            yelp_local_market_data,
         )
         from market_validation.query_context import detect_market_category
+        from market_validation.market_archetype import detect_archetype
         category = detect_market_category(market, product)
+        archetype_key, _ = detect_archetype(market, product)
 
         bls = bls_industry_data(category)
         if bls.get("snippet"):
@@ -109,8 +130,18 @@ def estimate_market_size(
         if wiki.get("snippet"):
             all_snippets.insert(0, f"[Wikipedia — {wiki['title']}]: {wiki['extract']}")
             sources_used.append(f"Wikipedia: {wiki['title']}")
+
+        # Yelp local market density — valuable for local-service TAM estimation
+        yelp_data: dict = {}
+        if archetype_key == "local-service" or category in ("food", "retail"):
+            yelp_data = yelp_local_market_data(search_term, geography)
+            if yelp_data.get("snippet"):
+                all_snippets.insert(0, f"[Yelp]: {yelp_data['snippet']}")
+                sources_used.append(yelp_data.get("source", "Yelp"))
+            time.sleep(0.5)
     except Exception:
         bls = {}
+        yelp_data = {}
 
     # Deduplicate
     seen: set[str] = set()
@@ -126,6 +157,7 @@ def estimate_market_size(
         "sources_used": sources_used,
         "snippet_count": len(unique_snippets),
         "bls_data": bls if "bls" in dir() else {},
+        "yelp_data": yelp_data if "yelp_data" in dir() else {},
     }
 
     if not run_ai:
@@ -145,14 +177,42 @@ def estimate_market_size(
             f"- As of: {_bls['period']}\n"
         )
 
+    # Yelp business count context for local-service market sizing
+    _yelp = result.get("yelp_data") or {}
+    yelp_context = ""
+    if _yelp.get("total") or _yelp.get("business_count"):
+        total = _yelp.get("total") or _yelp.get("business_count") or 0
+        avg_r = _yelp.get("avg_rating")
+        price_dist = _yelp.get("price_distribution") or {}
+        yelp_context = (
+            f"\nYelp local market data (authoritative for {geography}):\n"
+            f"- Competing businesses found: {total:,}\n"
+        )
+        if avg_r:
+            yelp_context += f"- Average rating: {avg_r}★\n"
+        if price_dist and any(price_dist.values()):
+            dominant = max(price_dist, key=price_dist.get)
+            yelp_context += f"- Dominant price tier: {dominant}\n"
+        yelp_context += "- Use business count × avg annual revenue per location to anchor SAM estimate.\n"
+
     prompt = f"""You are a market research analyst. Estimate the market size for:
 
 Market: {market}
 Geography: {geography}
 Product/Service: {product or 'general market'}
-{bls_context}
-Search result snippets (web + SEC filings + Wikipedia):
+{bls_context}{yelp_context}
+Search result snippets (web + SEC filings + Wikipedia + Yelp):
 {snippet_text or '(no snippets found — use your knowledge)'}
+
+IMPORTANT — first determine what this market IS:
+- If "{market}" is a RAW INGREDIENT or PRODUCT (e.g. brisket, lumber, organic cotton):
+  TAM = total spending on this product nationally (all channels: retail, wholesale, foodservice).
+  SAM = spending in {geography} specifically (restaurants, distributors, retail stores that buy it).
+  Think about the SUPPLY CHAIN: who produces it, who distributes it, who consumes it.
+- If "{market}" is a SERVICE (e.g. pet grooming, consulting):
+  TAM = total industry revenue nationally. SAM = revenue in {geography}. SOM = new entrant capture.
+- If "{market}" is a TECHNOLOGY/SOFTWARE:
+  TAM = global/national software spend in category. SAM = target segment. SOM = realistic first-year ARR.
 
 Return ONLY this JSON (numbers in USD, no markdown fences):
 {{
@@ -169,13 +229,14 @@ Return ONLY this JSON (numbers in USD, no markdown fences):
     "sam_sources": ["cite snippet or source"],
     "som_sources": ["cite snippet or source"],
     "growth_rate": <annual growth rate as decimal e.g. 0.08 for 8%>,
-    "notes": "1-2 sentences on methodology and data quality"
+    "notes": "1-2 sentences explaining what this market is and how you sized it"
 }}
 
 Rules:
 - SAM must be a geographic subset of TAM. SOM is 1-5% of SAM for a new entrant.
 - BLS employment data is authoritative — use it to anchor TAM estimates when available.
-- Confidence: 75+ if BLS/EDGAR data corroborates, 50-74 if 3+ web snippets agree, <50 if extrapolated or guessed.
+- Yelp business count × avg revenue per location is a strong SAM anchor for local markets.
+- Confidence: 75+ if BLS/EDGAR/Yelp data corroborates, 50-74 if 3+ web snippets agree, <50 if extrapolated or guessed.
 - If no relevant snippets, estimate from your training knowledge — but set confidence < 40."""
 
     ai_result = run_ai(prompt)

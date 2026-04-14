@@ -109,6 +109,70 @@ def bls_industry_data(category: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# BLS.gov wages data — average hourly/weekly earnings by archetype category
+# ---------------------------------------------------------------------------
+
+# BLS CES Average Hourly Earnings series (data_type 03)
+# Format: CEU + supersector + industry + 03
+_BLS_WAGES_SERIES: dict[str, dict[str, str]] = {
+    "local-service":    {"series": "CEU7072200003", "label": "Food Services & Drinking Places"},
+    "b2b-saas":         {"series": "CEU5051800003", "label": "Software Publishers"},
+    "b2c-saas":         {"series": "CEU5051800003", "label": "Software Publishers"},
+    "healthcare":       {"series": "CEU6562000003", "label": "Health Care & Social Assistance"},
+    "b2b-industrial":   {"series": "CEU3000000003", "label": "Manufacturing"},
+    "consumer-cpg":     {"series": "CEU3100000003", "label": "Food Manufacturing"},
+    "marketplace":      {"series": "CEU5051800003", "label": "Software Publishers"},
+    "services-agency":  {"series": "CEU6000000003", "label": "Professional & Business Services"},
+    "general":          {"series": "CEU0000000003", "label": "Total Nonfarm"},
+}
+
+
+def bls_wages_data(archetype: str) -> dict[str, Any]:
+    """
+    Fetch BLS average hourly earnings for an archetype category.
+
+    Returns dict with avg_hourly_wage, avg_weekly_wage, label, period,
+    and a formatted snippet for AI context. Returns {} on failure.
+    """
+    series_info = _BLS_WAGES_SERIES.get(archetype, _BLS_WAGES_SERIES["general"])
+    series_id = series_info["series"]
+    label = series_info["label"]
+
+    url = f"https://api.bls.gov/publicAPI/v1/timeseries/data/{series_id}"
+    data = _get(url)
+    if not data:
+        return {}
+
+    series_data = (
+        data.get("Results", {}).get("series", [{}])[0].get("data", [])
+    )
+    if not series_data:
+        return {}
+
+    try:
+        latest = series_data[0]
+        hourly_wage = float(latest["value"].replace(",", ""))
+        weekly_wage = round(hourly_wage * 40, 2)
+        annual_wage = round(hourly_wage * 2080, 0)
+        period = f"{latest['periodName']} {latest['year']}"
+
+        snippet = (
+            f"BLS {label}: avg hourly wage ${hourly_wage:.2f} "
+            f"(~${annual_wage:,.0f}/year) as of {period}."
+        )
+        return {
+            "avg_hourly_wage": hourly_wage,
+            "avg_weekly_wage": weekly_wage,
+            "avg_annual_wage": annual_wage,
+            "label": label,
+            "period": period,
+            "snippet": snippet,
+        }
+    except (ValueError, IndexError, KeyError):
+        return {}
+
+
+# ---------------------------------------------------------------------------
 # SEC EDGAR full-text search — no key required
 # ---------------------------------------------------------------------------
 
@@ -341,6 +405,197 @@ def hackernews_search(query: str, limit: int = 20) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Google News RSS — no key, no account, free real news articles
+# ---------------------------------------------------------------------------
+
+def google_news_rss(query: str, limit: int = 15) -> list[dict[str, Any]]:
+    """
+    Fetch recent news articles via Google News RSS feed.
+
+    No API key or account required. Returns actual news with titles, sources,
+    and publication dates — far better than DuckDuckGo news snippets.
+
+    Returns list of {title, url, source_name, published, snippet}.
+    """
+    import xml.etree.ElementTree as ET
+
+    params = urllib.parse.urlencode({"q": query, "hl": "en-US", "gl": "US", "ceid": "US:en"})
+    url = f"https://news.google.com/rss/search?{params}"
+
+    # _get() parses JSON and returns None for XML — fetch raw bytes directly
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "market-validation-agent/1.0 (research tool; contact: noreply@example.com)",
+            "Accept": "application/rss+xml, application/xml, text/xml",
+        })
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            xml_bytes = resp.read()
+        root = ET.fromstring(xml_bytes)
+    except Exception:
+        return []
+
+    results = []
+    channel = root.find("channel")
+    if channel is None:
+        return []
+
+    for item in channel.findall("item")[:limit]:
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        pub_date = (item.findtext("pubDate") or "")[:16].strip()
+        # Source is in <source> tag or embedded in title as " - Publisher"
+        source_tag = item.find("source")
+        source_name = source_tag.text.strip() if source_tag is not None and source_tag.text else ""
+        if not source_name and " - " in title:
+            parts = title.rsplit(" - ", 1)
+            title = parts[0].strip()
+            source_name = parts[1].strip()
+
+        if not title or not link:
+            continue
+
+        results.append({
+            "title": title,
+            "url": link,
+            "source_name": source_name,
+            "published": pub_date,
+            "snippet": title,  # RSS doesn't include description, title is the signal
+        })
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Local business data — Foursquare/Overpass + Yelp scrape (no key needed)
+# ---------------------------------------------------------------------------
+
+def overpass_local_business_count(market: str, geography: str) -> dict[str, Any]:
+    """
+    Count local businesses via OpenStreetMap Overpass API (completely free, no key).
+
+    Maps market terms to OSM amenity/shop tags to count real businesses.
+    Returns {count, sample_names, snippet} or {} on failure.
+    """
+    # Map common market terms to OSM tags
+    _OSM_TAG_MAP: dict[str, list[str]] = {
+        "restaurant": ["amenity=restaurant", "amenity=fast_food"],
+        "bbq": ['amenity=restaurant', 'cuisine=bbq'],
+        "barbecue": ['amenity=restaurant', 'cuisine=bbq'],
+        "cafe": ["amenity=cafe"],
+        "coffee": ["amenity=cafe"],
+        "gym": ["leisure=fitness_centre", "leisure=sports_centre"],
+        "salon": ["shop=hairdresser", "shop=beauty"],
+        "bar": ["amenity=bar", "amenity=pub"],
+        "hotel": ["tourism=hotel"],
+        "pharmacy": ["amenity=pharmacy"],
+        "dentist": ["amenity=dentist"],
+        "doctor": ["amenity=doctors", "amenity=clinic"],
+        "bakery": ["shop=bakery"],
+        "grocery": ["shop=supermarket", "shop=grocery"],
+    }
+
+    market_lower = market.lower()
+    tags: list[str] = []
+    for keyword, osm_tags in _OSM_TAG_MAP.items():
+        if keyword in market_lower:
+            tags = osm_tags
+            break
+    if not tags:
+        return {}  # Only works for mapped categories
+
+    # Resolve geography to lat/lon bounding box via Nominatim (longer timeout)
+    try:
+        nom_url = (
+            "https://nominatim.openstreetmap.org/search?"
+            + urllib.parse.urlencode({"q": geography, "format": "json", "limit": 1})
+        )
+        nom_req = urllib.request.Request(nom_url, headers={
+            "User-Agent": "market-validation-agent/1.0 (research tool; contact: noreply@example.com)",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(nom_req, timeout=20) as nom_resp:
+            geo_data = _json.loads(nom_resp.read().decode("utf-8"))
+    except Exception:
+        return {}
+    if not geo_data or not isinstance(geo_data, list):
+        return {}
+
+    place = geo_data[0]
+    bbox = place.get("boundingbox")  # [south, north, west, east]
+    if not bbox or len(bbox) < 4:
+        return {}
+
+    south, north, west, east = bbox
+    area_str = f"{south},{west},{north},{east}"
+
+    # Run Overpass query for each tag
+    total_count = 0
+    sample_names: list[str] = []
+
+    for tag in tags[:2]:  # limit to 2 tags to avoid long queries
+        key, val = tag.split("=", 1)
+        overpass_query = (
+            f'[out:json][timeout:20];'
+            f'(node["{key}"="{val}"]({area_str});'
+            f'way["{key}"="{val}"]({area_str}););'
+            f'out count;'
+        )
+        # Use urllib directly with longer timeout — Overpass can be slow
+        try:
+            ov_url = (
+                "https://overpass-api.de/api/interpreter?"
+                + urllib.parse.urlencode({"data": overpass_query})
+            )
+            ov_req = urllib.request.Request(ov_url, headers={
+                "User-Agent": "market-validation-agent/1.0 (research tool; contact: noreply@example.com)",
+            })
+            with urllib.request.urlopen(ov_req, timeout=25) as ov_resp:
+                ov_data = _json.loads(ov_resp.read().decode("utf-8"))
+            count = ov_data.get("elements", [{}])[0].get("tags", {}).get("total", 0)
+            total_count += int(count)
+        except (ValueError, TypeError, Exception):
+            pass
+        time.sleep(1.0)  # Be polite to Overpass
+
+    if total_count == 0:
+        return {}
+
+    snippet = (
+        f"OpenStreetMap: ~{total_count:,} {market} businesses in {geography} "
+        f"(from OSM data, may undercount unlisted businesses)"
+    )
+    return {
+        "count": total_count,
+        "sample_names": sample_names,
+        "snippet": snippet,
+        "source": "openstreetmap_overpass",
+    }
+
+
+def yelp_local_market_data(market: str, geography: str) -> dict[str, Any]:
+    """
+    Scrape Yelp search results for local business density data (no key needed).
+
+    Yelp requires JS rendering so this often fails. If it fails,
+    falls back to OpenStreetMap Overpass API count (always works).
+
+    Returns {business_count, avg_rating, price_distribution, snippet} or {}.
+    """
+    # Try Yelp web scraping first (richer data when it works)
+    try:
+        from market_validation.web_scraper import scrape_yelp_search
+        result = scrape_yelp_search(market, geography, limit=40)
+        if result and not result.get("error"):
+            result["source"] = "yelp_scrape"
+            return result
+    except Exception:
+        pass
+
+    # Fall back to OpenStreetMap (always works, no JS required)
+    return overpass_local_business_count(market, geography)
+
+
+# ---------------------------------------------------------------------------
 # Convenience: fetch all relevant sources for a market
 # ---------------------------------------------------------------------------
 
@@ -349,12 +604,13 @@ def gather_free_data(
     geography: str,
     product: str | None = None,
     category: str = "general",
+    archetype: str = "general",
 ) -> dict[str, Any]:
     """
     Fetch all free data sources in sequence and return a combined dict.
 
-    Keys: bls, edgar, reddit, wikipedia, hackernews
-    Safe to call even if individual sources fail.
+    Keys: bls, edgar, reddit, wikipedia, hackernews, yelp (local), news
+    All completely free — no API keys required.
     """
     search_term = product or market
     out: dict[str, Any] = {}
@@ -374,7 +630,6 @@ def gather_free_data(
     # Reddit — pain points and community sentiment
     reddit_results = reddit_search(f"{search_term} problem", limit=15)
     reddit_results += reddit_search(f"{search_term} recommendation", limit=10)
-    # Deduplicate by URL
     seen_urls: set[str] = set()
     deduped = []
     for r in reddit_results:
@@ -384,10 +639,22 @@ def gather_free_data(
     out["reddit"] = sorted(deduped, key=lambda x: x["score"], reverse=True)[:20]
     time.sleep(0.5)
 
-    # HackerNews — only for tech/SaaS markets (not useful for food/industrial)
+    # HackerNews — only for tech/SaaS markets
     if category in ("saas", "general"):
         out["hackernews"] = hackernews_search(search_term, limit=15)
     else:
         out["hackernews"] = []
+
+    # Local business density for local-service archetype
+    if archetype in ("local-service",) or category in ("food", "retail"):
+        out["yelp"] = yelp_local_market_data(search_term, geography)
+        time.sleep(0.5)
+    else:
+        out["yelp"] = {}
+
+    # Google News RSS — real news articles, no key needed
+    out["news"] = google_news_rss(f"{market} {geography}", limit=12)
+    if not out["news"]:
+        out["news"] = google_news_rss(market, limit=10)
 
     return out

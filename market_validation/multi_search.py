@@ -351,22 +351,26 @@ def search_all_backends(query: str, num_results: int = 10) -> list[dict[str, str
 
 def quick_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
     """
-    Main search entrypoint.
+    Main search entrypoint — no API keys required.
     Strategy:
-    - try Nominatim first
-    - if sparse, try DDGS
-    - then aggregate all backends
+    1. Nominatim (for local/geo queries)
+    2. DuckDuckGo (general web search)
+    3. Supplementary backends if still sparse
     """
     batches: list[list[SearchResult]] = []
 
+    # Nominatim — best for local/geo queries
     nom = _from_nominatim(query, num_results)
     batches.append(nom)
 
+    # DuckDuckGo — general web search
     ddg = _from_ddgs(query, num_results)
     if ddg:
         batches.append(ddg)
 
-    if len(nom) < max(6, num_results):
+    # Supplementary backends for local/company discovery queries
+    total_so_far = sum(len(b) for b in batches)
+    if total_so_far < max(6, num_results):
         batches.append(_from_wikipedia(query, max(4, num_results // 2)))
         batches.append(_from_bbb(query, max(4, num_results // 2)))
         batches.append(_from_opencorporates(query, max(3, num_results // 3)))

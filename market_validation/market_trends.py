@@ -109,13 +109,22 @@ def get_google_trends_data(
 def get_market_demand_report(
     target_product: str,
     geography: str = "US",
+    keywords: list[str] | None = None,
 ) -> dict[str, Any]:
-    keywords = [
-        f"{target_product}",
-        f"{target_product} catering",
-        f"{target_product} wholesale",
-        f"buy {target_product}",
-    ]
+    """
+    Fetch Google Trends demand report for a product/market.
+
+    Pass `keywords` to control exactly what pytrends searches.
+    If omitted, defaults to [target_product] — just the bare term.
+    Callers (demand_analysis.py) are responsible for building
+    archetype-appropriate keywords before calling this function.
+    """
+    if keywords is None:
+        # Safe default: just the product name + one intent variant
+        keywords = [target_product, f"{target_product} price"]
+
+    # Cap at 3 keywords — each one is a separate pytrends call with backoff risk
+    keywords = keywords[:3]
 
     report: dict[str, Any] = {
         "result": "ok",

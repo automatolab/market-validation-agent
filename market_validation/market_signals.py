@@ -138,9 +138,28 @@ def gather_market_signals(
     except Exception:
         pass
 
+    # Google News RSS — real news headlines, completely free, no key
+    news_articles: list[dict] = []
+    try:
+        from market_validation.free_data_sources import google_news_rss
+        news_articles = google_news_rss(f"{market} {geography}", limit=15)
+        if not news_articles:
+            news_articles = google_news_rss(market, limit=10)
+        if news_articles:
+            signals["google_news"] = {
+                "count": len(news_articles),
+                "snippets": [
+                    f"[{a.get('source_name','')} {a.get('published','')}] {a.get('title','')}"
+                    for a in news_articles[:8]
+                ],
+            }
+    except Exception:
+        pass
+
     result: dict[str, Any] = {
         "signals_data": signals,
         "bls_data": bls_data,
+        "news_article_count": len(news_articles),
     }
 
     if not run_ai:
@@ -168,6 +187,15 @@ def gather_market_signals(
             f"- Year-over-year: {bls_data['yoy_change_pct']:+.1f}% ({bls_data['trend']})\n"
         )
 
+    # Google News headlines in AI context
+    news_context = ""
+    if news_articles:
+        news_lines = "\n".join(
+            f"  [{a.get('published','')} {a.get('source_name','')}] {a.get('title','')}"
+            for a in news_articles[:10]
+        )
+        news_context = f"\nGoogle News headlines (real articles, no key needed):\n{news_lines}\n"
+
     prompt = f"""You are a market intelligence analyst. Assess market signals for:
 
 Market: {market}
@@ -180,7 +208,8 @@ Signal data gathered from web searches:
 - Negative news signals: {neg_count} results
 - Regulatory mentions: {signals['regulatory']['count']} results
 - Technology/adoption mentions: {signals['technology']['count']} results
-{all_snippets_text}
+- Google News articles: {len(news_articles)} real headlines
+{news_context}{all_snippets_text}
 
 Return ONLY this JSON (no markdown fences):
 {{

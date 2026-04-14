@@ -111,6 +111,212 @@ def _infer_market_profile(market: str, product: str | None) -> dict[str, Any]:
     }
 
 
+def _ai_validate_companies(
+    candidates: list[dict[str, Any]],
+    market: str,
+    geography: str,
+    business_type: str,
+    run_ai: Any,
+) -> list[dict[str, Any]]:
+    """
+    Use Claude as the final quality gate before writing companies to the database.
+
+    Sends all candidates in a single batch call. Claude:
+    - Confirms each is a real operating business relevant to the market
+    - Cleans the business name (strips ratings, platform names, page titles)
+    - Deduplicates (marks duplicates as keep=false)
+    - Rejects unrelated businesses, directories, maps, articles, social pages
+
+    Returns only the validated entries with cleaned names.
+    Falls back to the original list on any failure.
+    """
+    if not candidates:
+        return []
+
+    lines = []
+    for i, c in enumerate(candidates):
+        name = c.get("company_name", "")
+        url = (c.get("website") or c.get("evidence_url") or "")[:80]
+        snippet = (c.get("description") or "")[:180]
+        lines.append(f'  {i}. name="{name}" url="{url}" snippet="{snippet}"')
+
+    prompt = f"""You are a data quality agent for a market research pipeline.
+
+We are building a lead list of: {business_type}
+Geography: {geography} (include the wider metro area — nearby cities count)
+Market context: {market}
+
+Review every candidate below. For each, decide:
+- Is it a REAL OPERATING BUSINESS relevant to {business_type}?
+  REJECT: directories, maps, articles, recipes, social posts, unrelated companies, duplicates
+  KEEP: real businesses even if in nearby cities within the same metro area
+- What is the CLEAN business name? Strip ratings, page section prefixes (Menu |, Order |), platform suffixes (- Yelp, | TikTok), listicle language.
+- Is it a DUPLICATE of another candidate? (keep only the first occurrence)
+
+IMPORTANT: Be INCLUSIVE not exclusive. If a business plausibly operates in or serves the {geography} metro area, KEEP it.
+Only reject businesses that are clearly in a DIFFERENT metro area (e.g. New York vs San Jose) or a different state.
+
+Candidates:
+{chr(10).join(lines)}
+
+Return ONLY a JSON array — one object per candidate, in the same order. No markdown:
+[
+  {{"index": 0, "keep": true, "clean_name": "Business Name", "reason": "real business in metro area"}},
+  {{"index": 1, "keep": false, "clean_name": "", "reason": "article, not a business"}},
+  ...
+]"""
+
+    try:
+        raw = run_ai(prompt)
+        text = None
+        if isinstance(raw, dict):
+            companies_val = raw.get("companies")
+            if isinstance(companies_val, list):
+                # _parse_json_from_text wraps JSON arrays as {"companies": [...]}
+                # Check if the items are validation results (have "index"/"keep") or
+                # actual company objects (have "company_name"). Handle both.
+                if companies_val and isinstance(companies_val[0], dict):
+                    if "index" in companies_val[0] or "keep" in companies_val[0]:
+                        # It's a validation array wrapped by _parse_json_from_text
+                        import json as _j
+                        text = _j.dumps(companies_val)
+                    else:
+                        # Claude returned companies, not validation results. Fall back.
+                        return candidates
+                elif not companies_val:
+                    # Empty list — nothing to validate, return empty
+                    return []
+                else:
+                    import json as _j
+                    text = _j.dumps(companies_val)
+            else:
+                text = raw.get("text") or raw.get("content") or None
+                if not text:
+                    import json as _j
+                    text = _j.dumps(raw)
+        elif isinstance(raw, str):
+            text = raw
+
+        if not text:
+            return candidates
+
+        # Strip markdown fences if present
+        import re as _re, json as _j
+        text = _re.sub(r"^```[a-z]*\n?", "", text.strip())
+        text = _re.sub(r"\n?```$", "", text.strip())
+        parsed = _j.loads(text)
+
+        validated: list[dict[str, Any]] = []
+        for item in parsed:
+            if not item.get("keep"):
+                print(
+                    f"[find:validate] REJECT [{item.get('index')}] "
+                    f"{candidates[item['index']].get('company_name','?')!r} — {item.get('reason','')}",
+                    file=__import__("sys").stderr,
+                )
+                continue
+            idx = item.get("index", -1)
+            if not (0 <= idx < len(candidates)):
+                continue
+            c = dict(candidates[idx])
+            clean = (item.get("clean_name") or "").strip()
+            if clean:
+                c["company_name"] = clean
+            print(
+                f"[find:validate] KEEP  [{idx}] {c['company_name']!r}",
+                file=__import__("sys").stderr,
+            )
+            validated.append(c)
+
+        # Trust the AI: if it validated the response (parsed is non-empty) but
+        # rejected everything, return the empty list. Only fall back on failure.
+        if parsed:
+            print(f"[find:validate] Validation complete: {len(validated)}/{len(candidates)} kept", file=__import__("sys").stderr)
+            return validated
+        # parsed was empty — AI returned nothing actionable
+        return candidates
+
+    except Exception as e:
+        print(f"[find:validate] AI validation failed: {e} — keeping all candidates", file=__import__("sys").stderr)
+        import traceback as _tb
+        _tb.print_exc(file=__import__("sys").stderr)
+        return candidates
+
+
+def _ai_search_strategy(
+    market: str,
+    geography: str,
+    product: str | None,
+    run_ai: Any,
+) -> dict[str, Any] | None:
+    """
+    Ask the LLM to generate a search strategy for this market.
+
+    Returns a dict with:
+      - queries: list of search strings to run
+      - real_business_signals: tokens/phrases that indicate a real business
+      - junk_signals: tokens/phrases that indicate a junk result
+      - business_type: plain-English description (e.g. "BBQ restaurant")
+
+    Returns None if the AI call fails.
+    """
+    prompt = f"""You are a market research strategist. Given a market and geography, figure out:
+1. What is the NATURE of this market? (product, service, ingredient/supply chain, technology, etc.)
+2. Who are the TARGET BUSINESSES to research? (the ones that BUY, SELL, or PROVIDE this thing)
+3. What search queries will find their actual business websites (not articles, reviews, or directories)?
+
+Market: {market}
+Geography: {geography}
+Product/context: {product or 'general'}
+
+Think step by step:
+- If this is a RAW INGREDIENT or PRODUCT (e.g. "brisket", "organic cotton", "steel"), the target businesses
+  are those that BUY it (restaurants, manufacturers) AND those that SELL/DISTRIBUTE it (wholesalers, suppliers).
+- If this is a SERVICE (e.g. "pet grooming", "accounting"), the target businesses are those that PROVIDE the service.
+- If this is a TECHNOLOGY/SOFTWARE, the target businesses are companies building or selling it.
+- If ambiguous, cover multiple angles.
+
+Return ONLY this JSON (no markdown fences):
+{{
+  "market_nature": "<product|service|ingredient|technology|marketplace|other>",
+  "business_type": "<one phrase describing the primary type of business to find>",
+  "target_description": "<who are we looking for and why — 1 sentence>",
+  "queries": [
+    "<search query 1 — most targeted>",
+    "<search query 2 — different angle (e.g. suppliers, distributors)>",
+    "<search query 3 — local directories or listings>",
+    "<search query 4 — catering, wholesale, or services>",
+    "<search query 5 — nearby metro area / wider geography>",
+    "<search query 6 — industry-specific terms>",
+    "<search query 7 — another angle>",
+    "<search query 8 — final angle>"
+  ],
+  "real_business_signals": ["<word/phrase in real business titles/URLs>", ...],
+  "junk_signals": ["<word/phrase that indicates NOT a real business>", ...]
+}}
+
+Rules for queries:
+- Each query should find a DIFFERENT type of business or angle (buyers, sellers, suppliers, providers)
+- Include {geography} in most queries
+- Aim for business homepages with contact info, not aggregator or review sites
+- Think like a B2B sales researcher who needs phone numbers and emails"""
+
+    try:
+        result = run_ai(prompt)
+        if isinstance(result, dict):
+            if "queries" in result:
+                return result
+            if "text" in result:
+                import json as _json
+                return _json.loads(result["text"])
+        if isinstance(result, str):
+            import json as _json
+            return _json.loads(result)
+    except Exception as e:
+        print(f"[find] AI search strategy failed: {e}", file=__import__("sys").stderr)
+    return None
+
+
 # Adjacent profiles to try when the primary profile underperforms.
 # Ordered by likelihood: more specific neighbours first, general last.
 _ADJACENT_PROFILES: dict[str, list[str]] = {
@@ -225,12 +431,81 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
+# Platform suffixes to strip from page titles used as company names
+_TITLE_SUFFIXES = [
+    r"\s*\|\s*TikTok$",
+    r"\s*-\s*YouTube$",
+    r"\s*\|\s*YouTube$",
+    r"\s*-\s*Instagram$",
+    r"\s*\|\s*Instagram$",
+    r"\s*-\s*Facebook$",
+    r"\s*\|\s*Facebook$",
+    r"\s*\|\s*LinkedIn$",
+    r"\s*-\s*LinkedIn$",
+    r"\s*\|\s*Twitter$",
+    r"\s*-\s*Yelp$",
+    r"\s*\|\s*Yelp$",
+    r"\s*-\s*TripAdvisor$",
+    r"\s*\|\s*TripAdvisor$",
+    r"\s*-\s*Google Maps$",
+    r"\s*\|\s*Google Maps$",
+    r"\s*-\s*DoorDash$",
+    r"\s*\|\s*DoorDash$",
+    r"\s*\|\s*Foursquare$",
+    r"\s*\|\s*Zomato$",
+    # Geo suffixes appended to business names (e.g. "SmokeHouseSanJoseCA")
+    r",?\s+San\s+Jose[,\s]+CA[,]?$",
+    r",?\s+San\s+Jose[,\s]+California[,]?$",
+    r"SanJoseCA?$",
+    r"SanJoseCa$",
+    # MapQuest / directory address suffix: ", City, ST 00000, US - MapQuest"
+    r",\s+[A-Za-z ]+,\s+[A-Z]{2}\s+\d{5}(?:,\s*US)?\s*-\s*MapQuest$",
+    r"\s*-\s*MapQuest$",
+    # Other directory suffixes
+    r"\s*-\s*Foursquare$",
+    r"\s*\|\s*MapQuest$",
+]
+_TITLE_SUFFIX_RE = re.compile(
+    "|".join(_TITLE_SUFFIXES), re.IGNORECASE
+)
+
+
+_TITLE_PREFIX_RE = re.compile(
+    r"^(?:Menu|Home|About|Order|Catering|Shop|Store|Contact|Gallery|Blog"
+    r"|News|Events|Reviews|Jobs|Careers|Services|Products|Photos)\s*\|\s*",
+    re.IGNORECASE,
+)
+
+_JUNK_TITLE_RE = re.compile(
+    r"^(?:The\s+\d+\s+Best\b|Best\s+\w+\s+in\b|\d+\s+Best\b|Top\s+\d+\b"
+    r"|Review:\s|First\s+Visit\b|Food\s+Adventure\b)",
+    re.IGNORECASE,
+)
+
+
+def _clean_company_name(raw: str) -> str:
+    """Strip platform suffixes/prefixes, CamelCase geo tags, and noise from page titles."""
+    name = raw.strip()
+    # Strip leading page-section prefixes like "Menu | " or "Home | "
+    name = _TITLE_PREFIX_RE.sub("", name).strip()
+    # Iteratively strip known suffixes (TikTok, YouTube, geo tags, etc.)
+    prev = None
+    while prev != name:
+        prev = name
+        name = _TITLE_SUFFIX_RE.sub("", name).strip()
+    # Remove leading/trailing punctuation
+    name = name.strip("|-– —\t")
+    # Collapse internal whitespace
+    name = re.sub(r"\s{2,}", " ", name).strip()
+    return name or raw.strip()
+
+
 def _normalize_companies(companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for c in companies:
         normalized.append(
             {
-                "company_name": c.get("company_name") or c.get("name") or c.get("title", "Unknown"),
+                "company_name": _clean_company_name(c.get("company_name") or c.get("name") or c.get("title", "") or "Unknown"),
                 "website": c.get("website") or c.get("url", ""),
                 "location": c.get("location") or c.get("address", ""),
                 "phone": c.get("phone", ""),
@@ -266,6 +541,60 @@ _JUNK_NAME_PATTERNS = [
     "site map",
     "yellow pages",
     "yelp search",
+    # Video / social content
+    "| tiktok",
+    "- youtube",
+    "- tiktok",
+    "| youtube",
+    "on tiktok",
+    "on youtube",
+    "- instagram",
+    "| instagram",
+    "- facebook",
+    "| facebook",
+    # Listicles / aggregators
+    "top 10",
+    "top 5",
+    "10 best",
+    "8 best",
+    "5 best",
+    "near me",
+    " review:",
+    "review: ",
+    "- review",
+    "| review",
+    # Stores / extensions
+    "chrome web store",
+    "chrome extension",
+    "app store",
+    "google play",
+    # Irrelevant patterns
+    "first visit",
+    "food adventure",
+    "senior living",
+    "senior community",
+    "assisted living",
+    "memory care",
+    "job listing",
+    "jobs available",
+    "salary in",
+    "text to speech",
+    "voice reader",
+    # Article/listicle titles
+    "is so good, it",
+    "irresistible ",
+    "you need to try",
+    "must try",
+    "family destinations",
+    "serves up the best",
+    "guide to local",
+    "craigslist:",
+    "craigslist.org",
+    # Menu item pages (not a restaurant homepage)
+    " - american restaurant in",
+    " - mexican restaurant in",
+    "items/",
+    "/menu/",
 ]
 
 _BLOCKED_URL_HOSTS = {
@@ -276,7 +605,66 @@ _BLOCKED_URL_HOSTS = {
     "yelp.com", "www.yelp.com",
     "tripadvisor.com", "www.tripadvisor.com",
     "google.com", "www.google.com",
-    "sanjose.org", "www.sanjose.org",
+    # Social / video / app stores
+    "youtube.com", "www.youtube.com",
+    "tiktok.com", "www.tiktok.com",
+    "instagram.com", "www.instagram.com",
+    "facebook.com", "www.facebook.com",
+    "twitter.com", "www.twitter.com",
+    "x.com",
+    "linkedin.com", "www.linkedin.com",
+    "chromewebstore.google.com",
+    "chrome.google.com",
+    # Review / listicle / aggregator sites
+    "yelp.com", "www.yelp.com",
+    "doordash.com", "www.doordash.com",
+    "ubereats.com", "www.ubereats.com",
+    "grubhub.com", "www.grubhub.com",
+    "postmates.com",
+    "seamless.com",
+    "allmenus.com",
+    "menupix.com",
+    "zomato.com",
+    "opentable.com",
+    "restaurantji.com",
+    "sirved.com",
+    "foursquare.com",
+    "reddit.com", "www.reddit.com",
+    "quora.com", "www.quora.com",
+    "pinterest.com", "www.pinterest.com",
+    # News / media
+    "yelp.com",
+    "theguardian.com",
+    "nytimes.com",
+    "sfgate.com",
+    "mercurynews.com",
+    "bizjournals.com",
+    # Misc junk
+    "crunchbase.com",
+    "dnb.com",
+    "manta.com",
+    "chamberofcommerce.com",
+    "expertise.com",
+    "thumbtack.com",
+    "angieslist.com",
+    "homeadvisor.com",
+    "bark.com",
+    # Map / directions sites (show business listings, not business homepages)
+    "mapquest.com", "www.mapquest.com",
+    "maps.apple.com",
+    "waze.com", "www.waze.com",
+    # Classifieds
+    "craigslist.org", "sfbay.craigslist.org",
+    # Local news / city guides (not businesses)
+    "6amcity.com", "sjtoday.6amcity.com",
+    "patch.com",
+    "nextdoor.com",
+    # Article / travel sites
+    "familydestinationsguide.com",
+    "onlyinyourstate.com",
+    "roadsnacks.net",
+    "wideopeneats.com",
+    "lovefood.com",
 }
 
 
@@ -303,10 +691,16 @@ def _filter_relevant_companies(
     companies: list[dict[str, Any]],
     market: str,
     product: str | None,
+    extra_junk_signals: list[str] | None = None,
+    extra_real_signals: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     profile = _infer_market_profile(market, product)
     key_tokens = set(profile["tokens"]) | set(profile["positive_tokens"])
+    if extra_real_signals:
+        key_tokens |= {s.lower() for s in extra_real_signals}
     blocked_tokens = set(profile["blocked_tokens"])
+    if extra_junk_signals:
+        blocked_tokens |= {s.lower() for s in extra_junk_signals}
     banned_name_tokens = set(profile["banned_name_tokens"])
 
     filtered: list[dict[str, Any]] = []
@@ -325,8 +719,10 @@ def _filter_relevant_companies(
             continue
         if c.get("source") == "wikipedia":
             continue
-        if any(token in hay for token in key_tokens):
-            filtered.append(c)
+        # If no key tokens matched but AI provided real signals, be more permissive
+        if key_tokens and not any(token in hay for token in key_tokens):
+            continue
+        filtered.append(c)
     return filtered
 
 
@@ -348,6 +744,142 @@ def _normalize_name_key(value: str) -> str:
 def _extract_phone_text(value: str) -> str:
     match = re.search(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", str(value or ""))
     return match.group(0) if match else ""
+
+
+def _print_validation_summary(
+    market: str,
+    geography: str,
+    archetype_key: str,
+    scorecard: dict,
+    sizing: dict,
+    competition: dict,
+) -> None:
+    """Print a concise, readable validation summary to the terminal."""
+    verdict = scorecard.get("verdict", "unknown")
+    overall = scorecard.get("overall_score", 0)
+
+    verdict_icons = {
+        "strong_go": "✓✓ STRONG GO",
+        "go":        "✓  GO",
+        "cautious":  "~  CAUTIOUS",
+        "no_go":     "✗  NO GO",
+    }
+    verdict_label = verdict_icons.get(verdict, verdict.upper())
+
+    # TAM formatting
+    tam_low = sizing.get("tam_low") or 0
+    tam_high = sizing.get("tam_high") or 0
+    def _fmt_money(n: float) -> str:
+        if n >= 1_000_000_000:
+            return f"${n/1_000_000_000:.1f}B"
+        if n >= 1_000_000:
+            return f"${n/1_000_000:.0f}M"
+        if n >= 1_000:
+            return f"${n/1_000:.0f}K"
+        return f"${n:.0f}"
+    tam_str = f"{_fmt_money(tam_low)} – {_fmt_money(tam_high)}" if tam_high else "unknown"
+
+    # Sub-scores
+    attr  = scorecard.get("market_attractiveness")
+    dem   = scorecard.get("demand_validation")
+    comp  = scorecard.get("competitive_score")
+    risk  = scorecard.get("risk_score")
+    ue    = scorecard.get("unit_economics_score")
+    sa    = scorecard.get("structural_attractiveness")
+    ts    = scorecard.get("timing_score")
+    icp   = scorecard.get("icp_clarity")
+
+    def _bar(score, width: int = 20) -> str:
+        if score is None:
+            return " " * width
+        filled = round((score / 100) * width)
+        return "█" * filled + "░" * (width - filled)
+
+    def _s(score) -> str:
+        return f"{round(score):>3}/100" if score is not None else "    —  "
+
+    sep = "─" * 58
+    print()
+    print(sep)
+    print(f"  MARKET VALIDATION  ·  {market}  ·  {geography}")
+    print(sep)
+    print(f"  Archetype : {archetype_key}  ({scorecard.get('archetype_label', '')})")
+    print(f"  TAM       : {tam_str}")
+    competitors = competition.get("competitor_count") or competition.get("raw_candidate_count")
+    if competitors:
+        conc = competition.get("market_concentration", "")
+        print(f"  Market    : {conc} · {competitors} competitors identified")
+    print()
+    print(f"  {'CORE SCORES':<28}  {'MODULE SCORES'}")
+    print(f"  {'─'*26}  {'─'*26}")
+    print(f"  Attractiveness  {_bar(attr,14)} {_s(attr)}  Unit Economics  {_s(ue)}")
+    print(f"  Demand          {_bar(dem,14)} {_s(dem)}  Porter's SA     {_s(sa)}")
+    print(f"  Competition     {_bar(100-(comp or 0),14)} {_s(100-(comp or 0))}  Timing          {_s(ts)}")
+    print(f"  Risk (inv)      {_bar(100-(risk or 0),14)} {_s(100-(risk or 0))}  ICP Clarity     {_s(icp)}")
+    print()
+    print(f"  {'─'*54}")
+    print(f"  OVERALL  {_bar(overall, 30)} {overall:.0f}/100")
+    print(f"  VERDICT  {verdict_label}")
+    print(f"  {'─'*54}")
+
+    reasoning = scorecard.get("verdict_reasoning", "")
+    if reasoning:
+        # Word-wrap to ~54 chars
+        words = reasoning.split()
+        line, lines = [], []
+        for w in words:
+            if sum(len(x)+1 for x in line) + len(w) > 54:
+                lines.append(" ".join(line))
+                line = [w]
+            else:
+                line.append(w)
+        if line:
+            lines.append(" ".join(line))
+        print()
+        for l in lines:
+            print(f"  {l}")
+
+    next_steps = scorecard.get("next_steps") or []
+    if next_steps:
+        print()
+        print("  NEXT STEPS")
+        for i, step in enumerate(next_steps[:3], 1):
+            # Word-wrap each step
+            words = step.split()
+            line, lines = [], []
+            for w in words:
+                if sum(len(x)+1 for x in line) + len(w) > 50:
+                    lines.append(" ".join(line))
+                    line = [w]
+                else:
+                    line.append(w)
+            if line:
+                lines.append(" ".join(line))
+            print(f"  {i}. {lines[0]}")
+            for cont in lines[1:]:
+                print(f"     {cont}")
+
+    key_risks = scorecard.get("key_risks") or []
+    if key_risks:
+        print()
+        print("  KEY RISKS")
+        for risk_item in key_risks[:2]:
+            words = risk_item.split()
+            line, lines = [], []
+            for w in words:
+                if sum(len(x)+1 for x in line) + len(w) > 51:
+                    lines.append(" ".join(line))
+                    line = [w]
+                else:
+                    line.append(w)
+            if line:
+                lines.append(" ".join(line))
+            print(f"  ▲ {lines[0]}")
+            for cont in lines[1:]:
+                print(f"    {cont}")
+
+    print(sep)
+    print()
 
 
 def _is_useful_business_url(url: str) -> bool:
@@ -374,8 +906,6 @@ def _is_useful_business_url(url: str) -> bool:
         "www.tripadvisor.com",
         "yellowpages.com",
         "www.yellowpages.com",
-        "sanjose.org",
-        "www.sanjose.org",
     }
     if host in blocked_hosts:
         return False
@@ -901,7 +1431,7 @@ class Agent:
 
         return {"result": "error", "error": "No AI agent available (install claude or opencode)"}
     
-    def validate(self, market: str, geography: str, product: str | None = None) -> dict[str, Any]:
+    def validate(self, market: str, geography: str, product: str | None = None, archetype: str | None = None) -> dict[str, Any]:
         """
         STEP 0: Validate the market before company discovery.
 
@@ -919,8 +1449,21 @@ class Agent:
         from market_validation.research import (
             create_validation, update_validation,
         )
+        from market_validation.unit_economics import estimate_unit_economics
+        from market_validation.porters_five_forces import analyze_porters_five_forces
+        from market_validation.timing_analysis import analyze_timing
+        from market_validation.customer_segments import identify_customer_segments
 
         print(f"[validate] Starting market validation: {product or market} in {geography}")
+
+        # Detect archetype first (synchronous) — caller may override
+        from market_validation.market_archetype import detect_archetype
+        if archetype:
+            archetype_key = archetype
+            archetype_confidence = 100
+        else:
+            archetype_key, archetype_confidence = detect_archetype(market, product)
+        print(f"[validate]   Archetype: {archetype_key} (confidence {archetype_confidence}%)")
 
         # Create validation record
         val = create_validation(
@@ -940,22 +1483,34 @@ class Agent:
             "demand": {"demand_score": 50, "demand_trend": "stable"},
             "competition": {"competitive_intensity": 50, "market_concentration": "moderate"},
             "signals": {"regulatory_risks": [], "technology_maturity": "growing"},
+            "unit_economics": {},
+            "porters": {},
+            "timing": {},
+            "customer_segments": {},
         }
         _tasks = {
             "sizing": (estimate_market_size, (market, geography, product), {"run_ai": self._run}),
-            "demand": (analyze_demand, (market, geography, product), {"run_ai": self._run}),
+            "demand": (analyze_demand, (market, geography, product), {"run_ai": self._run, "archetype": archetype_key}),
             "competition": (analyze_competition, (market, geography, product), {"run_ai": self._run}),
             "signals": (gather_market_signals, (market, geography, product), {"run_ai": self._run}),
+            "unit_economics": (estimate_unit_economics, (market, geography, product), {"archetype": archetype_key, "run_ai": self._run}),
+            "porters": (analyze_porters_five_forces, (market, geography, product), {"run_ai": self._run}),
+            "timing": (analyze_timing, (market, geography, product), {"archetype": archetype_key, "run_ai": self._run}),
+            "customer_segments": (identify_customer_segments, (market, geography, product), {"archetype": archetype_key, "run_ai": self._run}),
         }
         _labels = {
             "sizing": "Estimating market size (TAM/SAM/SOM)",
             "demand": "Analyzing demand signals",
             "competition": "Mapping competitive landscape",
             "signals": "Gathering market signals",
+            "unit_economics": "Estimating unit economics",
+            "porters": "Analyzing Porter's 5 forces",
+            "timing": "Assessing market timing",
+            "customer_segments": "Identifying customer segments",
         }
         results_map: dict[str, Any] = {}
-        print("[validate]   Running 4 modules in parallel...")
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        print("[validate]   Running 8 modules in parallel...")
+        with ThreadPoolExecutor(max_workers=8) as executor:
             futures = {
                 executor.submit(fn, *args, **kwargs): key
                 for key, (fn, args, kwargs) in _tasks.items()
@@ -973,10 +1528,56 @@ class Agent:
         demand = results_map["demand"]
         competition = results_map["competition"]
         signals = results_map["signals"]
+        unit_economics = results_map["unit_economics"]
+        porters = results_map["porters"]
+        timing = results_map["timing"]
+        customer_segments = results_map["customer_segments"]
+
+        # Re-run porters with competition context if it completed without it
+        if porters and not porters.get("structural_attractiveness") and competition:
+            try:
+                porters = analyze_porters_five_forces(market, geography, product,
+                                                      existing_competition=competition,
+                                                      run_ai=self._run)
+            except Exception:
+                pass
+
+        # Re-run timing with signals context if it completed without a score
+        if timing and not timing.get("timing_score") and signals:
+            try:
+                timing = analyze_timing(market, geography, product,
+                                       archetype=archetype_key,
+                                       signals=signals,
+                                       run_ai=self._run)
+            except Exception:
+                pass
 
         # Compute scorecard
         print("[validate]   Computing scorecard...")
-        scorecard = compute_scorecard(sizing, demand, competition, signals, run_ai=self._run)
+        scorecard = compute_scorecard(
+            sizing, demand, competition, signals,
+            run_ai=self._run,
+            unit_economics=unit_economics,
+            porters=porters,
+            timing=timing,
+            customer_segments=customer_segments,
+            archetype=archetype_key,
+        )
+
+        # Log what each module returned (helps diagnose missing fields)
+        def _log_module(name: str, result: dict) -> None:
+            non_none = {k: v for k, v in result.items() if v is not None and v != [] and v != {}}
+            none_keys = [k for k, v in result.items() if v is None]
+            print(f"[validate]   {name}: {len(non_none)} fields populated"
+                  + (f", {len(none_keys)} None ({none_keys})" if none_keys else ""))
+        _log_module("sizing", sizing)
+        _log_module("demand", demand)
+        _log_module("competition", competition)
+        _log_module("signals", signals)
+        _log_module("unit_economics", unit_economics)
+        _log_module("porters", porters)
+        _log_module("timing", timing)
+        _log_module("customer_segments", customer_segments)
 
         # Store everything in the database
         db_fields: dict[str, Any] = {"status": "complete"}
@@ -984,22 +1585,23 @@ class Agent:
         for key in ("tam_low", "tam_high", "tam_confidence", "tam_sources",
                      "sam_low", "sam_high", "sam_confidence", "sam_sources",
                      "som_low", "som_high", "som_confidence", "som_sources"):
-            if key in sizing:
+            if key in sizing and sizing[key] is not None:
                 db_fields[key] = sizing[key]
         # Demand
         for key in ("demand_score", "demand_trend", "demand_seasonality",
                      "demand_pain_points", "demand_sources"):
-            if key in demand:
+            if key in demand and demand[key] is not None:
                 db_fields[key] = demand[key]
         # Competition
         for key in ("competitive_intensity", "competitor_count", "market_concentration",
-                     "direct_competitors", "indirect_competitors", "funding_signals"):
-            if key in competition:
+                     "direct_competitors", "indirect_competitors", "funding_signals",
+                     "differentiation_opportunities"):
+            if key in competition and competition[key] is not None:
                 db_fields[key] = competition[key]
         # Signals
         for key in ("job_posting_volume", "news_sentiment", "regulatory_risks",
                      "technology_maturity", "signals_data"):
-            if key in signals:
+            if key in signals and signals[key] is not None:
                 db_fields[key] = signals[key]
         # Scorecard
         db_fields.update({
@@ -1012,19 +1614,74 @@ class Agent:
             "verdict_reasoning": scorecard.get("verdict_reasoning"),
         })
 
+        # Archetype
+        db_fields["archetype"] = archetype_key
+        db_fields["archetype_confidence"] = archetype_confidence
+        db_fields["archetype_label"] = scorecard.get("archetype_label", "")
+
+        # Unit economics
+        for key in ("gross_margin_low", "gross_margin_high", "gross_margin_confidence",
+                    "cac_estimate_low", "cac_estimate_high", "ltv_estimate_low",
+                    "ltv_estimate_high", "payback_months", "unit_economics_score"):
+            if key in unit_economics and unit_economics[key] is not None:
+                db_fields[key] = unit_economics[key]
+        if unit_economics:
+            db_fields["unit_economics_data"] = unit_economics
+
+        # Porter's 5 forces
+        for key in ("supplier_power", "buyer_power", "substitute_threat",
+                    "entry_barrier_score", "rivalry_score", "structural_attractiveness"):
+            if key in porters and porters[key] is not None:
+                db_fields[key] = porters[key]
+        if porters:
+            db_fields["porters_data"] = porters
+
+        # Timing
+        for key in ("timing_score", "timing_verdict"):
+            if key in timing and timing[key] is not None:
+                db_fields[key] = timing[key]
+        if timing.get("enablers"):
+            db_fields["timing_enablers"] = timing["enablers"]
+        if timing.get("headwinds"):
+            db_fields["timing_headwinds"] = timing["headwinds"]
+
+        # Customer segments
+        if customer_segments:
+            db_fields["customer_segments_data"] = customer_segments
+            if customer_segments.get("icp_clarity") is not None:
+                db_fields["icp_clarity"] = customer_segments["icp_clarity"]
+            if customer_segments.get("primary_segment"):
+                seg = customer_segments["primary_segment"]
+                db_fields["primary_segment"] = seg.get("name", "") if isinstance(seg, dict) else str(seg)
+
+        # Actionable output from scorecard
+        if scorecard.get("next_steps"):
+            db_fields["next_steps"] = scorecard["next_steps"]
+        if scorecard.get("key_risks"):
+            db_fields["key_risks"] = scorecard["key_risks"]
+        if scorecard.get("key_success_factors"):
+            db_fields["key_success_factors"] = scorecard["key_success_factors"]
+        if scorecard.get("archetype_red_flags"):
+            db_fields["archetype_red_flags"] = scorecard["archetype_red_flags"]
+
         update_validation(vid, db_fields, root=self.root)
 
         verdict = scorecard.get("verdict", "unknown")
         overall = scorecard.get("overall_score", 0)
-        print(f"[validate] Done — verdict: {verdict} ({overall}/100)")
+        _print_validation_summary(market, geography, archetype_key, scorecard, sizing, competition)
 
         return {
             "result": "ok",
             "validation_id": vid,
+            "archetype": archetype_key,
             "sizing": sizing,
             "demand": demand,
             "competition": competition,
             "signals": signals,
+            "unit_economics": unit_economics,
+            "porters": porters,
+            "timing": timing,
+            "customer_segments": customer_segments,
             "scorecard": scorecard,
         }
 
@@ -1041,6 +1698,23 @@ class Agent:
         sources_used: list[str] = []
         source_health: list[dict[str, Any]] = []
         profile = _infer_market_profile(market, product)
+
+        # If the heuristic profile has low confidence, ask the LLM to generate
+        # a proper search strategy instead of falling back to generic queries.
+        ai_strategy: dict[str, Any] | None = None
+        if profile.get("confidence", 100) < 50:
+            print(f"[find] heuristic confidence {profile.get('confidence')}% — asking AI for search strategy...")
+            ai_strategy = _ai_search_strategy(market, geography, product, self._run)
+            if ai_strategy:
+                btype = ai_strategy.get("business_type", market)
+                print(f"[find] AI strategy: business_type='{btype}', {len(ai_strategy.get('queries', []))} queries")
+                source_health.append({
+                    "stage": "ai_search_strategy",
+                    "business_type": btype,
+                    "queries": ai_strategy.get("queries", []),
+                    "status": "ok",
+                })
+
         source_health.append(
             {
                 "stage": "market_profile",
@@ -1050,12 +1724,16 @@ class Agent:
                 "status": "ok",
             }
         )
-        
+
         # First, try direct free search using OSM-backed multi_search.
-        search_queries = _primary_queries(market=market, geography=geography, product=product)
+        # If AI provided a strategy, use those queries; otherwise use heuristic queries.
+        if ai_strategy and ai_strategy.get("queries"):
+            search_queries = ai_strategy["queries"]
+        else:
+            search_queries = _primary_queries(market=market, geography=geography, product=product)
         
         for query in search_queries:
-            search_results = _try_multi_search(query, 10)
+            search_results = _try_multi_search(query, 15)
             backend_counts = _summarize_backends(search_results)
             source_health.append(
                 {
@@ -1114,8 +1792,18 @@ class Agent:
                         "source": r.get("source", "config"),
                     })
         
+        _ai_junk = ai_strategy.get("junk_signals", []) if ai_strategy else []
+        _ai_real = ai_strategy.get("real_business_signals", []) if ai_strategy else []
+        # If AI gave us a business_type, use it as an additional real signal and
+        # override the search_term so filtering doesn't drop legit results.
+        if ai_strategy and ai_strategy.get("business_type"):
+            _ai_real += ai_strategy["business_type"].lower().split()
+
         unique_companies = _dedupe_companies(_normalize_companies(all_companies))
-        unique_companies = _filter_relevant_companies(unique_companies, market=market, product=product)
+        unique_companies = _filter_relevant_companies(
+            unique_companies, market=market, product=product,
+            extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
+        )
 
         # Deterministic quality gate + retry query pass
         quality_passed, quality_info = _passes_quality_gate(unique_companies, market=market, product=product)
@@ -1327,6 +2015,7 @@ Return JSON:
 }}"""
 
             ai_agent = self._detect_agent()
+            prompt += "\n\nIMPORTANT: Only include real operating businesses with a physical presence or active website. Do NOT include directories, aggregators, review sites, social media pages, or unrelated companies."
             ai_result = self._run(prompt, timeout=180)
             source_health.append(
                 {
@@ -1378,12 +2067,33 @@ Return JSON:
         
         if result.get("result") == "error":
             return result
-        
+
         companies = _normalize_companies(result.get("companies", []))
         companies = _dedupe_companies(companies)
-        companies = _filter_relevant_companies(companies, market=market, product=product)
+        companies = _filter_relevant_companies(
+            companies, market=market, product=product,
+            extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
+        )
+
+        # Claude batch validation — the definitive gate before writing to DB.
+        # One call reviews every candidate: confirms relevance, cleans names, dedupes.
+        if companies:
+            _biz_type = (ai_strategy.get("business_type") if ai_strategy else None) or market
+            print(f"[find] Claude pre-save validation: {len(companies)} candidates → business_type='{_biz_type}'")
+            companies = _ai_validate_companies(
+                companies, market=market, geography=geography,
+                business_type=_biz_type, run_ai=self._run,
+            )
+            print(f"[find] After validation: {len(companies)} companies confirmed")
+            source_health.append({
+                "stage": "ai_pre_save_validation",
+                "candidates_in": len(result.get("companies", [])),
+                "confirmed_out": len(companies),
+                "status": "ok",
+            })
+
         result["companies"] = companies
-        
+
         # Store in database if we have research_id
         if self.research_id:
             from market_validation.research import add_company, _connect, _ensure_schema, resolve_db_path
@@ -1935,6 +2645,7 @@ Return JSON only:
         product: str | None = None,
         enrich_statuses: list[str] | None = None,
         validate: bool = False,
+        archetype: str | None = None,
     ) -> dict[str, Any]:
         """
         Full pipeline: [validate →] find → qualify → enrich_all.
@@ -1959,7 +2670,7 @@ Return JSON only:
         if validate:
             step += 1
             print(f"[research] Step {step}/{total_steps}: validate — {product or market} in {geography}")
-            validate_result = self.validate(market, geography, product)
+            validate_result = self.validate(market, geography, product, archetype=archetype)
             verdict = validate_result.get("scorecard", {}).get("verdict", "unknown")
             overall = validate_result.get("scorecard", {}).get("overall_score", 0)
             print(f"[research] → verdict: {verdict} ({overall}/100)")
@@ -2011,6 +2722,7 @@ def main():
     parser.add_argument("--product", help="Specific product (optional)")
     parser.add_argument("--company", help="Company name for single enrich")
     parser.add_argument("--validate", action="store_true", help="Run market validation before research pipeline")
+    parser.add_argument("--archetype", help="Override archetype detection (e.g. local-service, b2b-saas, b2b-industrial, consumer-cpg, marketplace, healthcare, services-agency)")
 
     args = parser.parse_args()
     agent = Agent(research_id=args.research_id)
@@ -2027,20 +2739,36 @@ def main():
             geography=args.geography,
         )["research_id"]
         agent.research_id = rid
-        result = agent.research(args.market, args.geography, args.product, validate=args.validate)
+        result = agent.research(args.market, args.geography, args.product, validate=args.validate, archetype=args.archetype)
     elif args.command == "validate":
         if not args.market or not args.geography:
             parser.error("validate requires --market and --geography")
         if not args.research_id:
-            from market_validation.research import create_research
-            rid = create_research(
-                name=f"Validation: {args.product or args.market} in {args.geography}",
-                market=args.market,
-                product=args.product,
-                geography=args.geography,
-            )["research_id"]
-            agent.research_id = rid
-        result = agent.validate(args.market, args.geography, args.product)
+            # Look for an existing research with the SAME market AND geography
+            # to avoid polluting a different market's research with this validation.
+            from market_validation.research import _connect, _ensure_schema, resolve_db_path, create_research as _cr
+            _db = resolve_db_path(agent.root)
+            with _connect(_db) as _conn:
+                _ensure_schema(_conn)
+                _existing = _conn.execute(
+                    """SELECT r.id FROM researches r
+                       WHERE LOWER(TRIM(r.market)) = LOWER(TRIM(?))
+                         AND LOWER(TRIM(COALESCE(r.geography,''))) = LOWER(TRIM(?))
+                       ORDER BY r.created_at DESC LIMIT 1""",
+                    (args.market, args.geography),
+                ).fetchone()
+            if _existing:
+                agent.research_id = _existing[0]
+                print(f"[validate] reusing existing research {agent.research_id} ({args.market} / {args.geography})")
+            else:
+                rid = _cr(
+                    name=f"Validation: {args.product or args.market} in {args.geography}",
+                    market=args.market,
+                    product=args.product,
+                    geography=args.geography,
+                )["research_id"]
+                agent.research_id = rid
+        result = agent.validate(args.market, args.geography, args.product, archetype=args.archetype)
     elif args.command == "find":
         result = agent.find(args.market, args.geography, args.product)
     elif args.command == "qualify":

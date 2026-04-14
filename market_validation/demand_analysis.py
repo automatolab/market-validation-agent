@@ -23,12 +23,48 @@ def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
         return []
 
 
-def _get_trends_data(product: str, geography: str) -> dict[str, Any]:
-    """Call existing market_trends module — the key wiring that was missing."""
+def _trends_keywords(term: str, archetype: str) -> list[str]:
+    """
+    Return 2-3 pytrends keywords that are meaningful for this archetype.
+
+    Deterministic — no AI call needed. The bare term is always first so
+    the primary interest level is always captured. The second keyword is
+    an intent modifier that signals purchase/adoption intent specifically
+    for this kind of market.
+
+    Skips any modifier whose key word already appears in the term
+    (e.g. "CRM software" won't become "CRM software software").
+    """
+    t = term.lower()
+    # Each archetype gets a prioritised list of (modifier_word, full_phrase) pairs.
+    # We include a phrase only if its modifier isn't already in the search term.
+    candidates_map: dict[str, list[tuple[str, str]]] = {
+        "local-service":   [("near me", f"{term} near me"), ("hours", f"{term} open")],
+        "b2b-saas":        [("software", f"{term} software"), ("tool", f"{term} tool"), ("platform", f"{term} platform")],
+        "b2c-saas":        [("app", f"{term} app"), ("free", f"{term} free"), ("download", f"{term} download")],
+        "b2b-industrial":  [("supplier", f"{term} supplier"), ("wholesale", f"{term} wholesale"), ("bulk", f"buy {term} bulk")],
+        "consumer-cpg":    [("buy", f"buy {term}"), ("brand", f"{term} brand"), ("review", f"{term} review")],
+        "marketplace":     [("marketplace", f"{term} marketplace"), ("hire", f"hire {term}"), ("platform", f"{term} platform")],
+        "healthcare":      [("treatment", f"{term} treatment"), ("cost", f"{term} cost"), ("insurance", f"{term} insurance")],
+        "services-agency": [("agency", f"{term} agency"), ("hire", f"hire {term}"), ("consultant", f"{term} consultant")],
+    }
+    fallback = [("review", f"{term} review"), ("price", f"{term} price")]
+    candidates = candidates_map.get(archetype, fallback)
+
+    result = [term]
+    for modifier, phrase in candidates:
+        if modifier not in t and len(result) < 3:
+            result.append(phrase)
+    return result
+
+
+def _get_trends_data(product: str, geography: str, archetype: str = "general") -> dict[str, Any]:
+    """Call existing market_trends module with archetype-appropriate keywords."""
     try:
         from market_validation.market_trends import get_market_demand_report
         geo_code = _geography_to_code(geography)
-        return get_market_demand_report(product, geography=geo_code)
+        keywords = _trends_keywords(product, archetype)
+        return get_market_demand_report(product, geography=geo_code, keywords=keywords)
     except Exception as e:
         return {"result": "ok", "error": str(e), "skipped": True}
 
@@ -65,16 +101,20 @@ def analyze_demand(
     geography: str,
     product: str | None = None,
     run_ai: Callable[..., dict[str, Any]] | None = None,
+    archetype: str = "general",
 ) -> dict[str, Any]:
     """
     Analyze market demand using Google Trends + web search + AI synthesis.
+
+    Pass archetype so pytrends uses intent keywords relevant to this market
+    (e.g. "near me" for local-service, "software" for b2b-saas).
 
     Returns dict with demand_score, demand_trend, demand_pain_points, etc.
     """
     search_term = product or market
 
-    # 1. Google Trends (with retry/backoff built into get_market_demand_report)
-    trends = _get_trends_data(search_term, geography)
+    # 1. Google Trends with archetype-aware keywords
+    trends = _get_trends_data(search_term, geography, archetype=archetype)
 
     # 2. Search volume proxies — result counts across intent types (market-aware)
     try:
@@ -128,6 +168,23 @@ def analyze_demand(
     except Exception:
         pass
 
+    # Google News RSS — real news headlines about this market, no key needed
+    news_snippets: list[str] = []
+    try:
+        from market_validation.free_data_sources import google_news_rss
+        _news = google_news_rss(f"{search_term} {geography}", limit=12)
+        if not _news:
+            _news = google_news_rss(search_term, limit=8)
+        for article in _news:
+            title = article.get("title", "")
+            src = article.get("source_name", "")
+            pub = article.get("published", "")[:10]
+            if title:
+                news_snippets.append(f"[News: {src} {pub}] {title}")
+        time.sleep(0.3)
+    except Exception:
+        pass
+
     # DuckDuckGo fallback if Reddit returned nothing
     if not community_snippets:
         for query in community_queries:
@@ -137,11 +194,43 @@ def analyze_demand(
                     community_snippets.append(s)
             time.sleep(1.2)
 
+    # Crowdfunding signal — Kickstarter/Indiegogo campaigns prove willingness to pay
+    crowdfunding_snippets: list[str] = []
+    try:
+        for cq in [f"site:kickstarter.com {search_term}", f"site:indiegogo.com {search_term}"]:
+            for r in _search(cq, num_results=5):
+                s = r.get("snippet", "").strip()
+                t = r.get("title", "").strip()
+                if s or t:
+                    crowdfunding_snippets.append(f"[Crowdfunding] {t}: {s[:150]}")
+            time.sleep(1.0)
+    except Exception:
+        pass
+
+    # Subreddit subscriber count as commitment signal
+    subreddit_signals: list[str] = []
+    try:
+        from market_validation.free_data_sources import reddit_search
+        # Search for subreddits about this market
+        _subs = _search(f"site:reddit.com/r {search_term}", num_results=5)
+        for r in _subs:
+            url = r.get("url", "")
+            title = r.get("title", "")
+            snippet = r.get("snippet", "")
+            if "reddit.com/r/" in url and snippet:
+                subreddit_signals.append(f"[Subreddit] {title}: {snippet[:150]}")
+        time.sleep(0.8)
+    except Exception:
+        pass
+
     result: dict[str, Any] = {
         "trends_data": trends,
         "search_volume": volume_counts,
         "community_snippet_count": len(community_snippets),
         "reddit_post_count": len(reddit_posts),
+        "news_snippet_count": len(news_snippets),
+        "crowdfunding_snippet_count": len(crowdfunding_snippets),
+        "subreddit_signal_count": len(subreddit_signals),
     }
 
     if not run_ai:
@@ -157,6 +246,9 @@ def analyze_demand(
         },
     }, indent=2)
 
+    crowdfunding_text = "\n".join(f"- {s}" for s in crowdfunding_snippets[:6]) if crowdfunding_snippets else "(none found)"
+    subreddit_text = "\n".join(f"- {s}" for s in subreddit_signals[:4]) if subreddit_signals else "(none found)"
+
     prompt = f"""You are a demand analyst. Assess demand for:
 
 Market: {market}
@@ -169,26 +261,36 @@ Google Trends (0-100 interest scale, higher = more searches):
 Search result counts across intent types (more = higher demand signal):
 {json.dumps(volume_counts, indent=2)}
 
-Community discussions (Reddit/forums) — {len(reddit_posts) if 'reddit_posts' in dir() else 0} posts from Reddit API, sorted by upvotes:
+Community discussions (Reddit/forums) — {len(reddit_posts)} posts sorted by upvotes:
 {snippet_text or '(none found)'}
+
+Google News headlines ({len(news_snippets)} articles):
+{chr(10).join(f"- {{s}}" for s in news_snippets[:10]) or "(none found)"}
+
+Crowdfunding campaigns (Kickstarter/Indiegogo — proves willingness to pay):
+{crowdfunding_text}
+
+Subreddit / community presence signals:
+{subreddit_text}
 
 Return ONLY this JSON (no markdown fences):
 {{
     "demand_score": <0-100 composite demand score>,
     "demand_trend": "<rising|stable|falling>",
-    "demand_seasonality": "<seasonal pattern description, or 'none detected'>",
-    "demand_pain_points": ["specific pain point 1", "specific pain point 2"],
-    "demand_sources": ["Google Trends", "community discussions", ...],
+    "demand_seasonality": "<seasonal pattern or 'none detected'>",
+    "demand_pain_points": ["specific pain point 1", "specific pain point 2", "specific pain point 3"],
+    "demand_sources": ["Google Trends", "Reddit community", ...],
     "willingness_to_pay": "<high|medium|low|unknown>",
-    "notes": "1-2 sentences on demand strength and evidence quality"
+    "crowdfunding_signal": "<strong|moderate|weak|none> — brief note if campaigns found",
+    "notes": "2-3 sentences on demand strength, evidence quality, and key insight"
 }}
 
 Scoring guide:
-- 75+: strong upward trend + active community + high search volume
+- 75+: strong upward trend + active community + high search volume + crowdfunding evidence
 - 50-74: moderate/mixed signals
 - 25-49: weak signals or thin evidence
 - <25: no meaningful demand detected
-Pain points must be specific (e.g. "restaurants struggle to source consistent brisket supply"), not vague."""
+Pain points must be specific and actionable, not vague."""
 
     ai_result = run_ai(prompt)
     parsed: dict[str, Any] = {}
