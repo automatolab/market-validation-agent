@@ -350,10 +350,17 @@ def _html_template(interactive: bool) -> str:
     .notes-more:hover {{ opacity: 0.75; }}
     .note-modal-overlay {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }}
     .note-modal-overlay.open {{ display: flex; }}
-    .note-modal {{ background: #fff; border-radius: 12px; padding: 24px; max-width: 480px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }}
-    .note-modal h3 {{ margin: 0 0 12px; font-size: 15px; color: var(--text); }}
-    .note-modal p {{ margin: 0; white-space: pre-wrap; line-height: 1.6; color: var(--muted); font-size: 14px; }}
-    .note-modal-close {{ margin-top: 18px; display: block; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; }}
+    .note-modal {{ background: #fff; border-radius: 14px; padding: 0; max-width: 520px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,0.18); max-height: 80vh; display: flex; flex-direction: column; }}
+    .note-modal-header {{ padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }}
+    .note-modal-header h3 {{ margin: 0; font-size: 16px; color: var(--text); }}
+    .note-modal-body {{ padding: 16px 20px; overflow-y: auto; flex: 1; }}
+    .note-section {{ margin-bottom: 14px; }}
+    .note-section:last-child {{ margin-bottom: 0; }}
+    .note-section-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--brand); margin-bottom: 4px; }}
+    .note-section-text {{ font-size: 13px; line-height: 1.6; color: var(--muted); }}
+    .note-section-text li {{ margin-bottom: 3px; }}
+    .note-modal-footer {{ padding: 12px 20px; border-top: 1px solid var(--line); }}
+    .note-modal-close {{ display: block; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; }}
     .note-modal-close:hover {{ background: #edf2f7; }}
     @media (max-width: 980px) {{
       .app {{ padding: 14px; }}
@@ -366,9 +373,9 @@ def _html_template(interactive: bool) -> str:
 <body>
   <div id="note-modal-overlay" class="note-modal-overlay" onclick="if(event.target===this)closeNoteModal()">
     <div class="note-modal">
-      <h3 id="note-modal-company"></h3>
-      <p id="note-modal-body"></p>
-      <button class="note-modal-close" onclick="closeNoteModal()">Close</button>
+      <div class="note-modal-header"><h3 id="note-modal-company"></h3></div>
+      <div class="note-modal-body" id="note-modal-body"></div>
+      <div class="note-modal-footer"><button class="note-modal-close" onclick="closeNoteModal()">Close</button></div>
     </div>
   </div>
   <div class='app'>
@@ -992,8 +999,37 @@ def _html_template(interactive: bool) -> str:
       const c = companyById(companyId);
       if (!c) return;
       document.getElementById('note-modal-company').textContent = c.company_name || '';
-      document.getElementById('note-modal-body').textContent = c.notes || '';
+      const body = document.getElementById('note-modal-body');
+      body.innerHTML = renderNotes(c.notes || '');
       document.getElementById('note-modal-overlay').classList.add('open');
+    }}
+
+    function renderNotes(raw) {{
+      // Split on pipe separators, trim each chunk
+      const chunks = raw.split('|').map(s => s.trim()).filter(Boolean);
+      if (!chunks.length) return '';
+      let html = '';
+      for (const chunk of chunks) {{
+        // Detect "Label: content" pattern
+        const m = chunk.match(/^([^:]{{2,40}}):\s+(.+)$/s);
+        if (m) {{
+          const label = esc(m[1].trim());
+          const content = m[2].trim();
+          // Split content by semicolons into list items if there are multiple
+          const items = content.split(';').map(s => s.trim()).filter(Boolean);
+          let contentHtml;
+          if (items.length > 1) {{
+            contentHtml = '<ul style="margin:0;padding-left:16px">' + items.map(i => `<li>${{esc(i)}}</li>`).join('') + '</ul>';
+          }} else {{
+            contentHtml = `<span>${{esc(content)}}</span>`;
+          }}
+          html += `<div class="note-section"><div class="note-section-label">${{label}}</div><div class="note-section-text">${{contentHtml}}</div></div>`;
+        }} else {{
+          // Plain paragraph (usually the opening summary)
+          html += `<div class="note-section"><div class="note-section-text">${{esc(chunk)}}</div></div>`;
+        }}
+      }}
+      return html;
     }}
     function closeNoteModal() {{
       document.getElementById('note-modal-overlay').classList.remove('open');
