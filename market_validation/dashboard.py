@@ -344,6 +344,17 @@ def _html_template(interactive: bool) -> str:
     .editing-row td {{ background: #fffdf4; }}
     .cell-input {{ width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; }}
     .cell-split {{ display: flex; gap: 6px; }}
+    .notes-cell {{ max-width: 200px; }}
+    .notes-preview {{ display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; line-height: 1.4; color: var(--muted); }}
+    .notes-more {{ font-size: 11px; color: var(--brand); cursor: pointer; white-space: nowrap; border: none; background: none; padding: 2px 0; text-decoration: underline; }}
+    .notes-more:hover {{ opacity: 0.75; }}
+    .note-modal-overlay {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }}
+    .note-modal-overlay.open {{ display: flex; }}
+    .note-modal {{ background: #fff; border-radius: 12px; padding: 24px; max-width: 480px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,0.18); }}
+    .note-modal h3 {{ margin: 0 0 12px; font-size: 15px; color: var(--text); }}
+    .note-modal p {{ margin: 0; white-space: pre-wrap; line-height: 1.6; color: var(--muted); font-size: 14px; }}
+    .note-modal-close {{ margin-top: 18px; display: block; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; }}
+    .note-modal-close:hover {{ background: #edf2f7; }}
     @media (max-width: 980px) {{
       .app {{ padding: 14px; }}
       .header {{ flex-direction: column; align-items: stretch; }}
@@ -353,6 +364,13 @@ def _html_template(interactive: bool) -> str:
   </style>
 </head>
 <body>
+  <div id="note-modal-overlay" class="note-modal-overlay" onclick="if(event.target===this)closeNoteModal()">
+    <div class="note-modal">
+      <h3 id="note-modal-company"></h3>
+      <p id="note-modal-body"></p>
+      <button class="note-modal-close" onclick="closeNoteModal()">Close</button>
+    </div>
+  </div>
   <div class='app'>
     <div class='header'>
       <div class='title'>
@@ -784,7 +802,11 @@ def _html_template(interactive: bool) -> str:
         const phone = c.phone ? `<a href="tel:${{esc(phoneHref)}}">${{esc(c.phone)}}</a>` : '<span class="muted">-</span>';
         const websiteHost = c.website ? (() => {{ try {{ return new URL(c.website).hostname.replace(/^www\\./, ''); }} catch(e) {{ return c.website; }} }})() : '';
         const websiteCell = c.website ? `<a href="${{esc(c.website)}}" target="_blank" rel="noopener" title="${{esc(c.website)}}">${{esc(websiteHost)}}</a>` : '<span class="muted">-</span>';
-        const notes = esc(c.notes || '').slice(0, 160);
+        const notesRaw = c.notes || '';
+        const notesEsc = esc(notesRaw);
+        const notesCell = notesRaw
+          ? `<div class="notes-preview">${{notesEsc}}</div>${{notesRaw.length > 100 ? `<button class="notes-more" onclick="showNoteModal('${{esc(c.id)}}')">show more</button>` : ''}}`
+          : '-';
 
         if (isEditing) {{
           const pri = (c.priority_tier || 'low').toLowerCase();
@@ -832,7 +854,7 @@ def _html_template(interactive: bool) -> str:
             <td style="font-size:13px">${{email}}</td>
             <td style="font-size:13px;text-align:center">${{c.priority_score != null ? Math.round(c.priority_score) : '-'}}</td><td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
             <td>${{esc(c.status || '-')}}</td>
-            <td class="muted" style="font-size:13px;max-width:280px">${{notes || '-'}}</td>
+            <td class="notes-cell">${{notesCell}}</td>
             <td style="white-space:nowrap">
               <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit</a>
               <a class="action-link" href="#" onclick="deleteCompany('${{esc(c.id)}}'); return false;">Delete</a>
@@ -965,6 +987,18 @@ def _html_template(interactive: bool) -> str:
       editingCompanyId = null;
       renderCompanies();
     }}
+
+    function showNoteModal(companyId) {{
+      const c = companyById(companyId);
+      if (!c) return;
+      document.getElementById('note-modal-company').textContent = c.company_name || '';
+      document.getElementById('note-modal-body').textContent = c.notes || '';
+      document.getElementById('note-modal-overlay').classList.add('open');
+    }}
+    function closeNoteModal() {{
+      document.getElementById('note-modal-overlay').classList.remove('open');
+    }}
+    document.addEventListener('keydown', (e) => {{ if (e.key === 'Escape') closeNoteModal(); }});
 
     async function saveEditCompany(companyId) {{
       const c = companyById(companyId);
