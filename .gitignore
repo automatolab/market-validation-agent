@@ -7,8 +7,25 @@ __pycache__/
 
 # Environment variables (credentials and secrets)
 .env
-output/*.sqlite3
-output/*.json
+
+# Output (keep directory structure via .gitkeep)
+output/*
+!output/.gitkeep
+
+# Cache
 cache/
+
+# Config with real data (use .example.json as template)
+config/lead-pipeline.json
 config/gmail_credentials.json
 config/gmail_token.json
+
+# Generated graphify output
+graphify-out/
+
+# Editor / tool config
+.opencode/
+opencode.json
+
+# macOS
+.DS_Store
