@@ -24,7 +24,6 @@ config/gmail_token.json
 graphify-out/
 
 # Editor / tool config
-.opencode/
 opencode.json
 
 # macOS
