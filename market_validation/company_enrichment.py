@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+import sys
+import socket
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -11,19 +14,161 @@ _COMMON_EMAIL_PREFIXES = (
     "office", "team", "general", "inquiries",
 )
 
+# ---------------------------------------------------------------------------
+# Email MX verification
+# ---------------------------------------------------------------------------
 
-def generate_email_patterns(domain: str) -> list[dict[str, str]]:
+_mx_cache: dict[str, dict] = {}
+
+
+def _domain_from_email(email: str) -> str | None:
+    """Extract domain part from an email address."""
+    if "@" not in email:
+        return None
+    return email.rsplit("@", 1)[1].strip().lower()
+
+
+def _check_mx(domain: str) -> dict:
+    """
+    Check if *domain* has MX or A records.  Results are cached per domain.
+    Returns ``{"has_mx": bool, "mx_host": str|None, "method": str}``.
+
+    Uses dnspython if available, otherwise falls back to socket.getaddrinfo.
+    Timeout: 5 seconds.  Never raises.
+    """
+    if domain in _mx_cache:
+        return _mx_cache[domain]
+
+    result: dict = {"has_mx": False, "mx_host": None, "method": "none"}
+
+    # --- Try dnspython first ---
+    try:
+        import dns.resolver  # type: ignore[import-untyped]
+
+        resolver = dns.resolver.Resolver()
+        resolver.lifetime = 5.0
+        resolver.timeout = 5.0
+
+        try:
+            mx_records = resolver.resolve(domain, "MX")
+            if mx_records:
+                best = min(mx_records, key=lambda r: r.preference)
+                result = {
+                    "has_mx": True,
+                    "mx_host": str(best.exchange).rstrip("."),
+                    "method": "mx_check",
+                }
+                _mx_cache[domain] = result
+                return result
+        except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
+            pass
+        except Exception:
+            pass
+
+        # Fallback: check A record via dnspython
+        try:
+            a_records = resolver.resolve(domain, "A")
+            if a_records:
+                result = {
+                    "has_mx": True,
+                    "mx_host": str(a_records[0].address),
+                    "method": "a_record_fallback",
+                }
+                _mx_cache[domain] = result
+                return result
+        except Exception:
+            pass
+
+        # No MX and no A → invalid
+        result = {"has_mx": False, "mx_host": None, "method": "mx_check"}
+        _mx_cache[domain] = result
+        return result
+
+    except ImportError:
+        pass
+
+    # --- Fallback: socket.getaddrinfo (no dnspython) ---
+    old_timeout = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(5.0)
+        addrs = socket.getaddrinfo(domain, 25, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        if addrs:
+            result = {
+                "has_mx": True,
+                "mx_host": addrs[0][4][0],
+                "method": "socket_fallback",
+            }
+        else:
+            result = {"has_mx": False, "mx_host": None, "method": "socket_fallback"}
+    except (socket.gaierror, socket.timeout, OSError):
+        # Could not resolve at all → try plain A record
+        try:
+            socket.setdefaulttimeout(5.0)
+            ip = socket.gethostbyname(domain)
+            result = {
+                "has_mx": True,
+                "mx_host": ip,
+                "method": "a_record_socket_fallback",
+            }
+        except Exception:
+            result = {"has_mx": False, "mx_host": None, "method": "socket_fallback"}
+    except Exception:
+        result = {"has_mx": False, "mx_host": None, "method": "socket_fallback"}
+    finally:
+        socket.setdefaulttimeout(old_timeout)
+
+    _mx_cache[domain] = result
+    return result
+
+
+def verify_email(email: str) -> dict:
+    """
+    Verify an email address via DNS MX / A record lookup on its domain.
+
+    Returns ``{"email": ..., "valid": True/False, "method": "mx_check", "mx_host": ...}``.
+    Never raises.
+    """
+    email = email.strip()
+    domain = _domain_from_email(email)
+    if not domain or "." not in domain:
+        return {"email": email, "valid": False, "method": "mx_check", "mx_host": None}
+
+    mx = _check_mx(domain)
+    return {
+        "email": email,
+        "valid": mx["has_mx"],
+        "method": mx["method"],
+        "mx_host": mx["mx_host"],
+    }
+
+
+def verify_emails_batch(emails: list[str]) -> list[dict]:
+    """Verify a list of emails.  Returns one result dict per input email."""
+    return [verify_email(e) for e in emails]
+
+
+def generate_email_patterns(domain: str) -> list[dict[str, Any]]:
     """
     Given a domain (e.g. ``acmebbq.com``), return common email patterns.
 
-    Each entry is ``{"email": "info@acmebbq.com", "pattern_generated": True}``.
-    These are *suggestions* — not verified.
+    Each entry includes ``"email"``, ``"pattern_generated": True``,
+    and a ``"valid"`` field from MX verification.
     """
     domain = domain.lower().strip().lstrip("www.")
     if not domain or "." not in domain:
         return []
+
+    # Check domain MX once (cached), then apply result to all patterns
+    mx = _check_mx(domain)
+    domain_valid = mx["has_mx"]
+
     return [
-        {"email": f"{prefix}@{domain}", "pattern_generated": True}
+        {
+            "email": f"{prefix}@{domain}",
+            "pattern_generated": True,
+            "valid": domain_valid,
+            "mx_host": mx["mx_host"],
+        }
         for prefix in _COMMON_EMAIL_PREFIXES
     ]
 

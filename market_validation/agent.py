@@ -25,9 +25,14 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+from market_validation.log import get_logger
+
+_log = get_logger("agent")
 
 
 def _try_multi_search(query: str, num_results: int = 10, geography: str | None = None) -> list[dict[str, str]]:
@@ -157,6 +162,118 @@ def _free_enrich_company(
         "address": address,
         "sources": sources,
     }
+
+
+def _adaptive_find_email(
+    company_name: str,
+    website: str | None,
+    domain: str | None,
+    contacts: list[dict[str, str]],
+    location: str | None,
+) -> dict[str, Any]:
+    """
+    Adaptive enrichment: pick the best next action based on what we already know.
+
+    This function does NOT make AI calls. It uses:
+      - Email pattern generation + MX verification
+      - Person-based email construction + MX verification
+      - Targeted web search (DuckDuckGo)
+
+    Returns ``{"email": str|None, "source": str, "actions_tried": [...]}``.
+    """
+    from market_validation.company_enrichment import (
+        generate_email_patterns, domain_from_url, verify_email,
+    )
+    from market_validation.web_scraper import _extract_all_emails
+
+    actions_tried: list[str] = []
+    found_email: str | None = None
+
+    # Resolve domain if we have a website but no domain
+    if not domain and website:
+        domain = domain_from_url(website)
+
+    # --- Strategy A: Domain known, no email → generate patterns + MX verify ---
+    if domain and not found_email:
+        action = f"generate_patterns({domain})"
+        actions_tried.append(action)
+        _log.info("  [adaptive] %s: %s", company_name, action)
+
+        patterns = generate_email_patterns(domain)
+        for p in patterns:
+            if p.get("valid"):
+                found_email = p["email"]
+                _log.info("  [adaptive] %s: verified %s via MX", company_name, found_email)
+                return {"email": found_email, "source": "adaptive_mx_pattern", "actions_tried": actions_tried}
+
+    # --- Strategy B: Contacts known + domain → construct person emails + MX verify ---
+    if domain and contacts and not found_email:
+        action = f"person_patterns({domain}, {len(contacts)} contacts)"
+        actions_tried.append(action)
+        _log.info("  [adaptive] %s: %s", company_name, action)
+
+        for contact in contacts[:5]:
+            name = contact.get("name", "").strip()
+            if not name:
+                continue
+            parts = name.lower().split()
+            if not parts:
+                continue
+
+            first = re.sub(r"[^a-z]", "", parts[0])
+            last = re.sub(r"[^a-z]", "", parts[-1]) if len(parts) > 1 else ""
+
+            candidates = [f"{first}@{domain}"]
+            if last:
+                candidates.extend([
+                    f"{first}.{last}@{domain}",
+                    f"{first[0]}{last}@{domain}",
+                    f"{first}{last[0]}@{domain}",
+                    f"{first}_{last}@{domain}",
+                ])
+
+            # All share the same domain, so MX is the same — just check domain once
+            from market_validation.company_enrichment import _check_mx
+            mx = _check_mx(domain)
+            if mx["has_mx"]:
+                # Domain accepts mail — use the most common pattern
+                found_email = candidates[1] if last else candidates[0]  # prefer first.last
+                _log.info("  [adaptive] %s: constructed %s (domain MX valid)", company_name, found_email)
+                return {"email": found_email, "source": "adaptive_person_pattern", "actions_tried": actions_tried}
+
+    # --- Strategy C: No domain → targeted search for company email ---
+    if not domain and company_name and not found_email:
+        action = f"search(\"{company_name}\" email contact)"
+        actions_tried.append(action)
+        _log.info("  [adaptive] %s: %s", company_name, action)
+
+        try:
+            query = f'"{company_name}" email contact'
+            if location:
+                query += f" {location}"
+            results = _try_multi_search(query, num_results=5)
+            for r in results:
+                snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
+                found_emails = _extract_all_emails(snippet)
+                if found_emails:
+                    # Verify via MX
+                    for candidate in found_emails:
+                        vr = verify_email(candidate)
+                        if vr["valid"]:
+                            found_email = candidate
+                            _log.info("  [adaptive] %s: found %s from search + MX verified", company_name, found_email)
+                            return {"email": found_email, "source": "adaptive_search_mx", "actions_tried": actions_tried}
+                    # If none verified, still use the first one
+                    found_email = found_emails[0]
+                    _log.info("  [adaptive] %s: found %s from search (unverified)", company_name, found_email)
+                    return {"email": found_email, "source": "adaptive_search", "actions_tried": actions_tried}
+        except Exception:
+            pass
+
+    if not found_email:
+        _log.info("  [adaptive] %s: no email found after trying %s", company_name, actions_tried)
+
+    return {"email": found_email, "source": "adaptive_none", "actions_tried": actions_tried}
 
 
 def _summarize_backends(rows: list[dict[str, str]]) -> dict[str, int]:
@@ -326,10 +443,11 @@ Return ONLY a JSON array — one object per candidate, in the same order. No mar
         validated: list[dict[str, Any]] = []
         for item in parsed:
             if not item.get("keep"):
-                print(
-                    f"[find:validate] REJECT [{item.get('index')}] "
-                    f"{candidates[item['index']].get('company_name','?')!r} — {item.get('reason','')}",
-                    file=__import__("sys").stderr,
+                _log.info(
+                    "[find:validate] REJECT [%s] %r — %s",
+                    item.get("index"),
+                    candidates[item["index"]].get("company_name", "?"),
+                    item.get("reason", ""),
                 )
                 continue
             idx = item.get("index", -1)
@@ -339,24 +457,19 @@ Return ONLY a JSON array — one object per candidate, in the same order. No mar
             clean = (item.get("clean_name") or "").strip()
             if clean:
                 c["company_name"] = clean
-            print(
-                f"[find:validate] KEEP  [{idx}] {c['company_name']!r}",
-                file=__import__("sys").stderr,
-            )
+            _log.info("[find:validate] KEEP  [%s] %r", idx, c["company_name"])
             validated.append(c)
 
         # Trust the AI: if it validated the response (parsed is non-empty) but
         # rejected everything, return the empty list. Only fall back on failure.
         if parsed:
-            print(f"[find:validate] Validation complete: {len(validated)}/{len(candidates)} kept", file=__import__("sys").stderr)
+            _log.info("[find:validate] Validation complete: %d/%d kept", len(validated), len(candidates))
             return validated
         # parsed was empty — AI returned nothing actionable
         return candidates
 
     except Exception as e:
-        print(f"[find:validate] AI validation failed: {e} — keeping all candidates", file=__import__("sys").stderr)
-        import traceback as _tb
-        _tb.print_exc(file=__import__("sys").stderr)
+        _log.warning("[find:validate] AI validation failed: %s — keeping all candidates", e, exc_info=True)
         return candidates
 
 
@@ -430,7 +543,7 @@ Rules for queries:
             import json as _json
             return _json.loads(result)
     except Exception as e:
-        print(f"[find] AI search strategy failed: {e}", file=__import__("sys").stderr)
+        _log.warning("[find] AI search strategy failed: %s", e)
     return None
 
 
@@ -2686,6 +2799,22 @@ Return JSON:
                         prev = all_findings.get("notes", "")
                         all_findings["notes"] = f"{prev} | {source_name}: {result['notes']}" if prev else f"{source_name}: {result['notes']}"
 
+        # ---------- Adaptive step: pick next best action for missing email ----------
+        adaptive_result = None
+        if not all_emails:
+            from market_validation.company_enrichment import domain_from_url as _dom
+            domain = _dom(website) or _dom(all_findings.get("website"))
+            adaptive_result = _adaptive_find_email(
+                company_name=company_name,
+                website=website or all_findings.get("website"),
+                domain=domain,
+                contacts=all_contacts,
+                location=location,
+            )
+            if adaptive_result.get("email"):
+                all_emails.append(adaptive_result["email"])
+                sources_tried.append(adaptive_result["source"])
+
         all_findings["emails"] = all_emails
         all_findings["phones"] = all_phones
         all_findings["contacts"] = all_contacts
@@ -2695,12 +2824,18 @@ Return JSON:
         if self.research_id and (all_emails or all_phones or all_contacts or all_findings.get("website")):
             self._update_company_from_findings(company_name, all_findings)
 
-        return {
+        result_dict: dict[str, Any] = {
             "result": "ok",
             "company": company_name,
             "sources_tried": sources_tried,
             "findings": all_findings,
         }
+        if adaptive_result:
+            result_dict["adaptive"] = {
+                "actions_tried": adaptive_result.get("actions_tried", []),
+                "source": adaptive_result.get("source"),
+            }
+        return result_dict
 
     def _update_company_from_findings(self, company_name: str, findings: dict):
         """Update company record with enriched contact data."""
@@ -2882,10 +3017,13 @@ Return JSON:
         Run enrichment (phone, email, contact) on all companies matching the given statuses.
         Default: qualified companies only.
 
-        Uses a 3-tier approach to minimize expensive AI calls:
+        Uses a 3-tier approach + adaptive fallback to minimize expensive AI calls:
           Tier 1 (free/fast): Website scraping + email patterns + existing notes
           Tier 2 (free search): DuckDuckGo search for contact info
           Tier 3 (AI): Only for companies still missing BOTH email AND phone
+          Adaptive: For companies still missing email after all tiers —
+            picks the best next free action based on what data we already have
+            (pattern generation + MX verify, person-based emails, targeted search).
         """
         if not self.research_id:
             return {"result": "error", "error": "No research_id set"}
@@ -2917,15 +3055,27 @@ Return JSON:
         ai_calls = 0
         tier1_hits = 0
         tier2_hits = 0
+        adaptive_hits = 0
 
-        for company in companies:
+        # Filter to companies that actually need enrichment
+        to_enrich = [
+            c for c in companies
+            if not (c[4] and c[5])  # skip if already have both phone and email
+        ]
+
+        if not to_enrich:
+            return {"result": "ok", "enriched": 0, "message": "All companies already enriched"}
+
+        # -------- Phase 1: Parallel free tier (Tier 1 + 2) + adaptive --------
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        from market_validation.company_enrichment import domain_from_url as _dom
+
+        def _free_enrich_with_adaptive(company: tuple) -> tuple:
+            """Run free enrichment + adaptive fallback for one company. Thread-safe."""
             cid, company_name, website, location, current_phone, current_email, current_notes = company
 
-            # Skip companies that already have both phone and email
-            if current_phone and current_email:
-                continue
-
-            # -------- Tier 1 + 2: Free methods --------
             free = _free_enrich_company(company_name, website, location, current_notes)
 
             free_emails = free.get("emails", [])
@@ -2937,33 +3087,97 @@ Return JSON:
 
             if free_emails and not current_email:
                 updates["email"] = free_emails[0]
-                emails_found += 1
                 got_email_free = True
             if free_phones and not current_phone:
                 updates["phone"] = free_phones[0]
-                phones_found += 1
                 got_phone_free = True
             if free.get("address") and not location:
                 updates["location"] = free["address"]
             if not website and free.get("website"):
                 updates["website"] = free["website"]
 
+            tier_label = None
             if got_email_free or got_phone_free:
-                tier_label = "tier1" if any(s in ("website_scrape", "email_patterns", "existing_notes") for s in free.get("sources", [])) else "tier2"
-                if tier_label == "tier1":
-                    tier1_hits += 1
-                else:
-                    tier2_hits += 1
+                tier_label = "tier1" if any(
+                    s in ("website_scrape", "email_patterns", "existing_notes")
+                    for s in free.get("sources", [])
+                ) else "tier2"
 
-            # -------- Tier 3: AI (only if still missing BOTH email AND phone) --------
-            still_missing_email = not current_email and not got_email_free
+            # Adaptive step: smart fallback for missing email (also free/thread-safe)
+            adaptive_hit = False
+            if not current_email and "email" not in updates:
+                effective_website = website or updates.get("website")
+                domain = _dom(effective_website)
+
+                adaptive = _adaptive_find_email(
+                    company_name=company_name,
+                    website=effective_website,
+                    domain=domain,
+                    contacts=[],  # no AI contacts yet in this phase
+                    location=location,
+                )
+                if adaptive.get("email"):
+                    updates["email"] = adaptive["email"]
+                    adaptive_hit = True
+
+            return (company, updates, got_email_free, got_phone_free, tier_label, adaptive_hit)
+
+        _log.info("  [enrich] Phase 1: free enrichment for %d companies (parallel, max_workers=6)", len(to_enrich))
+        free_results: list[tuple] = []
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            futures = {}
+            for i, company in enumerate(to_enrich):
+                # Small staggered delay between submissions to be polite to web servers
+                if i > 0 and i % 6 == 0:
+                    time.sleep(1.0)
+                futures[executor.submit(_free_enrich_with_adaptive, company)] = company
+
+            for future in as_completed(futures):
+                try:
+                    free_results.append(future.result())
+                except Exception as exc:
+                    company = futures[future]
+                    _log.warning("  [enrich] free tier failed for %s: %s", company[1], exc)
+                    # Still include with empty updates so Tier 3 can try
+                    free_results.append((company, {}, False, False, None, False))
+
+        # Tally free-tier stats and apply updates
+        need_ai: list[tuple] = []  # (company, updates_so_far) for Tier 3
+        for (company, updates, got_email_free, got_phone_free, tier_label, adaptive_hit) in free_results:
+            cid, company_name, website, location, current_phone, current_email, current_notes = company
+
+            if got_email_free:
+                emails_found += 1
+            if got_phone_free:
+                phones_found += 1
+            if tier_label == "tier1":
+                tier1_hits += 1
+            elif tier_label == "tier2":
+                tier2_hits += 1
+            if adaptive_hit:
+                adaptive_hits += 1
+                emails_found += 1
+
+            still_missing_email = not current_email and not got_email_free and not adaptive_hit
             still_missing_phone = not current_phone and not got_phone_free
 
             if still_missing_email and still_missing_phone:
-                website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
-                location_hint = f" Located in {location}." if location else ""
+                need_ai.append((company, updates))
+            elif updates:
+                update_company(str(cid), self.research_id, updates, root=self.root)
+                enriched += 1
 
-                prompt = f"""Find contact information for "{company_name}".{location_hint}
+        # -------- Phase 2: Sequential AI tier (Tier 3) for remaining companies --------
+        if need_ai:
+            _log.info("  [enrich] Phase 2: AI enrichment for %d companies (sequential)", len(need_ai))
+
+        for company, updates in need_ai:
+            cid, company_name, website, location, current_phone, current_email, current_notes = company
+
+            website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
+            location_hint = f" Located in {location}." if location else ""
+
+            prompt = f"""Find contact information for "{company_name}".{location_hint}
 {website_hint}
 
 Priority: find a direct phone number and a contact email address.
@@ -2986,38 +3200,59 @@ Return JSON only:
   "notes": "brief summary of what was found"
 }}"""
 
-                result = self._run(prompt, timeout=150)
-                ai_calls += 1
+            result = self._run(prompt, timeout=150)
+            ai_calls += 1
 
-                if result.get("result") != "error":
-                    if result.get("phone") and not current_phone and "phone" not in updates:
-                        updates["phone"] = str(result["phone"])
-                        phones_found += 1
-                    if result.get("email") and not current_email and "email" not in updates:
-                        updates["email"] = str(result["email"])
-                        emails_found += 1
-                    if result.get("website") and not website and "website" not in updates:
-                        updates["website"] = str(result["website"])
-                    if result.get("location") and not location and "location" not in updates:
-                        updates["location"] = str(result["location"])
+            if result.get("result") != "error":
+                if result.get("phone") and not current_phone and "phone" not in updates:
+                    updates["phone"] = str(result["phone"])
+                    phones_found += 1
+                if result.get("email") and not current_email and "email" not in updates:
+                    updates["email"] = str(result["email"])
+                    emails_found += 1
+                if result.get("website") and not website and "website" not in updates:
+                    updates["website"] = str(result["website"])
+                if result.get("location") and not location and "location" not in updates:
+                    updates["location"] = str(result["location"])
 
-                    # Append contact findings to notes
-                    if result.get("contacts") or result.get("notes"):
-                        parts = []
-                        if result.get("contacts"):
-                            contacts_str = "; ".join(
-                                f"{c.get('name','?')} ({c.get('title','?')})"
-                                for c in result["contacts"]
-                                if isinstance(c, dict)
-                            )
-                            if contacts_str:
-                                parts.append(f"Contacts: {contacts_str}")
-                        if result.get("notes"):
-                            parts.append(str(result["notes"]))
-                        if parts:
-                            suffix = " | " + " | ".join(parts)
-                            base_notes = current_notes or ""
-                            updates["notes"] = base_notes + suffix if base_notes else suffix
+                # Append contact findings to notes
+                if result.get("contacts") or result.get("notes"):
+                    parts = []
+                    if result.get("contacts"):
+                        contacts_str = "; ".join(
+                            f"{c.get('name','?')} ({c.get('title','?')})"
+                            for c in result["contacts"]
+                            if isinstance(c, dict)
+                        )
+                        if contacts_str:
+                            parts.append(f"Contacts: {contacts_str}")
+                    if result.get("notes"):
+                        parts.append(str(result["notes"]))
+                    if parts:
+                        suffix = " | " + " | ".join(parts)
+                        base_notes = current_notes or ""
+                        updates["notes"] = base_notes + suffix if base_notes else suffix
+
+            # Run adaptive again with AI contacts for companies that still lack email
+            if not current_email and "email" not in updates:
+                ai_contacts: list[dict[str, str]] = []
+                if result and isinstance(result, dict) and result.get("result") != "error":
+                    ai_contacts = [c for c in (result.get("contacts") or []) if isinstance(c, dict)]
+
+                effective_website = website or updates.get("website")
+                domain = _dom(effective_website)
+
+                adaptive = _adaptive_find_email(
+                    company_name=company_name,
+                    website=effective_website,
+                    domain=domain,
+                    contacts=ai_contacts,
+                    location=location,
+                )
+                if adaptive.get("email"):
+                    updates["email"] = adaptive["email"]
+                    emails_found += 1
+                    adaptive_hits += 1
 
             if updates:
                 update_company(str(cid), self.research_id, updates, root=self.root)
@@ -3032,6 +3267,7 @@ Return JSON only:
             "ai_calls": ai_calls,
             "tier1_hits": tier1_hits,
             "tier2_hits": tier2_hits,
+            "adaptive_hits": adaptive_hits,
         }
 
 

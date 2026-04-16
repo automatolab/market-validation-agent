@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from market_validation.environment import load_project_env
+from market_validation.log import get_logger
+
+_log = get_logger("dashboard")
 
 load_project_env()
 
@@ -62,7 +65,7 @@ def _load_data() -> dict[str, Any]:
     from market_validation.research import _connect, _ensure_schema, resolve_db_path
 
     db_file = resolve_db_path(Path("."))
-    print(f"[dashboard] loading data from {db_file}", file=sys.stderr)
+    _log.info("loading data from %s", db_file)
     researches: list[dict[str, Any]] = []
     companies: list[dict[str, Any]] = []
 
@@ -218,12 +221,11 @@ def _load_data() -> dict[str, Any]:
                 if rid not in validations:
                     validations[rid] = vdict
         except Exception as _val_err:
-            print(f"[dashboard] WARNING: failed to load market_validations: {_val_err}", file=sys.stderr)
+            _log.warning("failed to load market_validations: %s", _val_err)
 
-    print(
-        f"[dashboard] loaded: {len(researches)} researches, "
-        f"{len(companies)} companies, {len(validations)} validations",
-        file=sys.stderr,
+    _log.info(
+        "loaded: %d researches, %d companies, %d validations",
+        len(researches), len(companies), len(validations),
     )
 
     # Build a geography-keyed fallback so validation-only runs can cross-link
@@ -392,6 +394,13 @@ def _html_template(interactive: bool) -> str:
     .note-modal-close {{ display: block; width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; color: var(--text); transition: background 0.15s; }}
     .note-modal-close:hover {{ background: #edf2f7; }}
 
+    /* ── Pagination ── */
+    .pagination {{ display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 0 4px; }}
+    .pagination button {{ border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px; background: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; color: var(--text); transition: background 0.15s, border-color 0.15s; }}
+    .pagination button:hover:not(:disabled) {{ background: var(--brand-light); border-color: var(--brand); color: var(--brand); }}
+    .pagination button:disabled {{ opacity: 0.4; cursor: default; }}
+    .pagination .page-info {{ font-size: 13px; color: var(--muted); font-weight: 500; }}
+
     /* ── Validation section ── */
     .val-section {{ margin-bottom: 20px; }}
     .val-section-title {{ font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); letter-spacing: .05em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }}
@@ -408,6 +417,21 @@ def _html_template(interactive: bool) -> str:
     .val-bar-label {{ font-size: 12px; cursor: default; }}
     .val-bar-tip {{ display: none; position: absolute; left: 0; top: 100%; margin-top: 4px; background: #1e293b; color: #f1f5f9; font-size: 11px; line-height: 1.4; padding: 6px 10px; border-radius: 6px; z-index: 10; max-width: 320px; white-space: normal; pointer-events: none; }}
     .val-bar:hover .val-bar-tip {{ display: block; }}
+
+    /* ── Verdict hero ── */
+    .val-hero {{ display: flex; align-items: center; gap: 20px; padding: 20px; background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; }}
+    .val-hero-score {{ width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }}
+    .val-hero-score span {{ font-size: 28px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }}
+    .val-hero-body {{ flex: 1; min-width: 0; }}
+    .val-hero-verdict {{ font-size: 18px; font-weight: 700; margin-bottom: 2px; }}
+    .val-hero-reasoning {{ font-size: 13px; line-height: 1.6; color: #475569; }}
+
+    /* ── Collapsible sections ── */
+    .val-collapse-toggle {{ cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }}
+    .val-collapse-toggle::before {{ content: '▸'; font-size: 11px; color: #94a3b8; transition: transform 0.15s; display: inline-block; }}
+    .val-collapse-toggle.open::before {{ transform: rotate(90deg); }}
+    .val-collapse-body {{ display: none; }}
+    .val-collapse-body.open {{ display: block; }}
     .val-tag {{ display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: #f1f5f9; color: #475569; margin: 2px; font-weight: 500; }}
     .val-archetype {{ background: var(--brand-light); color: var(--brand); border-radius: 8px; padding: 5px 14px; font-size: 13px; font-weight: 600; }}
     .val-list {{ padding-left: 16px; margin: 4px 0; font-size: 13px; color: #555; }}
@@ -497,8 +521,10 @@ def _html_template(interactive: bool) -> str:
         <div class='toolbar'>
           <span id='companyCount' class='count-pill'>0 rows</span>
           <a class='btn-link' href='#' onclick='addCompanyRow(); return false;'>Add Company</a>
+          <a class='btn-link' href='#' onclick='exportCSV(); return false;'>Export CSV</a>
         </div>
         <div id='companiesWrap' class='table-wrap'></div>
+        <div id='companiesPagination' class='pagination'></div>
       </div>
     </section>
     <section class='panel' id='emailPanel'>
@@ -524,6 +550,8 @@ def _html_template(interactive: bool) -> str:
     }})();
     const INTERACTIVE = __INTERACTIVE__;
     let editingCompanyId = null;
+    let currentPage = 1;
+    const PAGE_SIZE = 50;
 
     function esc(v) {{
       if (v === null || v === undefined) return '';
@@ -552,24 +580,23 @@ def _html_template(interactive: bool) -> str:
       const verdictColors = {{ strong_go: '#16a34a', go: '#2563eb', cautious: '#ca8a04', no_go: '#dc2626' }};
       const verdictLabels = {{ strong_go: 'STRONG GO', go: 'GO', cautious: 'CAUTIOUS', no_go: 'NO GO' }};
       const vc = verdictColors[v.verdict] || '#5e7083';
-      badge.style.background = vc; badge.style.color = '#fff'; badge.style.padding = '4px 12px';
-      badge.style.borderRadius = '8px'; badge.style.fontWeight = '700';
-      badge.textContent = (verdictLabels[v.verdict] || v.verdict || 'N/A') + ' (' + (v.overall_score || 0) + '/100)';
+      badge.style.display = 'none';  // verdict now in hero, hide header badge
 
-      // ── Subtitle — explains what this section is ──
+      // ── Subtitle ──
       const mkt = esc(v.market || ref.market || '');
       const geo = esc(v.geography || ref.geography || '');
       document.getElementById('validationSubtitle').innerHTML =
-        `Opportunity assessment for <strong>${{mkt}}</strong> in <strong>${{geo}}</strong>. ` +
-        `Scores evaluate this specific market and geography — not the industry as a whole.`;
+        `Opportunity assessment for <strong>${{mkt}}</strong> in <strong>${{geo}}</strong>. Scores reflect this specific market and geography.`;
 
       const fmt = (n) => n == null ? '-' : typeof n === 'number' ? n.toLocaleString('en-US', {{style:'currency',currency:'USD',maximumFractionDigits:0}}) : n;
       const pct = (n) => n == null ? '-' : (Math.round(n * 100)) + '%';
+      const scoreColor = (s) => s == null ? '#94a3b8' : s >= 65 ? '#16a34a' : s >= 40 ? '#ca8a04' : '#dc2626';
 
       const bar = (score, label, desc) => {{
         const s = score != null ? Math.round(score) : null;
+        const sc = scoreColor(s);
         const tip = desc ? `<div class="val-bar-tip">${{desc}}</div>` : '';
-        return `<div class="val-bar"><div class="val-bar-header"><span class="val-bar-label">${{label}}</span><span class="score">${{s != null ? s : '-'}}/100</span></div><div class="val-bar-track"><div class="val-bar-fill" style="width:${{Math.min(100,s||0)}}%;background:${{vc}}"></div></div>${{tip}}</div>`;
+        return `<div class="val-bar"><div class="val-bar-header"><span class="val-bar-label">${{label}}</span><span class="score" style="color:${{sc}}">${{s != null ? s : '-'}}/100</span></div><div class="val-bar-track"><div class="val-bar-fill" style="width:${{Math.min(100,s||0)}}%;background:${{sc}}"></div></div>${{tip}}</div>`;
       }};
       const tag = (txt, color) => `<span class="val-tag" ${{color ? 'style="background:'+color+'"' : ''}}>${{esc(txt)}}</span>`;
       const parseList = (val) => {{
@@ -579,11 +606,19 @@ def _html_template(interactive: bool) -> str:
       }};
 
       let html = '';
-      const section = (title, content) =>
-        `<div class="val-section"><div class="val-section-title">${{title}}</div>${{content}}</div>`;
       const row2 = (a, b) => `<div class="val-grid">${{a}}${{b}}</div>`;
       const card = (content, bg, border) => `<div class="val-card"${{bg || border ? ' style="' + (bg ? 'background:'+bg+';' : '') + (border ? 'border-color:'+border : '') + '"' : ''}}>${{content}}</div>`;
       const kv = (k, v2) => `<div class="val-kv"><span class="k">${{k}}</span><span class="v">${{v2}}</span></div>`;
+
+      // Collapsible section helper — starts collapsed by default
+      let _collapseId = 0;
+      const collapsible = (title, content, startOpen) => {{
+        const id = 'vc' + (++_collapseId);
+        const openCls = startOpen ? ' open' : '';
+        return `<div class="val-section">` +
+          `<div class="val-section-title val-collapse-toggle${{openCls}}" onclick="this.classList.toggle('open');document.getElementById('${{id}}').classList.toggle('open')">${{title}}</div>` +
+          `<div class="val-collapse-body${{openCls}}" id="${{id}}">${{content}}</div></div>`;
+      }};
 
       // ── Archetype weights lookup ──────────────────────────────────────────
       const archetypeWeights = {{
@@ -598,7 +633,22 @@ def _html_template(interactive: bool) -> str:
       }};
       const aw = archetypeWeights[v.archetype] || {{ attractiveness: 30, demand: 25, competitive: 25, risk: 20 }};
 
-      // ── Archetype context card ────────────────────────────────────────────
+      // ── 1. VERDICT HERO — the first thing you see ─────────────────────────
+      {{
+        const overall = v.overall_score != null ? Math.round(v.overall_score) : 0;
+        const verdictText = verdictLabels[v.verdict] || (v.verdict || 'N/A').toUpperCase();
+        let heroHtml = `<div class="val-hero" style="border-left:4px solid ${{vc}}">`;
+        heroHtml += `<div class="val-hero-score" style="background:${{vc}}"><span>${{overall}}</span></div>`;
+        heroHtml += `<div class="val-hero-body">`;
+        heroHtml += `<div class="val-hero-verdict" style="color:${{vc}}">${{verdictText}}</div>`;
+        if (v.verdict_reasoning) {{
+          heroHtml += `<div class="val-hero-reasoning">${{esc(v.verdict_reasoning)}}</div>`;
+        }}
+        heroHtml += `</div></div>`;
+        html += heroHtml;
+      }}
+
+      // ── 2. ARCHETYPE + WEIGHTS — single compact row ───────────────────────
       if (v.archetype_label) {{
         let archHtml = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">`;
         archHtml += `<span class="val-archetype">${{esc(v.archetype_label)}}</span>`;
@@ -611,29 +661,50 @@ def _html_template(interactive: bool) -> str:
         html += card(archHtml, '#fafbfc', '#e2e8f0') + '<div style="height:10px"></div>';
       }}
 
-      // ── Overall scorecard (4 core bars + 4 module bars) ───────────────────
+      // ── 3. CORE + MODULE SCORES — color-coded per score ───────────────────
       {{
-        let coreHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Core Scores <span style="font-weight:500;text-transform:none;color:#94a3b8;margin-left:4px">— drive the verdict</span></div>`;
-        coreHtml += bar(v.market_attractiveness, 'Market Attractiveness (' + aw.attractiveness + '%)', 'TAM size, growth rate, and demand trend in this geography');
+        let coreHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Core Scores <span style="font-weight:500;text-transform:none;color:#94a3b8">— weighted, drive verdict</span></div>`;
+        coreHtml += bar(v.market_attractiveness, 'Attractiveness (' + aw.attractiveness + '%)', 'TAM size, growth rate, and demand trend in this geography');
         coreHtml += bar(v.demand_validation, 'Demand (' + aw.demand + '%)', 'Search trends, willingness to pay, and customer need signals');
-        coreHtml += bar(v.competitive_score != null ? 100-v.competitive_score : null, 'Competitive Position (' + aw.competitive + '%)', 'Inverted intensity — higher means less competition, easier entry');
-        coreHtml += bar(v.risk_score != null ? 100-v.risk_score : null, 'Risk Profile (' + aw.risk + '%)', 'Inverted risk — higher means fewer regulatory, tech, and barrier risks');
+        coreHtml += bar(v.competitive_score != null ? 100-v.competitive_score : null, 'Competition (' + aw.competitive + '%)', 'Inverted — higher means less competition, easier entry');
+        coreHtml += bar(v.risk_score != null ? 100-v.risk_score : null, 'Risk (' + aw.risk + '%)', 'Inverted — higher means fewer regulatory, tech, and barrier risks');
 
-        let modHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Module Scores <span style="font-weight:500;text-transform:none;color:#94a3b8;margin-left:4px">— supplemental adjustments</span></div>`;
+        let modHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Module Scores <span style="font-weight:500;text-transform:none;color:#94a3b8">— fine-tune overall</span></div>`;
         if (v.unit_economics_score != null) modHtml += bar(v.unit_economics_score, 'Unit Economics', 'Gross margins, CAC, LTV, and payback period viability');
-        if (v.structural_attractiveness != null) modHtml += bar(v.structural_attractiveness, "Porter's Attractiveness", 'Supplier power, buyer power, substitutes, barriers, rivalry');
-        if (v.timing_score != null) modHtml += bar(v.timing_score, 'Market Timing', 'Enablers vs headwinds — is now the right time to enter?' + (v.timing_verdict ? ' (' + esc(v.timing_verdict) + ')' : ''));
-        if (v.icp_clarity != null) modHtml += bar(v.icp_clarity, 'ICP Clarity', 'How well-defined is the ideal customer profile for this market');
+        if (v.structural_attractiveness != null) modHtml += bar(v.structural_attractiveness, "Porter's Five Forces", 'Supplier power, buyer power, substitutes, barriers, rivalry');
+        if (v.timing_score != null) modHtml += bar(v.timing_score, 'Market Timing' + (v.timing_verdict ? ' (' + esc(v.timing_verdict) + ')' : ''), 'Enablers vs headwinds — is now the right time to enter?');
+        if (v.icp_clarity != null) modHtml += bar(v.icp_clarity, 'ICP Clarity', 'How well-defined is the ideal customer profile');
 
         html += row2(card(coreHtml), card(modHtml));
       }}
 
-      // ── Analysis reasoning ────────────────────────────────────────────────
-      if (v.verdict_reasoning) {{
-        html += `<div style="margin-bottom:16px;padding:12px 14px;background:#f8f9fa;border-left:4px solid ${{vc}};border-radius:0 6px 6px 0;font-size:14px;line-height:1.6"><strong>Analysis:</strong> ${{esc(v.verdict_reasoning)}}</div>`;
+      // ── 4. NEXT STEPS + KEY RISKS — always visible, actionable ────────────
+      {{
+        const nextSteps = parseList(v.next_steps);
+        const keyRisks = parseList(v.key_risks);
+        if (nextSteps.length || keyRisks.length) {{
+          let nsHtml = '', krHtml = '';
+          if (nextSteps.length) {{
+            let content = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#16a34a;margin-bottom:8px;letter-spacing:0.03em">Next Steps</div>';
+            nextSteps.forEach((s, i) => {{
+              content += `<div style="display:flex;gap:8px;margin-bottom:8px;font-size:13px;line-height:1.5"><span style="background:#16a34a;color:#fff;border-radius:50%;width:20px;height:20px;min-width:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;margin-top:1px">${{i+1}}</span><span>${{esc(s)}}</span></div>`;
+            }});
+            nsHtml = card(content, '#f0fdf4', '#bbf7d0');
+          }}
+          if (keyRisks.length) {{
+            let content = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#dc2626;margin-bottom:8px;letter-spacing:0.03em">Key Risks</div>';
+            keyRisks.forEach(r => {{
+              content += `<div style="display:flex;gap:8px;margin-bottom:8px;font-size:13px;line-height:1.5"><span style="color:#dc2626;min-width:14px;margin-top:1px">▲</span><span>${{esc(r)}}</span></div>`;
+            }});
+            krHtml = card(content, '#fef2f2', '#fecaca');
+          }}
+          html += row2(nsHtml, krHtml);
+        }}
       }}
 
-      // ── Market Sizing + Unit Economics ────────────────────────────────────
+      // ── 5. DETAILS — collapsible sections, start collapsed ────────────────
+
+      // Market Sizing + Unit Economics
       {{
         let sizHtml = '';
         sizHtml += kv('TAM', `${{fmt(v.tam_low)}} – ${{fmt(v.tam_high)}} <span class="muted">(conf: ${{v.tam_confidence||'-'}}%)</span>`);
@@ -657,28 +728,29 @@ def _html_template(interactive: bool) -> str:
           econHtml += kv('LTV:CAC (conservative)', ltv_cac.toFixed(1) + 'x');
         }}
 
-        html += row2(
-          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Market Sizing</div>' + sizHtml),
-          econHtml ? card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Unit Economics</div>' + econHtml) : ''
+        const sizContent = row2(
+          card('<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:8px;letter-spacing:0.03em">Market Sizing</div>' + sizHtml),
+          econHtml ? card('<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:8px;letter-spacing:0.03em">Unit Economics</div>' + econHtml) : ''
         );
+        html += collapsible('Market Sizing & Unit Economics', sizContent, false);
       }}
 
       // ── Demand Analysis ───────────────────────────────────────────────────
       {{
         const painPoints = parseList(v.demand_pain_points);
         let demHtml = '';
-        demHtml += kv('Trend', `<span style="color:${{v.demand_trend==='rising'?'#1d7b3a':v.demand_trend==='falling'?'#c41e3a':'#996900'}};font-weight:700">${{esc(v.demand_trend||'-')}}</span>`);
+        demHtml += kv('Trend', `<span style="color:${{v.demand_trend==='rising'?'#16a34a':v.demand_trend==='falling'?'#dc2626':'#ca8a04'}};font-weight:700">${{esc(v.demand_trend||'-')}}</span>`);
         demHtml += kv('Demand Score', `${{v.demand_score != null ? Math.round(v.demand_score) : '-'}}/100`);
         if (v.demand_seasonality) demHtml += kv('Seasonality', esc(v.demand_seasonality));
         demHtml += kv('Hiring Activity', esc(v.job_posting_volume||'-'));
         demHtml += kv('News Sentiment', esc(v.news_sentiment||'-'));
         if (painPoints.length) {{
-          demHtml += `<div style="margin-top:8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#666;margin-bottom:4px">Pain Points</div>`;
+          demHtml += `<div style="margin-top:8px;font-size:11px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;letter-spacing:0.03em">Pain Points</div>`;
           painPoints.forEach(p => {{
-            demHtml += `<div style="font-size:13px;margin-bottom:4px;padding-left:10px;border-left:2px solid #ccc">▸ ${{esc(p)}}</div>`;
+            demHtml += `<div style="font-size:13px;margin-bottom:4px;padding-left:10px;border-left:2px solid #e2e8f0">${{esc(p)}}</div>`;
           }});
         }}
-        html += section('Demand Analysis', card(demHtml));
+        html += collapsible('Demand Analysis', card(demHtml), false);
       }}
 
       // ── Competitive Landscape ─────────────────────────────────────────────
@@ -715,7 +787,7 @@ def _html_template(interactive: bool) -> str:
             compHtml += `<div style="font-size:12px;margin-bottom:3px;color:#155724">→ ${{esc(d)}}</div>`;
           }});
         }}
-        html += section('Competitive Landscape', card(compHtml));
+        html += collapsible('Competitive Landscape', card(compHtml), false);
       }}
 
       // ── Porter's Five Forces ──────────────────────────────────────────────
@@ -737,7 +809,7 @@ def _html_template(interactive: bool) -> str:
           if (v.structural_attractiveness != null) {{
             pfHtml += `<div style="margin-top:8px;font-size:12px;color:#555">Overall structural attractiveness: <strong>${{Math.round(v.structural_attractiveness)}}/100</strong></div>`;
           }}
-          html += section("Porter's Five Forces", card(pfHtml));
+          html += collapsible("Porter's Five Forces", card(pfHtml), false);
         }}
       }}
 
@@ -774,47 +846,27 @@ def _html_template(interactive: bool) -> str:
             }}
           }}
           if (v.technology_maturity) timHtml += kv('Tech Maturity', esc(v.technology_maturity));
-          html += section('Market Timing & Signals', card(timHtml));
+          html += collapsible('Market Timing & Signals', card(timHtml), false);
         }}
       }}
 
-      // ── Next Steps + Key Risks ────────────────────────────────────────────
+      // ── Success Factors + Red Flags — archetype boilerplate, collapsed ────
       {{
-        const nextSteps = parseList(v.next_steps);
-        const keyRisks = parseList(v.key_risks);
         const ksf = parseList(v.key_success_factors);
         const redFlags = parseList(v.archetype_red_flags);
-        if (nextSteps.length || keyRisks.length) {{
-          let nsHtml = '', krHtml = '';
-          if (nextSteps.length) {{
-            let content = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#1d7b3a;margin-bottom:8px">Next Steps</div>';
-            nextSteps.forEach((s, i) => {{
-              content += `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px"><span style="background:#1d7b3a;color:#fff;border-radius:50%;width:18px;height:18px;min-width:18px;display:flex;align-items:center;justify-content:center;font-size:11px">${{i+1}}</span><span>${{esc(s)}}</span></div>`;
-            }});
-            nsHtml = card(content, '#f0f7f0', '#d4edda');
-          }}
-          if (keyRisks.length) {{
-            let content = '<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#c41e3a;margin-bottom:8px">Key Risks</div>';
-            keyRisks.forEach(r => {{
-              content += `<div style="display:flex;gap:8px;margin-bottom:6px;font-size:13px"><span style="color:#c41e3a;min-width:14px">▲</span><span>${{esc(r)}}</span></div>`;
-            }});
-            krHtml = card(content, '#fff8f0', '#f5c6cb');
-          }}
-          html += row2(nsHtml, krHtml);
-        }}
         if (ksf.length || redFlags.length) {{
           let ksfHtml = '', rfHtml = '';
           if (ksf.length) {{
-            let content = `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#155724;margin-bottom:6px">Success Factors — ${{esc(v.archetype_label || 'this archetype')}}</div>`;
-            ksf.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px">✓ ${{esc(f)}}</div>`; }});
-            ksfHtml = card(content, '#fff', '#d4edda');
+            let content = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#16a34a;margin-bottom:6px;letter-spacing:0.03em">Success Factors</div>`;
+            ksf.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px;color:#475569">✓ ${{esc(f)}}</div>`; }});
+            ksfHtml = card(content, '#fff', '#bbf7d0');
           }}
           if (redFlags.length) {{
-            let content = `<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#721c24;margin-bottom:6px">Red Flags to Watch</div>`;
-            redFlags.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px">⚠ ${{esc(f)}}</div>`; }});
-            rfHtml = card(content, '#fff', '#f5c6cb');
+            let content = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#dc2626;margin-bottom:6px;letter-spacing:0.03em">Red Flags to Watch</div>`;
+            redFlags.forEach(f => {{ content += `<div style="font-size:13px;margin-bottom:4px;color:#475569">${{esc(f)}}</div>`; }});
+            rfHtml = card(content, '#fff', '#fecaca');
           }}
-          html += row2(ksfHtml, rfHtml);
+          html += collapsible('Archetype Benchmarks — ' + esc(v.archetype_label || ''), row2(ksfHtml, rfHtml), false);
         }}
       }}
 
@@ -897,18 +949,27 @@ def _html_template(interactive: bool) -> str:
     }}
 
     function renderCompanies() {{
-      const rows = filteredCompanies();
+      const allRows = filteredCompanies();
       const current = selectedResearch();
-      console.log('[dashboard] renderCompanies: selectedResearchId=' + (selectedResearchId||'(all)') + ' rows=' + rows.length + ' total_companies=' + DATA.companies.length);
-      document.getElementById('companiesTitle').textContent = current ? `Companies - ${{current.name}}` : 'Companies';
-      document.getElementById('companyCount').textContent = `${{rows.length}} rows`;
+      const totalRows = allRows.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const startIdx = (currentPage - 1) * PAGE_SIZE;
+      const endIdx = Math.min(startIdx + PAGE_SIZE, totalRows);
+      const rows = allRows.slice(startIdx, endIdx);
 
-      if (!rows.length) {{
+      console.log('[dashboard] renderCompanies: selectedResearchId=' + (selectedResearchId||'(all)') + ' rows=' + totalRows + ' total_companies=' + DATA.companies.length + ' page=' + currentPage + '/' + totalPages);
+      document.getElementById('companiesTitle').textContent = current ? `Companies - ${{current.name}}` : 'Companies';
+      document.getElementById('companyCount').textContent = totalRows === 0 ? '0 rows' : `${{startIdx + 1}}-${{endIdx}} of ${{totalRows}} rows`;
+
+      if (!totalRows) {{
         const hasValidationOnly = current && current.total === 0 && current.validation;
         const msg = hasValidationOnly
           ? 'No companies discovered yet — this research only ran <strong>validate</strong>. Run <code>find()</code> to discover companies.'
           : 'No companies found for this project.';
         document.getElementById('companiesWrap').innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>${{msg}}</p></div>`;
+        document.getElementById('companiesPagination').innerHTML = '';
         return;
       }}
 
@@ -1000,6 +1061,20 @@ def _html_template(interactive: bool) -> str:
           <tbody>${{body}}</tbody>
         </table>
       `;
+
+      // Pagination controls
+      const pagEl = document.getElementById('companiesPagination');
+      if (totalPages <= 1) {{
+        pagEl.innerHTML = '';
+      }} else {{
+        pagEl.innerHTML = `
+          <button onclick="currentPage = 1; renderCompanies();" ${{currentPage === 1 ? 'disabled' : ''}}>First</button>
+          <button onclick="currentPage--; renderCompanies();" ${{currentPage === 1 ? 'disabled' : ''}}>Previous</button>
+          <span class="page-info">Page ${{currentPage}} of ${{totalPages}}</span>
+          <button onclick="currentPage++; renderCompanies();" ${{currentPage === totalPages ? 'disabled' : ''}}>Next</button>
+          <button onclick="currentPage = ${{totalPages}}; renderCompanies();" ${{currentPage === totalPages ? 'disabled' : ''}}>Last</button>
+        `;
+      }}
     }}
 
     function renderEmails() {{
@@ -1075,6 +1150,7 @@ def _html_template(interactive: bool) -> str:
 
     function setResearch(id) {{
       selectedResearchId = id || '';
+      currentPage = 1;
       console.log('[dashboard] setResearch ->', selectedResearchId || '(all)');
       const next = new URL(window.location.href);
       if (selectedResearchId) next.searchParams.set('research_id', selectedResearchId);
@@ -1123,7 +1199,7 @@ def _html_template(interactive: bool) -> str:
       let html = '';
       for (const chunk of chunks) {{
         // Detect "Label: content" pattern
-        const m = chunk.match(/^([^:]{{2,40}}):\s+(.+)$/s);
+        const m = chunk.match(/^([^:]{{2,40}}):\\s+(.+)$/s);
         if (m) {{
           const label = esc(m[1].trim());
           const content = m[2].trim();
@@ -1263,6 +1339,29 @@ def _html_template(interactive: bool) -> str:
 
       const cmd = 'python3 -c "from market_validation.research import add_company; print(add_company(research_id=\\'' + escSingle(rid) + '\\', company_name=\\'' + escSingle(company_name) + '\\', market=\\'' + escSingle(market || 'general') + '\\', website=\\'' + escSingle(website) + '\\', location=\\'' + escSingle(location) + '\\', phone=\\'' + escSingle(phone) + '\\', email=\\'' + escSingle(email) + '\\', notes=\\'' + escSingle(notes) + '\\'))"';
       runCommandPrompt(cmd);
+    }}
+
+    function exportCSV() {{
+      const rows = filteredCompanies();
+      if (!rows.length) {{ alert('No companies to export.'); return; }}
+      const cols = ['company_name','website','location','phone','email','priority_score','priority_tier','status','volume_estimate','volume_unit','notes','research_name'];
+      const headers = ['Company','Website','Location','Phone','Email','Score','Priority','Status','Volume','Volume Unit','Notes','Research'];
+      const csvEsc = (v) => {{
+        const s = String(v == null ? '' : v);
+        return s.includes(',') || s.includes('"') || s.includes('\\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }};
+      let csv = headers.map(csvEsc).join(',') + '\\n';
+      for (const r of rows) {{
+        csv += cols.map(c => csvEsc(r[c])).join(',') + '\\n';
+      }}
+      const blob = new Blob([csv], {{ type: 'text/csv;charset=utf-8;' }});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ref = selectedResearch();
+      a.href = url;
+      a.download = (ref ? ref.name.replace(/[^a-zA-Z0-9]/g, '_') : 'companies') + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
     }}
 
     function wire() {{
@@ -1465,7 +1564,7 @@ def _make_handler(host: str, port: int):
 
         def log_message(self, format, *args):
             msg = format % args
-            print(f"[dashboard] {self.address_string()} {msg}", file=sys.stderr, flush=True)
+            _log.info("%s %s", self.address_string(), msg)
 
     return Handler
 

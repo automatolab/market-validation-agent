@@ -280,65 +280,260 @@ ARCHETYPES: dict[str, dict] = {
 
 
 # ---------------------------------------------------------------------------
-# Detection logic
+# Detection logic — multi-signal scoring
 # ---------------------------------------------------------------------------
 
-# Ordered list of (archetype_key, keyword_list) — checked in priority order.
-# More specific archetypes come first to avoid false matches.
-# b2b-saas is checked before marketplace because "platform" appears in both;
-# the compound rule (software signal + B2B signal) disambiguates correctly.
-_DETECTION_RULES: list[tuple[str, list[str]]] = [
-    # Most specific / highest-commitment archetypes first
-    ("healthcare",       ["medical", "health", "clinic", "hospital", "pharma", "dental", "therapy", "wellness"]),
-    ("marketplace",      ["marketplace", "two-sided", "connect buyers", "connect sellers"]),
-    ("b2b-saas",         ["saas", "software", "api", "platform", "enterprise", "business", "b2b", "company", "team", "management"]),
-    ("b2c-saas",         ["consumer app", "mobile app", "game", "subscription box"]),
-    # local-service before b2b-industrial so "restaurant" beats ambiguous food keywords
-    ("local-service",    ["restaurant", "food service", "catering", "cafe", "gym", "salon", "bbq", "barbecue", "diner", "eatery"]),
-    # b2b-industrial requires clear B2B supply-chain signals — "brisket"/"meat" removed (too ambiguous)
-    ("b2b-industrial",   ["wholesale", "distribution", "distributor", "manufacturer", "supplier",
-                          "industrial", "logistics", "raw material", "produce supply", "ingredient supply"]),
-    ("consumer-cpg",     ["consumer product", "cpg", "packaged", "retail brand", "beverage", "food product"]),
-    ("services-agency",  ["consulting", "agency", "legal", "accounting", "staffing", "marketing services"]),
-]
+# Keywords per archetype. Every archetype is scored; the highest score wins.
+_ARCHETYPE_KEYWORDS: dict[str, list[str]] = {
+    "healthcare":      ["medical", "health", "clinic", "hospital", "pharma",
+                        "dental", "therapy", "wellness", "patient", "diagnosis",
+                        "telehealth", "clinical", "nursing", "physician",
+                        "healthcare", "hipaa"],
+    "marketplace":     ["marketplace", "two-sided", "connect buyers",
+                        "connect sellers", "matching", "listing",
+                        "buyer and seller", "supply and demand"],
+    "b2b-saas":        ["saas", "software", "api", "platform", "enterprise",
+                        "b2b", "company", "team", "management", "dashboard",
+                        "analytics", "crm", "erp", "workflow", "automation"],
+    "b2c-saas":        ["consumer app", "mobile app", "game", "subscription box",
+                        "app store", "freemium", "social app", "ios app",
+                        "android app", "user engagement"],
+    "local-service":   ["restaurant", "food service", "catering", "cafe", "gym",
+                        "salon", "bbq", "barbecue", "diner", "eatery",
+                        "foot traffic", "location", "storefront", "brick and mortar",
+                        "bar", "bakery", "pizzeria", "taco", "coffee shop",
+                        "laundromat", "dry cleaner"],
+    "b2b-industrial":  ["wholesale", "distribution", "distributor", "manufacturer",
+                        "supplier", "industrial", "logistics", "raw material",
+                        "produce supply", "ingredient supply", "supply chain",
+                        "warehouse", "freight", "procurement", "bulk",
+                        "import", "export", "commodity"],
+    "consumer-cpg":    ["consumer product", "cpg", "packaged", "retail brand",
+                        "beverage", "food product", "grocery", "shelf space",
+                        "dtc", "direct to consumer", "d2c", "fmcg",
+                        "personal care", "household product"],
+    "services-agency": ["consulting", "agency", "legal", "accounting", "staffing",
+                        "marketing services", "advisory", "freelance",
+                        "professional services", "law firm", "bookkeeping",
+                        "talent acquisition", "outsourcing"],
+}
 
-# b2b-saas requires both a software signal AND a B2B signal
-_B2B_SAAS_SOFTWARE_SIGNALS = {"saas", "software", "api", "platform"}
-_B2B_SAAS_BUSINESS_SIGNALS = {"enterprise", "business", "b2b", "company", "team", "management", "workflow", "productivity"}
+# b2b-saas requires BOTH a software signal AND a B2B signal to score fully.
+_B2B_SAAS_SOFTWARE_SIGNALS = {"saas", "software", "api", "platform", "dashboard",
+                              "analytics", "crm", "erp", "automation"}
+_B2B_SAAS_BUSINESS_SIGNALS = {"enterprise", "business", "b2b", "company", "team",
+                              "management", "workflow", "productivity"}
+
+# ---------------------------------------------------------------------------
+# Product-vs-service classification helpers
+# ---------------------------------------------------------------------------
+
+# Physical products / raw materials → lean B2B Industrial
+_PRODUCT_TERMS = {
+    "brisket", "beef", "pork", "chicken", "meat", "steel", "cotton", "lumber",
+    "timber", "grain", "corn", "wheat", "rice", "copper", "aluminum", "plastic",
+    "cement", "concrete", "glass", "paper", "leather", "rubber", "oil",
+    "chemicals", "fertilizer", "fabric", "yarn", "flour", "sugar", "cocoa",
+    "coffee beans", "tea leaves", "fish", "seafood", "produce", "vegetables",
+    "fruit", "dairy", "eggs", "soy", "hemp", "wool", "silicon", "lithium",
+    "cobalt", "nickel", "zinc", "iron", "pcb", "solar panel", "solar panels",
+    "battery", "batteries", "semiconductor", "chip", "chips",
+}
+
+# Service verbs / expertise → lean Services Agency or Local Service
+_SERVICE_TERMS = {
+    "consulting", "coaching", "designing", "cleaning", "tutoring", "training",
+    "advising", "auditing", "writing", "editing", "translating", "recruiting",
+    "staffing", "bookkeeping", "accounting", "marketing", "branding",
+    "photography", "videography", "landscaping", "plumbing", "electrical",
+    "painting", "remodeling", "moving", "hauling", "tax preparation",
+    "counseling", "mentoring", "teaching",
+}
+
+# Software / digital products → lean B2B SaaS or B2C SaaS
+_SOFTWARE_TERMS = {
+    "crm", "erp", "analytics", "platform", "saas", "software", "app",
+    "dashboard", "api", "automation", "ai tool", "chatbot", "plugin",
+    "extension", "browser extension", "mobile app", "web app",
+}
+
+# Venue / physical place → lean Local Service
+_VENUE_TERMS = {
+    "restaurant", "gym", "salon", "barbershop", "spa", "clinic", "studio",
+    "cafe", "coffee shop", "bar", "pub", "bakery", "pizzeria", "diner",
+    "eatery", "food truck", "taco shop", "juice bar", "ice cream shop",
+    "laundromat", "dry cleaner", "car wash", "daycare", "preschool",
+    "yoga studio", "fitness center", "pet grooming", "nail salon",
+    "tattoo parlor", "coworking space",
+}
+
+# Context signals that disambiguate B2B Industrial vs Local Service
+_B2B_INDUSTRIAL_CONTEXT = {
+    "wholesale", "distribute", "distribution", "supply", "supplier",
+    "sell to", "b2b", "bulk", "freight", "procurement", "warehouse",
+    "supply chain", "import", "export", "contract", "net terms",
+    "fulfillment", "pallet", "ton", "tons", "truckload",
+}
+
+_LOCAL_SERVICE_CONTEXT = {
+    "restaurant", "open", "start", "location", "foot traffic", "storefront",
+    "brick and mortar", "walk-in", "dine-in", "takeout", "delivery",
+    "customers", "neighborhood", "community", "local", "downtown",
+    "strip mall", "lease", "rent", "menu",
+}
+
+
+def _classify_input_type(text: str) -> str | None:
+    """
+    Classify the primary input as product, service, software, or venue.
+
+    Returns one of 'product', 'service', 'software', 'venue', or None if
+    no strong signal is found.
+    """
+    # Check venue first — venues are very specific and override product terms
+    # (e.g. "restaurant" should not match as a product)
+    for term in _VENUE_TERMS:
+        if term in text:
+            return "venue"
+    for term in _SOFTWARE_TERMS:
+        if term in text:
+            return "software"
+    for term in _SERVICE_TERMS:
+        if term in text:
+            return "service"
+    for term in _PRODUCT_TERMS:
+        if term in text:
+            return "product"
+    return None
+
+
+def _score_context_signals(text: str) -> dict[str, int]:
+    """
+    Score context disambiguation signals.
+
+    Returns a dict of archetype_key → bonus points from contextual clues.
+    """
+    bonuses: dict[str, int] = {}
+    b2b_hits = sum(1 for t in _B2B_INDUSTRIAL_CONTEXT if t in text)
+    local_hits = sum(1 for t in _LOCAL_SERVICE_CONTEXT if t in text)
+    if b2b_hits:
+        bonuses["b2b-industrial"] = b2b_hits * 2
+    if local_hits:
+        bonuses["local-service"] = local_hits * 2
+    return bonuses
 
 
 def detect_archetype(market: str, product: str | None = None) -> tuple[str, int]:
     """
     Detect the most likely archetype for a market + product combination.
 
+    Uses multi-signal scoring: every archetype accumulates a score from
+    keyword matches, input-type classification, and context signals.
+    The highest-scoring archetype wins.
+
     Returns (archetype_key, confidence) where confidence is 0-100.
     """
     combined = (market + " " + (product or "")).lower()
 
-    for archetype_key, keywords in _DETECTION_RULES:
-        # Special compound rule for b2b-saas: needs a software signal AND a B2B signal
+    # ------------------------------------------------------------------
+    # 1. Base keyword scores for every archetype
+    # ------------------------------------------------------------------
+    scores: dict[str, float] = {}
+    keyword_hits: dict[str, int] = {}
+
+    for archetype_key, keywords in _ARCHETYPE_KEYWORDS.items():
         if archetype_key == "b2b-saas":
-            software_hits = [kw for kw in _B2B_SAAS_SOFTWARE_SIGNALS if kw in combined]
-            business_hits = [kw for kw in _B2B_SAAS_BUSINESS_SIGNALS if kw in combined]
-            if not (software_hits and business_hits):
-                continue
-            total_hits = len(software_hits) + len(business_hits)
+            # Compound rule: needs BOTH a software signal AND a B2B signal.
+            sw = sum(1 for kw in _B2B_SAAS_SOFTWARE_SIGNALS if kw in combined)
+            biz = sum(1 for kw in _B2B_SAAS_BUSINESS_SIGNALS if kw in combined)
+            if sw and biz:
+                hits = sw + biz
+            else:
+                # Only partial match — give a small score so it can still
+                # win if other signals pile up, but much weaker.
+                hits = (sw + biz) // 3
         else:
-            total_hits = sum(1 for kw in keywords if kw in combined)
-            if total_hits == 0:
-                continue
+            hits = sum(1 for kw in keywords if kw in combined)
 
-        if total_hits >= 3:
-            confidence = 85
-        elif total_hits == 2:
-            confidence = 65
-        else:
-            confidence = 45
+        keyword_hits[archetype_key] = hits
+        scores[archetype_key] = hits * 3  # 3 points per keyword hit
 
-        return archetype_key, confidence
+    # ------------------------------------------------------------------
+    # 2. Input-type classification bonus
+    # ------------------------------------------------------------------
+    input_type = _classify_input_type(combined)
 
-    # Default fallback
-    return "b2b-industrial", 25
+    _INPUT_TYPE_BONUSES: dict[str | None, dict[str, float]] = {
+        "product": {"b2b-industrial": 5, "consumer-cpg": 2},
+        "service": {"services-agency": 5, "local-service": 3},
+        "software": {"b2b-saas": 5, "b2c-saas": 3},
+        "venue":   {"local-service": 6},
+        None:      {},
+    }
+    for arch, bonus in _INPUT_TYPE_BONUSES.get(input_type, {}).items():
+        scores[arch] = scores.get(arch, 0) + bonus
+
+    # ------------------------------------------------------------------
+    # 3. Context-signal disambiguation bonuses
+    # ------------------------------------------------------------------
+    context_bonuses = _score_context_signals(combined)
+    for arch, bonus in context_bonuses.items():
+        scores[arch] = scores.get(arch, 0) + bonus
+
+    # ------------------------------------------------------------------
+    # 4. Pick the winner
+    # ------------------------------------------------------------------
+    best_key = max(scores, key=lambda k: scores[k])
+    best_score = scores[best_key]
+
+    # If nothing scored at all, use input-type default or ultimate fallback
+    if best_score <= 0:
+        if input_type == "product":
+            return "b2b-industrial", 30
+        if input_type == "service":
+            return "services-agency", 30
+        if input_type == "software":
+            return "b2b-saas", 30
+        if input_type == "venue":
+            return "local-service", 30
+        # True ambiguity — default to b2b-industrial (distribution/supply
+        # is the more common research use case for raw nouns)
+        return "b2b-industrial", 20
+
+    # ------------------------------------------------------------------
+    # 5. Confidence calibration
+    # ------------------------------------------------------------------
+    # Sort scores descending to compare winner vs runner-up
+    sorted_scores = sorted(scores.values(), reverse=True)
+    runner_up = sorted_scores[1] if len(sorted_scores) > 1 else 0
+
+    total_kw_hits = keyword_hits.get(best_key, 0)
+    gap = best_score - runner_up  # margin of victory
+
+    # Base confidence from keyword hits
+    if total_kw_hits >= 3:
+        confidence = 80
+    elif total_kw_hits == 2:
+        confidence = 60
+    elif total_kw_hits == 1:
+        confidence = 45
+    else:
+        # Won purely on classification / context bonuses, no direct keywords
+        confidence = 35
+
+    # Boost when multiple signals agree (large gap = high agreement)
+    if gap >= 8:
+        confidence = min(95, confidence + 15)
+    elif gap >= 4:
+        confidence = min(90, confidence + 10)
+    elif gap >= 2:
+        confidence = min(85, confidence + 5)
+
+    # Penalise when it is very close (ambiguous)
+    if 0 < gap < 2:
+        confidence = max(20, confidence - 10)
+
+    return best_key, confidence
 
 
 def get_archetype_config(archetype_key: str) -> dict:

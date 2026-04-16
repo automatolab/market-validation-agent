@@ -5,6 +5,7 @@ import email.utils
 import json
 import os
 import smtplib
+import sqlite3
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from market_validation.environment import load_project_env
+from market_validation.research import PROJECT_ROOT, _connect, resolve_db_path
 
 load_project_env()
 
@@ -161,8 +163,83 @@ def send_batch_emails(
     }
 
 
-EMAIL_QUEUE_DIR = Path("output/email-queue")
+EMAIL_QUEUE_DIR = PROJECT_ROOT / "output" / "email-queue"
 EMAIL_QUEUE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _ensure_email_schema(conn: sqlite3.Connection) -> None:
+    """Create the emails table if it does not exist."""
+    conn.executescript("""
+        CREATE TABLE IF NOT EXISTS emails (
+            id TEXT PRIMARY KEY,
+            research_id TEXT,
+            company_id TEXT,
+            company_name TEXT,
+            contact_name TEXT,
+            to_email TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            body TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT,
+            sent_at TEXT,
+            opened_at TEXT,
+            replied_at TEXT,
+            bounced_at TEXT,
+            reply_snippet TEXT,
+            message_id TEXT
+        );
+    """)
+
+
+def _sync_email_to_db(email_data: dict[str, Any]) -> None:
+    """Upsert an email record into the SQLite database."""
+    db_path = resolve_db_path(PROJECT_ROOT)
+    conn = _connect(db_path)
+    try:
+        _ensure_email_schema(conn)
+        conn.execute(
+            """INSERT INTO emails (
+                id, research_id, company_id, company_name, contact_name,
+                to_email, subject, body, status, created_at, sent_at,
+                opened_at, replied_at, bounced_at, reply_snippet, message_id
+            ) VALUES (
+                :id, :research_id, :company_id, :company_name, :contact_name,
+                :to_email, :subject, :body, :status, :created_at, :sent_at,
+                :opened_at, :replied_at, :bounced_at, :reply_snippet, :message_id
+            )
+            ON CONFLICT(id) DO UPDATE SET
+                status = excluded.status,
+                subject = excluded.subject,
+                body = excluded.body,
+                sent_at = excluded.sent_at,
+                opened_at = excluded.opened_at,
+                replied_at = excluded.replied_at,
+                bounced_at = excluded.bounced_at,
+                reply_snippet = excluded.reply_snippet,
+                message_id = excluded.message_id
+            """,
+            {
+                "id": email_data.get("id"),
+                "research_id": email_data.get("research_id"),
+                "company_id": email_data.get("company_id"),
+                "company_name": email_data.get("company_name"),
+                "contact_name": email_data.get("contact_name"),
+                "to_email": email_data.get("to_email"),
+                "subject": email_data.get("subject"),
+                "body": email_data.get("body"),
+                "status": email_data.get("status", "pending"),
+                "created_at": email_data.get("created_at"),
+                "sent_at": email_data.get("sent_at"),
+                "opened_at": email_data.get("opened_at"),
+                "replied_at": email_data.get("replied_at"),
+                "bounced_at": email_data.get("bounced_at"),
+                "reply_snippet": email_data.get("reply_snippet"),
+                "message_id": email_data.get("message_id"),
+            },
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def prep_email(
@@ -201,6 +278,7 @@ def prep_email(
 
     queue_file = EMAIL_QUEUE_DIR / f"{email_id}.json"
     queue_file.write_text(json.dumps(email_data, indent=2))
+    _sync_email_to_db(email_data)
 
     return {
         "result": "ok",
@@ -256,6 +334,7 @@ def approve_email(email_id: str) -> dict[str, Any]:
         email_data["sent_at"] = result.get("sent_at")
         email_data["message_id"] = result.get("message_id")
         queue_file.write_text(json.dumps(email_data, indent=2))
+        _sync_email_to_db(email_data)
 
     return result
 
@@ -353,6 +432,7 @@ def update_queued_email(
 
     email_data["updated_at"] = _iso_now()
     queue_file.write_text(json.dumps(email_data, indent=2))
+    _sync_email_to_db(email_data)
 
     return {
         "result": "ok",

@@ -58,7 +58,7 @@ class ResearchManager:
             json_text = json_text[:json_end+1]
         try:
             return json.loads(json_text)
-        except:
+        except Exception:
             return {}
 
     def gather_companies(self, market: str, geography: str, product: str | None = None, max_companies: int = 50) -> dict[str, Any]:
