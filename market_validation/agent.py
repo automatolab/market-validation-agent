@@ -61,19 +61,23 @@ def _free_enrich_company(
     from market_validation.web_scraper import (
         scrape_contact_info, _extract_all_emails, _extract_all_phones,
     )
-    from market_validation.company_enrichment import generate_email_patterns, domain_from_url
+    from market_validation.company_enrichment import domain_from_url
 
     emails: list[str] = []
     phones: list[str] = []
     contacts: list[dict[str, str]] = []
     address = ""
     sources: list[str] = []
+    # Track the source of each email: email_address -> "scraped" | "pattern" | "search"
+    email_sources: dict[str, str] = {}
 
     # --- Tier 1a: Scrape the website (homepage + /contact, /about, etc.) ---
     if website:
         try:
             scraped = scrape_contact_info(website, delay=1.0)
             if scraped.get("emails"):
+                for _em in scraped["emails"]:
+                    email_sources.setdefault(_em.lower(), "scraped")
                 emails.extend(scraped["emails"])
                 sources.append("website_scrape")
             if scraped.get("phones"):
@@ -85,20 +89,15 @@ def _free_enrich_company(
         except Exception:
             pass
 
-    # --- Tier 1b: Generate email patterns from domain ---
-    domain = domain_from_url(website)
-    if domain:
-        patterns = generate_email_patterns(domain)
-        # Only add pattern-generated emails if we found ZERO real emails
-        if not emails and patterns:
-            emails.extend([p["email"] for p in patterns[:3]])
-            sources.append("email_patterns")
+    # --- Tier 1b: (removed — no pattern-generated emails, only real scraped ones) ---
 
     # --- Tier 1c: Extract from existing notes/snippets ---
     if existing_notes:
         note_emails = _extract_all_emails(existing_notes)
         note_phones = _extract_all_phones(existing_notes)
         if note_emails:
+            for _em in note_emails:
+                email_sources.setdefault(_em.lower(), "scraped")
             emails.extend(note_emails)
             sources.append("existing_notes")
         if note_phones:
@@ -117,6 +116,8 @@ def _free_enrich_company(
                 found_emails = _extract_all_emails(snippet)
                 found_phones = _extract_all_phones(snippet)
                 if found_emails:
+                    for _em in found_emails:
+                        email_sources.setdefault(_em.lower(), "search")
                     emails.extend(found_emails)
                 if found_phones:
                     phones.extend(found_phones)
@@ -125,10 +126,15 @@ def _free_enrich_company(
         except Exception:
             pass
 
-    # Deduplicate
+    # Deduplicate — prefer scraped emails over search-found ones
     seen_e: set[str] = set()
     unique_emails: list[str] = []
-    for e in emails:
+    _source_priority = {"scraped": 0, "search": 1}
+    emails_with_prio = sorted(
+        emails,
+        key=lambda e: _source_priority.get(email_sources.get(e.lower(), "search"), 1),
+    )
+    for e in emails_with_prio:
         lower = e.lower()
         if lower not in seen_e:
             seen_e.add(lower)
@@ -148,6 +154,7 @@ def _free_enrich_company(
         "contacts": contacts,
         "address": address,
         "sources": sources,
+        "email_sources": email_sources,
     }
 
 
@@ -180,64 +187,16 @@ def _adaptive_find_email(
     if not domain and website:
         domain = domain_from_url(website)
 
-    # --- Strategy A: Domain known, no email → generate patterns + MX verify ---
-    if domain and not found_email:
-        action = f"generate_patterns({domain})"
-        actions_tried.append(action)
-        _log.info("  [adaptive] %s: %s", company_name, action)
-
-        patterns = generate_email_patterns(domain)
-        for p in patterns:
-            if p.get("valid"):
-                found_email = p["email"]
-                _log.info("  [adaptive] %s: verified %s via MX", company_name, found_email)
-                return {"email": found_email, "source": "adaptive_mx_pattern", "actions_tried": actions_tried}
-
-    # --- Strategy B: Contacts known + domain → construct person emails + MX verify ---
-    if domain and contacts and not found_email:
-        action = f"person_patterns({domain}, {len(contacts)} contacts)"
-        actions_tried.append(action)
-        _log.info("  [adaptive] %s: %s", company_name, action)
-
-        for contact in contacts[:5]:
-            name = contact.get("name", "").strip()
-            if not name:
-                continue
-            parts = name.lower().split()
-            if not parts:
-                continue
-
-            first = re.sub(r"[^a-z]", "", parts[0])
-            last = re.sub(r"[^a-z]", "", parts[-1]) if len(parts) > 1 else ""
-
-            candidates = [f"{first}@{domain}"]
-            if last:
-                candidates.extend([
-                    f"{first}.{last}@{domain}",
-                    f"{first[0]}{last}@{domain}",
-                    f"{first}{last[0]}@{domain}",
-                    f"{first}_{last}@{domain}",
-                ])
-
-            # All share the same domain, so MX is the same — just check domain once
-            from market_validation.company_enrichment import _check_mx
-            mx = _check_mx(domain)
-            if mx["has_mx"]:
-                # Domain accepts mail — use the most common pattern
-                found_email = candidates[1] if last else candidates[0]  # prefer first.last
-                _log.info("  [adaptive] %s: constructed %s (domain MX valid)", company_name, found_email)
-                return {"email": found_email, "source": "adaptive_person_pattern", "actions_tried": actions_tried}
-
-    # --- Strategy C: No domain → targeted search for company email ---
-    if not domain and company_name and not found_email:
-        action = f"search(\"{company_name}\" email contact)"
+    # --- Strategy A: Targeted search for real company email ---
+    if company_name and not found_email:
+        query = f'"{company_name}" email contact'
+        if location:
+            query += f" {location}"
+        action = f"search({query})"
         actions_tried.append(action)
         _log.info("  [adaptive] %s: %s", company_name, action)
 
         try:
-            query = f'"{company_name}" email contact'
-            if location:
-                query += f" {location}"
             results = _try_multi_search(query, num_results=5)
             for r in results:
                 snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
@@ -460,11 +419,238 @@ Return ONLY a JSON array — one object per candidate, in the same order. No mar
         return candidates
 
 
+def _archetype_search_context(
+    archetype_key: str, market: str, geography: str, product: str | None
+) -> str:
+    """
+    Return an archetype-specific search context string that tells the AI
+    what types of businesses to look for during find().
+    """
+    search_term = product or market
+
+    if archetype_key == "b2b-industrial":
+        return (
+            f"We are researching the B2B supply chain for {search_term} in {geography}.\n"
+            f"Find BOTH sides: (1) businesses that BUY/CONSUME {search_term} (restaurants, caterers, "
+            f"food service, manufacturers, fabricators) AND (2) businesses that SELL/DISTRIBUTE "
+            f"{search_term} (wholesalers, distributors, suppliers, importers, specialty markets).\n"
+            f"Also look for: butcher shops, commissary kitchens, food trucks, catering companies, "
+            f"industrial buyers, contract manufacturers, and any business that purchases {search_term} in bulk."
+        )
+
+    if archetype_key == "b2b-saas":
+        return (
+            f"We are researching companies that could buy {search_term} software in {geography}.\n"
+            f"Find: companies currently using competitor products, companies with pain points that "
+            f"{search_term} solves, growing companies that need {search_term} tooling, "
+            f"companies with job postings mentioning {market}.\n"
+            f"Also look for: companies recently funded, companies posting roles related to {market}, "
+            f"and businesses that have outgrown manual processes in this space."
+        )
+
+    if archetype_key == "b2c-saas":
+        return (
+            f"We are researching consumer apps and products in the {search_term} space in {geography}.\n"
+            f"Find: companies building consumer apps in {market}, indie developers and small studios, "
+            f"startups with apps on the App Store or Google Play, and companies with active user communities.\n"
+            f"Also look for: Product Hunt launches, social media presences, and freemium products in this category."
+        )
+
+    if archetype_key == "local-service":
+        return (
+            f"We are researching {search_term} businesses in {geography}.\n"
+            f"Find: all {search_term} businesses including small/independent ones, chain locations, "
+            f"new openings, food trucks, pop-ups, and catering operations in the metro area.\n"
+            f"Also look for: businesses in nearby neighborhoods, recently opened locations, "
+            f"businesses listed on Yelp/Google Maps, and mobile or home-based operations."
+        )
+
+    if archetype_key == "consumer-cpg":
+        return (
+            f"We are researching consumer packaged goods brands in the {search_term} category in {geography}.\n"
+            f"Find: CPG brands producing {search_term}, DTC brands, brands carried in local retailers, "
+            f"and emerging brands with e-commerce presence.\n"
+            f"Also look for: co-manufacturers, private-label producers, brands on Amazon or Shopify, "
+            f"and companies exhibiting at trade shows related to {market}."
+        )
+
+    if archetype_key == "marketplace":
+        return (
+            f"We are researching marketplace platforms in the {search_term} space in {geography}.\n"
+            f"Find: platforms connecting buyers and sellers in {market}, existing marketplaces (even small ones), "
+            f"directory sites that could become marketplaces, and companies aggregating supply or demand.\n"
+            f"Also look for: gig platforms, booking platforms, listing sites, and peer-to-peer exchanges in this space."
+        )
+
+    if archetype_key == "healthcare":
+        return (
+            f"We are researching healthcare businesses related to {search_term} in {geography}.\n"
+            f"Find: clinics, practices, and providers offering {search_term}, digital health companies, "
+            f"medical device companies, and health systems with relevant departments.\n"
+            f"Also look for: telehealth providers, specialty practices, ambulatory surgery centers, "
+            f"diagnostic labs, and healthcare IT companies serving this segment."
+        )
+
+    if archetype_key == "services-agency":
+        return (
+            f"We are researching {search_term} service providers and agencies in {geography}.\n"
+            f"Find: agencies, consulting firms, and freelancers specializing in {search_term}, "
+            f"boutique firms, large agencies with {market} practices, and independent consultants.\n"
+            f"Also look for: firms listed on Clutch or similar directories, companies with case studies "
+            f"in {market}, and professionals with strong LinkedIn presence in this space."
+        )
+
+    # Fallback for unknown archetypes
+    return (
+        f"We are researching businesses related to {search_term} in {geography}.\n"
+        f"Find: all types of businesses involved in {market}, including providers, suppliers, "
+        f"buyers, and intermediaries."
+    )
+
+
+def _archetype_qualify_context(
+    archetype_key: str, market: str, product: str | None
+) -> str:
+    """
+    Return an archetype-specific qualification context string that tells the AI
+    how to evaluate companies as leads during qualify().
+    """
+    search_term = product or market
+
+    if archetype_key == "b2b-industrial":
+        return (
+            f"We are a {search_term} wholesale distributor / supplier. "
+            f"Evaluate each company as a POTENTIAL BUYER of {search_term}.\n"
+            f"A qualified lead is a restaurant, caterer, manufacturer, or food service business that:\n"
+            f"- Uses {search_term} in significant volume (high-volume restaurant > small cafe)\n"
+            f"- Has multiple locations or high foot traffic (more volume = better customer)\n"
+            f"- Does catering or bulk orders\n"
+            f"- Shows growth signals (expanding, hiring, new locations)\n\n"
+            f"Score higher: established high-volume buyers, chain locations, large caterers, "
+            f"businesses with clear bulk purchasing needs.\n"
+            f"Score lower: small cafes with minimal {search_term} usage, businesses unlikely to buy wholesale, "
+            f"competitors who are also distributors (mark as 'competitor' not 'qualified')."
+        )
+
+    if archetype_key == "b2b-saas":
+        return (
+            f"We sell {search_term} software. Evaluate each company as a potential buyer.\n"
+            f"A qualified lead:\n"
+            f"- Has 50+ employees (can afford enterprise software)\n"
+            f"- Currently uses competitor products or manual processes for {market}\n"
+            f"- Shows growth signals (hiring, funding, expansion)\n"
+            f"- Has budget authority (look for VP/Director level contacts)\n\n"
+            f"Score higher: mid-market and enterprise companies with clear need, "
+            f"companies with job postings in {market}, recently funded startups scaling up.\n"
+            f"Score lower: very small teams (<10 people), companies already locked into a competitor, "
+            f"companies in unrelated industries."
+        )
+
+    if archetype_key == "b2c-saas":
+        return (
+            f"We are building a consumer app / B2C product in {search_term}. "
+            f"Evaluate each company as a POTENTIAL COMPETITOR or PARTNERSHIP target.\n"
+            f"A qualified lead:\n"
+            f"- Has an active user base in a related category\n"
+            f"- Shows strong engagement metrics (app ratings, social following, reviews)\n"
+            f"- Could be a distribution partner or acquisition target\n"
+            f"- Demonstrates product-market fit in an adjacent space\n\n"
+            f"Score higher: companies with strong user engagement, growing download counts, "
+            f"active communities.\n"
+            f"Score lower: dormant apps, companies with poor ratings, unrelated consumer products."
+        )
+
+    if archetype_key == "local-service":
+        return (
+            f"We are researching the {search_term} market for competitive analysis and "
+            f"potential customer/partnership opportunities.\n"
+            f"Evaluate each company as a business operating in {search_term}.\n"
+            f"A qualified lead:\n"
+            f"- Is an active, operating {search_term} business (not permanently closed)\n"
+            f"- Has visible foot traffic, reviews, or online presence\n"
+            f"- Shows quality signals (good ratings, consistent reviews, active social media)\n"
+            f"- Has growth indicators (new locations, catering arm, delivery, expanding hours)\n\n"
+            f"Score higher: established businesses with strong reputations, multi-location operators, "
+            f"businesses with catering or delivery revenue streams.\n"
+            f"Score lower: businesses that appear closed or inactive, very low review counts "
+            f"suggesting minimal traffic, businesses not actually in {search_term}."
+        )
+
+    if archetype_key == "consumer-cpg":
+        return (
+            f"We are a {search_term} CPG brand. Evaluate each company as a potential "
+            f"retail partner, competitor, or distribution channel.\n"
+            f"A qualified lead:\n"
+            f"- Is a retailer that could carry {search_term} products (grocery, specialty, online)\n"
+            f"- Is a competing brand whose shelf space or positioning we should understand\n"
+            f"- Has strong retail velocity or DTC presence\n"
+            f"- Shows growth signals (new store openings, expanded product lines)\n\n"
+            f"Score higher: retailers with relevant category presence, growing DTC brands, "
+            f"distributors with established retail relationships.\n"
+            f"Score lower: unrelated retailers, brands in completely different categories, "
+            f"businesses with no retail or e-commerce presence."
+        )
+
+    if archetype_key == "marketplace":
+        return (
+            f"We are building a marketplace in {search_term}. Evaluate each company as a "
+            f"potential supply-side partner, demand-side participant, or competitor.\n"
+            f"A qualified lead:\n"
+            f"- Could be a supplier or provider on our platform\n"
+            f"- Represents significant demand volume in {market}\n"
+            f"- Is currently underserved by existing marketplace options\n"
+            f"- Shows signals of needing better buyer-seller matching\n\n"
+            f"Score higher: businesses with high transaction volume, those currently using "
+            f"inefficient channels, providers with strong reputations but limited reach.\n"
+            f"Score lower: businesses too small to generate meaningful GMV, those already "
+            f"well-served by existing platforms."
+        )
+
+    if archetype_key == "healthcare":
+        return (
+            f"We are in the {search_term} healthcare space. Evaluate each company as a "
+            f"potential customer, partner, or key account.\n"
+            f"A qualified lead:\n"
+            f"- Is a healthcare provider, health system, or practice relevant to {market}\n"
+            f"- Has sufficient patient volume or revenue to justify the purchase\n"
+            f"- Shows modernization signals (adopting new technology, expanding services)\n"
+            f"- Has regulatory compliance infrastructure (HIPAA, EMR integration)\n\n"
+            f"Score higher: multi-location practices, health systems, providers with "
+            f"technology-forward reputations, practices in growth mode.\n"
+            f"Score lower: very small solo practices with limited budgets, providers in "
+            f"unrelated specialties, businesses with no clear connection to {search_term}."
+        )
+
+    if archetype_key == "services-agency":
+        return (
+            f"We are researching the {search_term} services market. Evaluate each company "
+            f"as a competitor, potential partner, or acquisition target.\n"
+            f"A qualified lead:\n"
+            f"- Is an active agency or consultancy in {market}\n"
+            f"- Has a clear specialization and client portfolio\n"
+            f"- Shows revenue signals (team size, office presence, client logos)\n"
+            f"- Demonstrates thought leadership or industry recognition\n\n"
+            f"Score higher: firms with strong case studies, retainer-based revenue, "
+            f"growing teams, and industry awards or recognition.\n"
+            f"Score lower: solo freelancers with no web presence, inactive firms, "
+            f"generalist agencies with no depth in {search_term}."
+        )
+
+    # Fallback
+    return (
+        f"Evaluate these companies as potential sales targets or competitors "
+        f"in the {search_term} market.\n"
+        f"A qualified lead is a business that is actively operating in or adjacent to {market}, "
+        f"has visible revenue or activity signals, and could be a customer, partner, or competitor."
+    )
+
+
 def _ai_search_strategy(
     market: str,
     geography: str,
     product: str | None,
     run_ai: Any,
+    archetype_context: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Ask the LLM to generate a search strategy for this market.
@@ -477,6 +663,10 @@ def _ai_search_strategy(
 
     Returns None if the AI call fails.
     """
+    _arch_hint = ""
+    if archetype_context:
+        _arch_hint = f"\nArchetype guidance:\n{archetype_context}\n"
+
     prompt = f"""You are a market research strategist. Given a market and geography, figure out:
 1. What is the NATURE of this market? (product, service, ingredient/supply chain, technology, etc.)
 2. Who are the TARGET BUSINESSES to research? (the ones that BUY, SELL, or PROVIDE this thing)
@@ -485,7 +675,7 @@ def _ai_search_strategy(
 Market: {market}
 Geography: {geography}
 Product/context: {product or 'general'}
-
+{_arch_hint}
 Think step by step:
 - If this is a RAW INGREDIENT or PRODUCT (e.g. "brisket", "organic cotton", "steel"), the target businesses
   are those that BUY it (restaurants, manufacturers) AND those that SELL/DISTRIBUTE it (wholesalers, suppliers).
@@ -2118,12 +2308,18 @@ class Agent:
         source_health: list[dict[str, Any]] = []
         profile = _infer_market_profile(market, product)
 
+        # Detect market archetype for tailored search and qualification prompts
+        from market_validation.market_archetype import detect_archetype
+        _archetype_key, _archetype_conf = detect_archetype(market, product)
+        _arch_search_ctx = _archetype_search_context(_archetype_key, market, geography, product)
+        print(f"[find] archetype={_archetype_key} (confidence={_archetype_conf}%)")
+
         # If the heuristic profile has low confidence, ask the LLM to generate
         # a proper search strategy instead of falling back to generic queries.
         ai_strategy: dict[str, Any] | None = None
         if profile.get("confidence", 100) < 50:
             print(f"[find] heuristic confidence {profile.get('confidence')}% — asking AI for search strategy...")
-            ai_strategy = _ai_search_strategy(market, geography, product, self._run)
+            ai_strategy = _ai_search_strategy(market, geography, product, self._run, archetype_context=_arch_search_ctx)
             if ai_strategy:
                 btype = ai_strategy.get("business_type", market)
                 print(f"[find] AI strategy: business_type='{btype}', {len(ai_strategy.get('queries', []))} queries")
@@ -2393,7 +2589,11 @@ class Agent:
 
         if needs_opencode:
             ai_sources, ai_queries = _ai_search_hints(market=market, geography=geography, product=product)
-            prompt = f"""Find businesses in {geography} that offer {search_term}.
+            prompt = f"""Find at least 15-20 businesses in {geography} related to {search_term}.
+
+{_arch_search_ctx}
+
+Be thorough — check multiple sources, neighborhoods, and related business types.
 
 For each business, find:
 - Company name, website, address, phone
@@ -2478,6 +2678,69 @@ Return JSON:
             extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
         )
 
+        # --- Iterative discovery loop ---
+        # If we still have fewer than 15 companies, ask AI to generate new queries
+        # based on what we found so far, then search again. Up to 2 rounds.
+        _all_queries_used = list(search_queries)
+        if not quality_passed:
+            _all_queries_used.extend(_build_retry_queries(market=market, geography=geography, product=product))
+
+        _biz_type_hint = (ai_strategy.get("business_type") if ai_strategy else None) or market
+        for _iter_round in range(2):
+            if len(companies) >= 15:
+                break
+
+            _found_names = [c.get("company_name", "") for c in companies if c.get("company_name")]
+            _iter_prompt = f"""We found these {len(_found_names)} companies so far: {", ".join(_found_names[:30])}
+We already searched: {", ".join(_all_queries_used[:20])}
+
+{_arch_search_ctx}
+
+Generate 5 MORE search queries to find additional {_biz_type_hint} in {geography} that we might have missed.
+Think about: different neighborhoods, related business types, supplier directories, industry associations, different search terms.
+
+Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}"""
+
+            _iter_ai_result = self._run(_iter_prompt, timeout=60)
+            _iter_queries: list[str] = []
+            if isinstance(_iter_ai_result, dict) and _iter_ai_result.get("queries"):
+                _iter_queries = [q for q in _iter_ai_result["queries"] if isinstance(q, str)]
+
+            if not _iter_queries:
+                source_health.append({
+                    "stage": f"iterative_discovery_round_{_iter_round + 1}",
+                    "status": "no_new_queries",
+                })
+                break
+
+            _all_queries_used.extend(_iter_queries)
+            _iter_companies: list[dict[str, Any]] = []
+            for _iq in _iter_queries:
+                _iter_rows = _try_multi_search(_iq, 15, geography=geography)
+                source_health.append({
+                    "stage": f"iterative_discovery_round_{_iter_round + 1}",
+                    "query": _iq,
+                    "results": len(_iter_rows),
+                    "backends": _summarize_backends(_iter_rows),
+                    "status": "ok" if _iter_rows else "empty",
+                })
+                for r in _iter_rows:
+                    _iter_companies.append(_extract_contact_from_search_result(r))
+
+            if _iter_companies:
+                sources_used.append(f"iterative_discovery_{_iter_round + 1}")
+                companies = _dedupe_companies(
+                    _normalize_companies(companies + _iter_companies)
+                )
+                companies = _filter_relevant_companies(
+                    companies, market=market, product=product,
+                    extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
+                )
+                print(f"[find] Iterative round {_iter_round + 1}: +{len(_iter_companies)} raw → {len(companies)} total after dedupe/filter")
+            else:
+                print(f"[find] Iterative round {_iter_round + 1}: no new companies found")
+                break
+
         # Claude batch validation — the definitive gate before writing to DB.
         # One call reviews every candidate: confirms relevance, cleans names, dedupes.
         if companies:
@@ -2496,6 +2759,72 @@ Return JSON:
             })
 
         result["companies"] = companies
+
+        # --- Pre-scrape pass: enrich companies with contact info before saving ---
+        companies_to_scrape = [
+            c for c in companies
+            if c.get("website")
+            and c["website"].startswith("http")
+            and (not c.get("phone") or not c.get("email"))
+        ][:20]
+
+        if companies_to_scrape:
+            import time as _time
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            from market_validation.web_scraper import quick_scrape
+
+            print(f"[find] Pre-scraping {len(companies_to_scrape)} company websites for contact info...")
+
+            def _safe_scrape(company: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+                try:
+                    data = quick_scrape(company["website"])
+                    return company, data
+                except Exception:
+                    return company, {}
+
+            scrape_results: dict[int, dict[str, Any]] = {}
+            batch_size = 4
+            for batch_start in range(0, len(companies_to_scrape), batch_size):
+                batch = companies_to_scrape[batch_start : batch_start + batch_size]
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    futures = {
+                        executor.submit(_safe_scrape, c): c
+                        for c in batch
+                    }
+                    for future in as_completed(futures, timeout=10):
+                        try:
+                            comp, data = future.result(timeout=10)
+                            if data and not data.get("error"):
+                                scrape_results[id(comp)] = data
+                        except Exception:
+                            pass
+                # Delay between batches (skip after last batch)
+                if batch_start + batch_size < len(companies_to_scrape):
+                    _time.sleep(1)
+
+            enriched = 0
+            for c in companies:
+                data = scrape_results.get(id(c))
+                if not data:
+                    continue
+                if not c.get("phone") and data.get("phone"):
+                    c["phone"] = data["phone"]
+                    enriched += 1
+                if not c.get("email") and data.get("email"):
+                    c["email"] = data["email"]
+                    enriched += 1
+                if not c.get("description") and data.get("raw_text"):
+                    c["description"] = data["raw_text"][:300]
+
+            if enriched:
+                print(f"[find] Pre-scrape enriched {enriched} contact fields")
+                source_health.append({
+                    "stage": "pre_scrape_enrichment",
+                    "companies_scraped": len(scrape_results),
+                    "fields_enriched": enriched,
+                    "status": "ok",
+                })
 
         # Store in database if we have research_id
         if self.research_id:
@@ -2563,6 +2892,12 @@ Return JSON:
         research_market = str(research.get("research", {}).get("market") or "")
         research_product = research.get("research", {}).get("product")
 
+        # Detect archetype for tailored qualification prompts
+        from market_validation.market_archetype import detect_archetype
+        _qual_archetype_key, _qual_archetype_conf = detect_archetype(research_market, research_product)
+        _qual_arch_ctx = _archetype_qualify_context(_qual_archetype_key, research_market, research_product)
+        print(f"[qualify] archetype={_qual_archetype_key} (confidence={_qual_archetype_conf}%)")
+
         # Pull market validation context to sharpen qualification scoring
         market_context = ""
         try:
@@ -2604,7 +2939,7 @@ Use this context to calibrate scores — companies in a {verdict.replace("_", " 
         company_list = [{"id": str(c[0]), "name": str(c[1]), "notes": c[2], "phone": c[3], "website": c[4], "location": c[5]} for c in companies]
 
         def _qualify_batch(batch: list[dict]) -> list[dict]:
-            prompt = f"""Evaluate these companies as potential sales targets for our market research.
+            prompt = f"""{_qual_arch_ctx}
 {market_context}
 For each company, assess:
 1. Relevance score (0-100): how well do they match the target market?
@@ -2732,6 +3067,7 @@ Return JSON:
         all_phones: list[str] = list(free_result.get("phones", []))
         all_contacts: list[dict[str, str]] = list(free_result.get("contacts", []))
         all_findings: dict[str, Any] = {}
+        all_email_sources: dict[str, str] = dict(free_result.get("email_sources", {}))
         sources_tried: list[str] = list(free_result.get("sources", []))
 
         if free_result.get("address"):
@@ -2804,6 +3140,7 @@ Return JSON:
         all_findings["phones"] = all_phones
         all_findings["contacts"] = all_contacts
         all_findings["decision_makers"] = [c.get("name", "") for c in all_contacts if c.get("name")]
+        all_findings["email_sources"] = all_email_sources
 
         # Update database
         if self.research_id and (all_emails or all_phones or all_contacts or all_findings.get("website")):
@@ -2846,10 +3183,27 @@ Return JSON:
             existing_email = company[2] or ""
             existing_website = company[3] or ""
 
-            # Email — use first found if DB is empty
+            # Email — use first found if DB is empty, or upgrade pattern to scraped
             emails = findings.get("emails") or []
-            if emails and not existing_email:
-                updates["email"] = emails[0]
+            email_sources = findings.get("email_sources", {})
+            if emails:
+                chosen_email = emails[0]
+                chosen_src = email_sources.get(chosen_email.lower(), "unknown")
+
+                # Set email if DB is empty
+                if not existing_email:
+                    updates["email"] = chosen_email
+
+                # Track email source in notes
+                if "email" in updates:
+                    src = email_sources.get(updates["email"].lower(), "unknown")
+                    if src == "scraped":
+                        _src_note = "Email source: scraped from website"
+                    elif src == "search":
+                        _src_note = "Email source: found via search results"
+                    else:
+                        _src_note = f"Email source: {src}"
+                    updates.setdefault("_email_source_note", _src_note)
 
             # Phone — use first found if DB is empty
             phones = findings.get("phones") or []
@@ -2862,9 +3216,15 @@ Return JSON:
 
             # Contacts / decision makers — append to notes
             contacts = findings.get("contacts") or []
+            note_parts = []
             if contacts:
                 contact_lines = [f"{c.get('name', '?')} ({c.get('title', '?')})" for c in contacts[:5]]
-                updates["notes"] = "Contacts: " + "; ".join(contact_lines)
+                note_parts.append("Contacts: " + "; ".join(contact_lines))
+            _popped_src_note = updates.pop("_email_source_note", None)
+            if _popped_src_note:
+                note_parts.append(_popped_src_note)
+            if note_parts:
+                updates["notes"] = " | ".join(note_parts)
 
         if updates:
             update_company(cid, self.research_id, updates, root=self.root)
@@ -3065,14 +3425,25 @@ Return JSON:
 
             free_emails = free.get("emails", [])
             free_phones = free.get("phones", [])
+            email_sources = free.get("email_sources", {})
 
             updates: dict[str, Any] = {}
             got_email_free = False
             got_phone_free = False
+            email_source_label = ""
 
             if free_emails and not current_email:
-                updates["email"] = free_emails[0]
+                chosen_email = free_emails[0]
+                updates["email"] = chosen_email
                 got_email_free = True
+                # Determine source label for notes
+                src = email_sources.get(chosen_email.lower(), "unknown")
+                if src == "scraped":
+                    email_source_label = "Email source: scraped from website"
+                elif src == "search":
+                    email_source_label = "Email source: found via search results"
+                else:
+                    email_source_label = f"Email source: {src}"
             if free_phones and not current_phone:
                 updates["phone"] = free_phones[0]
                 got_phone_free = True
@@ -3081,10 +3452,18 @@ Return JSON:
             if not website and free.get("website"):
                 updates["website"] = free["website"]
 
+            # Append email source to notes
+            if email_source_label:
+                base = current_notes or ""
+                if base:
+                    updates["notes"] = f"{base} | {email_source_label}"
+                else:
+                    updates["notes"] = email_source_label
+
             tier_label = None
             if got_email_free or got_phone_free:
                 tier_label = "tier1" if any(
-                    s in ("website_scrape", "email_patterns", "existing_notes")
+                    s in ("website_scrape", "existing_notes")
                     for s in free.get("sources", [])
                 ) else "tier2"
 
@@ -3104,6 +3483,14 @@ Return JSON:
                 if adaptive.get("email"):
                     updates["email"] = adaptive["email"]
                     adaptive_hit = True
+                    # Track adaptive email source in notes
+                    _adaptive_src = adaptive.get("source", "adaptive")
+                    _adaptive_label = f"Email source: {_adaptive_src}"
+                    base = updates.get("notes") or current_notes or ""
+                    if base:
+                        updates["notes"] = f"{base} | {_adaptive_label}"
+                    else:
+                        updates["notes"] = _adaptive_label
 
             return (company, updates, got_email_free, got_phone_free, tier_label, adaptive_hit)
 
@@ -3201,22 +3588,24 @@ Return JSON only:
                     updates["location"] = str(result["location"])
 
                 # Append contact findings to notes
-                if result.get("contacts") or result.get("notes"):
-                    parts = []
-                    if result.get("contacts"):
-                        contacts_str = "; ".join(
-                            f"{c.get('name','?')} ({c.get('title','?')})"
-                            for c in result["contacts"]
-                            if isinstance(c, dict)
-                        )
-                        if contacts_str:
-                            parts.append(f"Contacts: {contacts_str}")
-                    if result.get("notes"):
-                        parts.append(str(result["notes"]))
-                    if parts:
-                        suffix = " | " + " | ".join(parts)
-                        base_notes = current_notes or ""
-                        updates["notes"] = base_notes + suffix if base_notes else suffix
+                parts = []
+                if result.get("contacts"):
+                    contacts_str = "; ".join(
+                        f"{c.get('name','?')} ({c.get('title','?')})"
+                        for c in result["contacts"]
+                        if isinstance(c, dict)
+                    )
+                    if contacts_str:
+                        parts.append(f"Contacts: {contacts_str}")
+                if result.get("notes"):
+                    parts.append(str(result["notes"]))
+                # Track AI email source in notes
+                if result.get("email") and not current_email:
+                    parts.append("Email source: found via AI search")
+                if parts:
+                    suffix = " | " + " | ".join(parts)
+                    base_notes = updates.get("notes") or current_notes or ""
+                    updates["notes"] = base_notes + suffix if base_notes else suffix
 
             # Run adaptive again with AI contacts for companies that still lack email
             if not current_email and "email" not in updates:
@@ -3238,6 +3627,14 @@ Return JSON only:
                     updates["email"] = adaptive["email"]
                     emails_found += 1
                     adaptive_hits += 1
+                    # Track adaptive email source in notes
+                    _adaptive_src = adaptive.get("source", "adaptive")
+                    _adaptive_label = f"Email source: {_adaptive_src}"
+                    base_notes = updates.get("notes") or current_notes or ""
+                    if base_notes:
+                        updates["notes"] = f"{base_notes} | {_adaptive_label}"
+                    else:
+                        updates["notes"] = _adaptive_label
 
             if updates:
                 update_company(str(cid), self.research_id, updates, root=self.root)

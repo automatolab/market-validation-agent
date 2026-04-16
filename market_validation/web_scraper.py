@@ -154,12 +154,105 @@ def _clean_text(soup: BeautifulSoup, max_chars: int = 3000) -> str:
 # ---------------------------------------------------------------------------
 
 _CONTACT_PATHS = ("/contact", "/contact-us", "/about", "/about-us")
+_EXTENDED_CONTACT_PATHS = (
+    "/contact", "/contact-us", "/about", "/about-us",
+    "/team", "/our-team", "/staff", "/leadership", "/people",
+    "/connect", "/reach-us", "/get-in-touch", "/support",
+)
+
+# Patterns used to identify contact-related links on the homepage
+_CONTACT_LINK_PATTERNS = re.compile(
+    r"contact|about|team|staff|reach|connect|email|get.in.touch|support|leadership|people",
+    re.IGNORECASE,
+)
+
+_MAX_DISCOVERED_LINKS = 5
+
+
+def _discover_contact_links(soup: BeautifulSoup, base: str) -> list[str]:
+    """Parse homepage HTML and return up to 5 internal links that look contact-related."""
+    found: list[str] = []
+    seen_paths: set[str] = set()
+    base_domain = _domain(base)
+
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag.get("href", "").strip()
+        link_text = a_tag.get_text(" ", strip=True)
+
+        # Resolve relative URLs
+        if href.startswith("/"):
+            full_url = base.rstrip("/") + href.split("?")[0].split("#")[0]
+        elif href.startswith("http"):
+            # Only follow internal links
+            if _domain(href) != base_domain:
+                continue
+            full_url = href.split("?")[0].split("#")[0]
+        else:
+            continue
+
+        path = full_url.replace(base.rstrip("/"), "").lower()
+        if not path or path == "/":
+            continue
+        if path in seen_paths:
+            continue
+
+        # Check if link text or href path matches contact-related patterns
+        if _CONTACT_LINK_PATTERNS.search(link_text) or _CONTACT_LINK_PATTERNS.search(path):
+            seen_paths.add(path)
+            found.append(full_url)
+            if len(found) >= _MAX_DISCOVERED_LINKS:
+                break
+
+    return found
+
+
+def _scrape_page_contacts(
+    page_url: str,
+    all_emails: list[str],
+    all_phones: list[str],
+) -> tuple[BeautifulSoup | None, str | None]:
+    """Fetch a single page and extract emails/phones into the provided lists.
+
+    Returns (soup, address_or_None) so the caller can do further processing.
+    """
+    resp = _get(page_url, timeout=15)
+    if resp is None:
+        return None, None
+
+    text = resp.text
+    # Extract from raw HTML (catches mailto: links etc.)
+    all_emails.extend(_extract_all_emails(text))
+    all_phones.extend(_extract_all_phones(text))
+
+    soup = BeautifulSoup(text, "html.parser")
+
+    # Extract mailto: and tel: links explicitly
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag.get("href", "")
+        if href.startswith("mailto:"):
+            email = href.replace("mailto:", "").split("?")[0].strip()
+            if email and "@" in email:
+                all_emails.append(email)
+        elif href.startswith("tel:"):
+            phone = href.replace("tel:", "").strip()
+            if phone:
+                all_phones.append(re.sub(r"[^\d()+\-.\s]", "", phone))
+
+    # Try to extract address
+    clean = _clean_text(soup, max_chars=5000)
+    address = _extract_address(clean)
+    return soup, address
 
 
 def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
     """
-    Scrape a website's homepage and common contact pages for emails, phones,
-    contact names, and address.
+    Scrape a website's homepage and discovered contact pages for emails,
+    phones, contact names, and address.
+
+    Strategy:
+    1. Fetch the homepage and extract contacts + discover navigation links.
+    2. Follow up to 5 discovered contact-related links from the homepage nav.
+    3. If no contact links are discovered, fall back to hardcoded paths.
 
     Returns::
 
@@ -178,45 +271,36 @@ def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
         url = "https://" + url
     base = url.rstrip("/")
 
-    # Build list of pages to try: homepage + contact paths
-    urls_to_try = [base]
-    for path in _CONTACT_PATHS:
-        urls_to_try.append(base + path)
+    # --- Step 1: Fetch and scrape the homepage ---
+    homepage_soup, homepage_address = _scrape_page_contacts(base, all_emails, all_phones)
+    if homepage_soup is not None:
+        pages_scraped.append(base)
+        if homepage_address:
+            address = homepage_address
+
+    # --- Step 2: Discover contact-related links from the homepage ---
+    discovered_links: list[str] = []
+    if homepage_soup is not None:
+        discovered_links = _discover_contact_links(homepage_soup, base)
+
+    # --- Step 3: Choose which pages to follow ---
+    if discovered_links:
+        urls_to_try = discovered_links
+    else:
+        # Fallback: try the extended hardcoded paths
+        urls_to_try = [base + path for path in _EXTENDED_CONTACT_PATHS]
 
     for page_url in urls_to_try:
-        resp = _get(page_url, timeout=15)
-        if resp is None:
+        # Skip the homepage — already scraped
+        if page_url.rstrip("/") == base:
             continue
-        pages_scraped.append(page_url)
 
-        text = resp.text
-        # Extract from raw HTML (catches mailto: links etc.)
-        all_emails.extend(_extract_all_emails(text))
-        all_phones.extend(_extract_all_phones(text))
-
-        # Parse with BeautifulSoup for structured extraction
-        soup = BeautifulSoup(text, "html.parser")
-
-        # Extract mailto: links explicitly
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag.get("href", "")
-            if href.startswith("mailto:"):
-                email = href.replace("mailto:", "").split("?")[0].strip()
-                if email and "@" in email:
-                    all_emails.append(email)
-            elif href.startswith("tel:"):
-                phone = href.replace("tel:", "").strip()
-                if phone:
-                    all_phones.append(re.sub(r"[^\d()+\-.\s]", "", phone))
-
-        # Try to find address if we don't have one yet
-        if not address:
-            clean = _clean_text(soup, max_chars=5000)
-            address = _extract_address(clean)
-
-        # Polite delay between pages
-        if page_url != urls_to_try[-1]:
-            time.sleep(delay)
+        time.sleep(delay)
+        soup, page_address = _scrape_page_contacts(page_url, all_emails, all_phones)
+        if soup is not None:
+            pages_scraped.append(page_url)
+            if not address and page_address:
+                address = page_address
 
     # Deduplicate
     seen_emails: set[str] = set()
