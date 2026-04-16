@@ -39,7 +39,29 @@ _SKIP_COMPETITOR_DOMAINS = {
 def _get(url: str, timeout: int = 15) -> requests.Response | None:
     try:
         resp = requests.get(url, headers=_HEADERS, timeout=timeout, allow_redirects=True)
-        return resp if resp.status_code == 200 else None
+        if resp.status_code == 200:
+            return resp
+        # Cloudflare challenge (403/503) — retry with curl_cffi browser impersonation
+        if resp.status_code in (403, 503):
+            return _get_cffi(url, timeout)
+        return None
+    except Exception:
+        return None
+
+
+def _get_cffi(url: str, timeout: int = 15) -> requests.Response | None:
+    """Fallback fetch using curl_cffi to bypass Cloudflare browser checks."""
+    try:
+        from curl_cffi import requests as cf_requests
+        resp = cf_requests.get(url, impersonate="chrome", timeout=timeout, allow_redirects=True)
+        if resp.status_code == 200:
+            # Wrap in a duck-typed object compatible with requests.Response
+            wrapper = requests.models.Response()
+            wrapper.status_code = resp.status_code
+            wrapper._content = resp.content
+            wrapper.encoding = resp.encoding or "utf-8"
+            return wrapper
+        return None
     except Exception:
         return None
 
@@ -53,14 +75,33 @@ def _extract_phone(text: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _is_valid_us_phone(digits: str) -> bool:
+    """Check if a 10-digit string looks like a real US phone number."""
+    if len(digits) != 10:
+        return False
+    area = digits[:3]
+    # US area codes: first digit 2-9, cannot be N11 (e.g. 411, 911)
+    if area[0] in "01":
+        return False
+    if area[1] == area[2] == "1":
+        return False
+    # Exchange (next 3 digits): first digit 2-9
+    if digits[3] in "01":
+        return False
+    # Reject obviously fake patterns (all same digit, sequential)
+    if len(set(digits)) <= 2:
+        return False
+    return True
+
+
 def _extract_all_phones(text: str) -> list[str]:
-    """Extract all unique phone numbers from text."""
+    """Extract all unique, valid US phone numbers from text."""
     matches = re.findall(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", text)
     seen: set[str] = set()
     out: list[str] = []
     for m in matches:
         digits = re.sub(r"\D", "", m)
-        if digits not in seen and len(digits) == 10:
+        if digits not in seen and _is_valid_us_phone(digits):
             seen.add(digits)
             out.append(m)
     return out[:10]
@@ -76,6 +117,8 @@ def _extract_all_emails(text: str) -> list[str]:
     _JUNK_PATTERNS = {
         "sentry", "webpack", "wixpress", "example.com", "email.com",
         "domain.com", "yoursite", "company.com", "test.com",
+        "mysite.com", "placeholder", "noreply", "no-reply",
+        "sentry.io", "cloudflare", "squarespace.com", "wix.com",
     }
     matches = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
     seen: set[str] = set()
@@ -145,6 +188,20 @@ def _clean_text(soup: BeautifulSoup, max_chars: int = 3000) -> str:
         tag.decompose()
     text = soup.get_text(" ", strip=True)
     # Collapse whitespace
+    text = re.sub(r"\s{2,}", " ", text)
+    return text[:max_chars]
+
+
+def _visible_text(soup: BeautifulSoup, max_chars: int = 10000) -> str:
+    """Extract ALL visible text including footer/header (for contact extraction).
+
+    Unlike _clean_text, this preserves footer/header where contact info lives,
+    but still strips script/style/noscript tags.
+    """
+    clone = BeautifulSoup(str(soup), "html.parser")
+    for tag in clone(["script", "style", "noscript"]):
+        tag.decompose()
+    text = clone.get_text(" ", strip=True)
     text = re.sub(r"\s{2,}", " ", text)
     return text[:max_chars]
 
@@ -220,13 +277,20 @@ def _scrape_page_contacts(
         return None, None
 
     text = resp.text
-    # Extract from raw HTML (catches mailto: links etc.)
-    all_emails.extend(_extract_all_emails(text))
-    all_phones.extend(_extract_all_phones(text))
-
     soup = BeautifulSoup(text, "html.parser")
 
-    # Extract mailto: and tel: links explicitly
+    # Use full visible text (including footer/header) for contact extraction —
+    # restaurants commonly put phone/email/address in the footer only
+    visible = _visible_text(soup, max_chars=10000)
+
+    # Extract emails from raw HTML (catches mailto: href values reliably)
+    all_emails.extend(_extract_all_emails(text))
+
+    # Extract phones from visible text (including footer) — NOT raw HTML
+    # which contains JS/CSS digit sequences that produce false positives
+    all_phones.extend(_extract_all_phones(visible))
+
+    # Extract mailto: and tel: links explicitly (most reliable source)
     for a_tag in soup.find_all("a", href=True):
         href = a_tag.get("href", "")
         if href.startswith("mailto:"):
@@ -239,8 +303,7 @@ def _scrape_page_contacts(
                 all_phones.append(re.sub(r"[^\d()+\-.\s]", "", phone))
 
     # Try to extract address
-    clean = _clean_text(soup, max_chars=5000)
-    address = _extract_address(clean)
+    address = _extract_address(visible)
     return soup, address
 
 
