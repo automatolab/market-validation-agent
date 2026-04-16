@@ -283,90 +283,169 @@ def _html_template(interactive: bool) -> str:
 <head>
   <meta charset='utf-8' />
   <meta name='viewport' content='width=device-width, initial-scale=1' />
+  <link rel='preconnect' href='https://fonts.googleapis.com'>
+  <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>
+  <link href='https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>
   <title>Market Research Dashboard</title>
   <style>
     :root {{
-      --bg: #f2f5f9;
+      --bg: #f3f5f9;
       --surface: #ffffff;
       --text: #182433;
       --muted: #5e7083;
-      --line: #d9e2eb;
-      --brand: #0b5ca8;
-      --ok: #1d7b3a;
-      --warn: #996900;
-      --radius: 14px;
-      --shadow: 0 10px 30px rgba(24, 36, 51, 0.08);
+      --line: #dde3eb;
+      --brand: #2563eb;
+      --brand-light: #eff4ff;
+      --ok: #16a34a;
+      --ok-light: #ecfdf3;
+      --warn: #ca8a04;
+      --warn-light: #fefce8;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --info: #0284c7;
+      --info-light: #f0f9ff;
+      --purple: #7c3aed;
+      --purple-light: #f5f0ff;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(24, 36, 51, 0.06), 0 8px 24px rgba(24, 36, 51, 0.06);
+      --shadow-sm: 0 1px 2px rgba(24, 36, 51, 0.05);
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; color: var(--text); background: radial-gradient(1200px 500px at 15% -10%, #e6eef8, transparent), var(--bg); font: 15px/1.45 "Segoe UI", "Helvetica Neue", Arial, sans-serif; }}
-    .app {{ max-width: 1520px; margin: 0 auto; padding: 24px; }}
-    .header {{ display: flex; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; }}
-    .title h1 {{ margin: 0; font-size: clamp(22px, 3vw, 34px); }}
-    .title p {{ margin: 6px 0 0; color: var(--muted); }}
+    body {{ margin: 0; color: var(--text); background: var(--bg); font: 14px/1.5 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
+    .app {{ max-width: 1520px; margin: 0 auto; padding: 28px 24px; }}
+    .header {{ display: flex; gap: 20px; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }}
+    .title h1 {{ margin: 0; font-size: clamp(20px, 2.5vw, 28px); font-weight: 700; letter-spacing: -0.02em; }}
+    .title p {{ margin: 3px 0 0; color: var(--muted); font-size: 13px; }}
     .kpis {{ display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); gap: 10px; width: min(760px, 100%); }}
-    .kpi {{ background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: var(--shadow); }}
-    .kpi .v {{ font-size: 24px; font-weight: 700; }}
-    .kpi .l {{ font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }}
-    .panel {{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }}
-    .panel-head {{ padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }}
-    .panel-head h2 {{ margin: 0; font-size: 17px; }}
-    .panel-body {{ padding: 14px; }}
-    .toolbar {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }}
-    .select {{ min-width: 280px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; background: #fff; }}
-    .count-pill {{ border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; font-size: 13px; color: #324457; background: #fff; }}
-    .btn-link {{ display: inline-block; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: #fff; color: var(--brand); text-decoration: none; font-size: 13px; }}
-    .btn-link:hover {{ background: #f7fbff; }}
-    .table-wrap {{ width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 12px; }}
+    .kpi {{ background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; box-shadow: var(--shadow-sm); transition: box-shadow 0.15s ease; }}
+    .kpi:hover {{ box-shadow: var(--shadow); }}
+    .kpi .v {{ font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }}
+    .kpi .l {{ font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }}
+    .kpi.kpi-ok .v {{ color: var(--ok); }}
+    .kpi.kpi-info .v {{ color: var(--info); }}
+    .kpi.kpi-purple .v {{ color: var(--purple); }}
+    .kpi.kpi-warn .v {{ color: var(--warn); }}
+    .kpi.kpi-brand .v {{ color: var(--brand); }}
+    .kpi.kpi-ok {{ border-bottom: 2px solid var(--ok); }}
+    .kpi.kpi-info {{ border-bottom: 2px solid var(--info); }}
+    .kpi.kpi-purple {{ border-bottom: 2px solid var(--purple); }}
+    .kpi.kpi-warn {{ border-bottom: 2px solid var(--warn); }}
+    .kpi.kpi-brand {{ border-bottom: 2px solid var(--brand); }}
+    .panel {{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); margin-bottom: 24px; overflow: hidden; }}
+    .panel-head {{ padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }}
+    .panel-head h2 {{ margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: #475569; }}
+    .panel-body {{ padding: 16px 20px; }}
+    .toolbar {{ display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }}
+    .select {{ min-width: 280px; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; font: inherit; background: #fff; color: var(--text); transition: border-color 0.15s; }}
+    .select:focus {{ outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }}
+    .count-pill {{ border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--muted); background: var(--bg); font-weight: 500; }}
+    .btn-link {{ display: inline-block; border: 1px solid var(--brand); border-radius: 8px; padding: 7px 14px; background: var(--brand-light); color: var(--brand); text-decoration: none; font-size: 13px; font-weight: 500; transition: background 0.15s, box-shadow 0.15s; }}
+    .btn-link:hover {{ background: #dce8ff; box-shadow: var(--shadow-sm); }}
+    .table-wrap {{ width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }}
     table {{ width: 100%; min-width: 860px; border-collapse: collapse; }}
-    th, td {{ padding: 10px 12px; text-align: left; border-bottom: 1px solid #edf2f7; vertical-align: top; }}
-    th {{ background: #f8fafc; font-size: 12px; color: #4b5f73; text-transform: uppercase; letter-spacing: 0.06em; position: sticky; top: 0; }}
-    tr:hover td {{ background: #fbfdff; }}
+    th, td {{ padding: 10px 14px; text-align: left; border-bottom: 1px solid #eef2f6; vertical-align: top; }}
+    th {{ background: #f8fafc; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; position: sticky; top: 0; z-index: 2; }}
+    tbody tr:nth-child(even) td {{ background: #fafbfc; }}
+    tbody tr:hover td {{ background: #f0f5ff; }}
+    tbody tr:nth-child(even):hover td {{ background: #f0f5ff; }}
     td a {{ color: var(--brand); text-decoration: none; }}
     td a:hover {{ text-decoration: underline; }}
     .muted {{ color: var(--muted); }}
-    .empty {{ color: var(--muted); margin: 0; padding: 10px; }}
-    .badge {{ display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid transparent; }}
-    .priority-high {{ background: #e8f7ed; color: var(--ok); border-color: #c2e5cd; }}
-    .priority-medium {{ background: #fff4de; color: var(--warn); border-color: #ecd6a7; }}
-    .priority-low {{ background: #edf2f7; color: #4f6071; border-color: #dfe7ef; }}
-    .status-pending {{ background: #fff4de; color: var(--warn); border-color: #ecd6a7; }}
-    .status-sent {{ background: #e8f7ed; color: var(--ok); border-color: #c2e5cd; }}
-    .status-opened {{ background: #e8f0fb; color: #1a56b0; border-color: #b3cfee; }}
-    .status-clicked {{ background: #f0e8fb; color: #6b21a8; border-color: #d0b3ee; }}
-    .status-replied {{ background: #e8f7ed; color: #1d7b3a; border-color: #c2e5cd; font-weight:600; }}
-    .status-bounced {{ background: #fde8e8; color: #b91c1c; border-color: #f5c2c2; }}
-    .status-date {{ margin-top: 3px; font-size: 12px; color: var(--muted); }}
+    .empty {{ color: var(--muted); margin: 0; padding: 24px 16px; text-align: center; font-size: 13px; }}
+    .badge {{ display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid transparent; }}
+    .priority-high {{ background: var(--ok-light); color: var(--ok); border-color: #bbf7d0; }}
+    .priority-medium {{ background: var(--warn-light); color: var(--warn); border-color: #fef08a; }}
+    .priority-low {{ background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }}
+    .status-pending {{ background: var(--warn-light); color: var(--warn); border-color: #fef08a; }}
+    .status-sent {{ background: var(--ok-light); color: var(--ok); border-color: #bbf7d0; }}
+    .status-opened {{ background: var(--info-light); color: var(--info); border-color: #bae6fd; }}
+    .status-clicked {{ background: var(--purple-light); color: var(--purple); border-color: #ddd6fe; }}
+    .status-replied {{ background: var(--ok-light); color: var(--ok); border-color: #bbf7d0; font-weight: 600; }}
+    .status-bounced {{ background: var(--danger-light); color: var(--danger); border-color: #fecaca; }}
+    .status-date {{ margin-top: 3px; font-size: 11px; color: var(--muted); }}
     .preview-cell {{ font-size: 13px; min-width: 260px; }}
     .sent-content {{ color: var(--muted); white-space: pre-wrap; line-height: 1.5; }}
-    .reply-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #1d7b3a; margin-bottom: 4px; }}
+    .reply-label {{ font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ok); margin-bottom: 4px; }}
     .reply-content {{ white-space: pre-wrap; line-height: 1.5; color: var(--text); }}
-    .action-link {{ margin-right: 10px; white-space: nowrap; }}
-    .editing-row td {{ background: #fffdf4; }}
-    .cell-input {{ width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font: inherit; background: #fff; }}
+    .action-link {{ margin-right: 8px; white-space: nowrap; font-size: 13px; color: var(--brand); text-decoration: none; font-weight: 500; }}
+    .action-link:hover {{ text-decoration: underline; }}
+    .editing-row td {{ background: #fffef5; }}
+    .cell-input {{ width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font: inherit; background: #fff; transition: border-color 0.15s; }}
+    .cell-input:focus {{ outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }}
     .cell-split {{ display: flex; gap: 6px; }}
     .notes-cell {{ max-width: 200px; }}
     .notes-preview {{ display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; line-height: 1.4; color: var(--muted); }}
     .notes-more {{ font-size: 11px; color: var(--brand); cursor: pointer; white-space: nowrap; border: none; background: none; padding: 2px 0; text-decoration: underline; }}
     .notes-more:hover {{ opacity: 0.75; }}
-    .note-modal-overlay {{ display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 1000; align-items: center; justify-content: center; }}
+    .note-modal-overlay {{ display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }}
     .note-modal-overlay.open {{ display: flex; }}
-    .note-modal {{ background: #fff; border-radius: 14px; padding: 0; max-width: 520px; width: 90%; box-shadow: 0 8px 40px rgba(0,0,0,0.18); max-height: 80vh; display: flex; flex-direction: column; }}
+    .note-modal {{ background: #fff; border-radius: var(--radius); padding: 0; max-width: 520px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 80vh; display: flex; flex-direction: column; }}
     .note-modal-header {{ padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }}
     .note-modal-header h3 {{ margin: 0; font-size: 16px; color: var(--text); }}
     .note-modal-body {{ padding: 16px 20px; overflow-y: auto; flex: 1; }}
     .note-section {{ margin-bottom: 14px; }}
     .note-section:last-child {{ margin-bottom: 0; }}
-    .note-section-label {{ font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--brand); margin-bottom: 4px; }}
-    .note-section-text {{ font-size: 13px; line-height: 1.6; color: var(--muted); }}
+    .note-section-label {{ font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--brand); margin-bottom: 4px; }}
+    .note-section-text {{ font-size: 13px; line-height: 1.6; color: #475569; }}
     .note-section-text li {{ margin-bottom: 3px; }}
     .note-modal-footer {{ padding: 12px 20px; border-top: 1px solid var(--line); }}
-    .note-modal-close {{ display: block; width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; }}
+    .note-modal-close {{ display: block; width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: #f8fafc; cursor: pointer; font: inherit; font-size: 13px; font-weight: 500; color: var(--text); transition: background 0.15s; }}
     .note-modal-close:hover {{ background: #edf2f7; }}
+
+    /* ── Validation section ── */
+    .val-section {{ margin-bottom: 20px; }}
+    .val-section-title {{ font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); letter-spacing: .05em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }}
+    .val-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 14px; }}
+    .val-card {{ background: #f8fafc; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }}
+    .val-kv {{ display: flex; justify-content: space-between; font-size: 13px; margin: 5px 0; }}
+    .val-kv .k {{ color: var(--muted); }}
+    .val-kv .v {{ font-weight: 600; color: var(--text); }}
+    .val-bar {{ margin: 6px 0 10px; position: relative; }}
+    .val-bar-header {{ display: flex; justify-content: space-between; font-size: 13px; }}
+    .val-bar-header .score {{ font-weight: 600; font-variant-numeric: tabular-nums; }}
+    .val-bar-track {{ background: #e8ecf0; border-radius: 6px; height: 6px; overflow: hidden; margin-top: 4px; }}
+    .val-bar-fill {{ height: 100%; border-radius: 6px; transition: width 0.4s ease; }}
+    .val-bar-label {{ font-size: 12px; cursor: default; }}
+    .val-bar-tip {{ display: none; position: absolute; left: 0; top: 100%; margin-top: 4px; background: #1e293b; color: #f1f5f9; font-size: 11px; line-height: 1.4; padding: 6px 10px; border-radius: 6px; z-index: 10; max-width: 320px; white-space: normal; pointer-events: none; }}
+    .val-bar:hover .val-bar-tip {{ display: block; }}
+    .val-tag {{ display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: #f1f5f9; color: #475569; margin: 2px; font-weight: 500; }}
+    .val-archetype {{ background: var(--brand-light); color: var(--brand); border-radius: 8px; padding: 5px 14px; font-size: 13px; font-weight: 600; }}
+    .val-list {{ padding-left: 16px; margin: 4px 0; font-size: 13px; color: #555; }}
+    .val-list li {{ margin-bottom: 3px; }}
+    .val-empty {{ color: var(--muted); font-size: 13px; font-style: italic; }}
+
+    /* ── Status badges in table ── */
+    .status-new {{ background: #f1f5f9; color: #64748b; border-color: #e2e8f0; }}
+    .status-qualified {{ background: var(--ok-light); color: var(--ok); border-color: #bbf7d0; }}
+    .status-contacted {{ background: var(--info-light); color: var(--info); border-color: #bae6fd; }}
+    .status-interested {{ background: var(--purple-light); color: var(--purple); border-color: #ddd6fe; }}
+    .status-not_interested {{ background: var(--danger-light); color: var(--danger); border-color: #fecaca; }}
+
+    /* ── Table polish ── */
+    th {{ white-space: nowrap; }}
+    td .company-sub {{ font-size: 12px; color: var(--muted); margin-top: 2px; }}
+    .phone-cell {{ white-space: nowrap; font-variant-numeric: tabular-nums; }}
+    .email-cell {{ font-size: 13px; word-break: break-all; }}
+    .score-cell {{ text-align: center; font-variant-numeric: tabular-nums; }}
+    .location-cell {{ font-size: 13px; max-width: 180px; }}
+
+    /* ── Empty state ── */
+    .empty-state {{ text-align: center; padding: 48px 24px; color: var(--muted); }}
+    .empty-state .empty-icon {{ width: 48px; height: 48px; margin: 0 auto 12px; background: #f1f5f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; }}
+    .empty-state .empty-icon svg {{ width: 24px; height: 24px; fill: none; stroke: #94a3b8; stroke-width: 1.5; }}
+    .empty-state p {{ margin: 4px 0; font-size: 14px; line-height: 1.5; }}
+
     @media (max-width: 980px) {{
-      .app {{ padding: 14px; }}
-      .header {{ flex-direction: column; align-items: stretch; }}
-      .kpis {{ grid-template-columns: repeat(3, minmax(100px, 1fr)); width: 100%; }}
+      .app {{ padding: 16px; }}
+      .header {{ flex-direction: column; align-items: stretch; gap: 16px; }}
+      .kpis {{ grid-template-columns: repeat(4, minmax(80px, 1fr)); width: 100%; }}
       .select {{ min-width: 100%; }}
+      .panel-body {{ padding: 14px 16px; }}
+    }}
+    @media (max-width: 640px) {{
+      .kpis {{ grid-template-columns: repeat(2, 1fr); }}
+      .kpi .v {{ font-size: 22px; }}
+      table {{ min-width: 600px; }}
     }}
   </style>
 </head>
@@ -385,14 +464,14 @@ def _html_template(interactive: bool) -> str:
         <p>Generated __GENERATED_AT__</p>
       </div>
       <div class='kpis'>
-        <div class='kpi'><div class='v'>__RESEARCH_COUNT__</div><div class='l'>Research Projects</div></div>
-        <div class='kpi'><div class='v'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
-        <div class='kpi'><div class='v'>__QUALIFIED_COUNT__</div><div class='l'>Qualified</div></div>
-        <div class='kpi'><div class='v'>__PHONE_COUNT__</div><div class='l'>With Phone</div></div>
-        <div class='kpi'><div class='v'>__EMAIL_COUNT__</div><div class='l'>With Email</div></div>
-        <div class='kpi'><div class='v'>__PENDING_COUNT__</div><div class='l'>Pending Emails</div></div>
+        <div class='kpi'><div class='v'>__RESEARCH_COUNT__</div><div class='l'>Projects</div></div>
+        <div class='kpi kpi-brand'><div class='v'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
+        <div class='kpi kpi-ok'><div class='v'>__QUALIFIED_COUNT__</div><div class='l'>Qualified</div></div>
+        <div class='kpi kpi-purple'><div class='v'>__PHONE_COUNT__</div><div class='l'>With Phone</div></div>
+        <div class='kpi kpi-info'><div class='v'>__EMAIL_COUNT__</div><div class='l'>With Email</div></div>
+        <div class='kpi kpi-warn'><div class='v'>__PENDING_COUNT__</div><div class='l'>Pending</div></div>
         <div class='kpi'><div class='v'>__SENT_COUNT__</div><div class='l'>Sent</div></div>
-        <div class='kpi'><div class='v'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
+        <div class='kpi kpi-ok'><div class='v'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
       </div>
     </div>
     <section class='panel'>
@@ -408,6 +487,7 @@ def _html_template(interactive: bool) -> str:
     <section class='panel' id='validationPanel' style='display:none'>
       <div class='panel-head'><h2>Market Validation</h2><span id='verdictBadge' class='count-pill'></span></div>
       <div class='panel-body'>
+        <p id='validationSubtitle' class='muted' style='margin:0 0 16px;font-size:13px;line-height:1.5'></p>
         <div id='validationWrap'></div>
       </div>
     </section>
@@ -469,21 +549,29 @@ def _html_template(interactive: bool) -> str:
       if (!ref || !ref.validation) {{ panel.style.display = 'none'; return; }}
       panel.style.display = '';
       const v = ref.validation;
-      const verdictColors = {{ strong_go: '#1d7b3a', go: '#0b5ca8', cautious: '#996900', no_go: '#c41e3a' }};
+      const verdictColors = {{ strong_go: '#16a34a', go: '#2563eb', cautious: '#ca8a04', no_go: '#dc2626' }};
       const verdictLabels = {{ strong_go: 'STRONG GO', go: 'GO', cautious: 'CAUTIOUS', no_go: 'NO GO' }};
       const vc = verdictColors[v.verdict] || '#5e7083';
       badge.style.background = vc; badge.style.color = '#fff'; badge.style.padding = '4px 12px';
       badge.style.borderRadius = '8px'; badge.style.fontWeight = '700';
       badge.textContent = (verdictLabels[v.verdict] || v.verdict || 'N/A') + ' (' + (v.overall_score || 0) + '/100)';
 
+      // ── Subtitle — explains what this section is ──
+      const mkt = esc(v.market || ref.market || '');
+      const geo = esc(v.geography || ref.geography || '');
+      document.getElementById('validationSubtitle').innerHTML =
+        `Opportunity assessment for <strong>${{mkt}}</strong> in <strong>${{geo}}</strong>. ` +
+        `Scores evaluate this specific market and geography — not the industry as a whole.`;
+
       const fmt = (n) => n == null ? '-' : typeof n === 'number' ? n.toLocaleString('en-US', {{style:'currency',currency:'USD',maximumFractionDigits:0}}) : n;
       const pct = (n) => n == null ? '-' : (Math.round(n * 100)) + '%';
-      const bar = (score, label, sublabel) => {{
+
+      const bar = (score, label, desc) => {{
         const s = score != null ? Math.round(score) : null;
-        const sub = sublabel ? `<span style="color:#888;font-size:11px;margin-left:4px">${{sublabel}}</span>` : '';
-        return `<div style="margin:5px 0"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${{label}}${{sub}}</span><span style="font-weight:600">${{s != null ? s : '-'}}/100</span></div><div style="background:#e8ecf0;border-radius:4px;height:7px;overflow:hidden;margin-top:3px"><div style="width:${{Math.min(100,s||0)}}%;height:100%;background:${{vc}};border-radius:4px"></div></div></div>`;
+        const tip = desc ? `<div class="val-bar-tip">${{desc}}</div>` : '';
+        return `<div class="val-bar"><div class="val-bar-header"><span class="val-bar-label">${{label}}</span><span class="score">${{s != null ? s : '-'}}/100</span></div><div class="val-bar-track"><div class="val-bar-fill" style="width:${{Math.min(100,s||0)}}%;background:${{vc}}"></div></div>${{tip}}</div>`;
       }};
-      const tag = (txt, color) => `<span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;background:${{color||'#e8ecf0'}};color:#333;margin:2px">${{esc(txt)}}</span>`;
+      const tag = (txt, color) => `<span class="val-tag" ${{color ? 'style="background:'+color+'"' : ''}}>${{esc(txt)}}</span>`;
       const parseList = (val) => {{
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -492,37 +580,52 @@ def _html_template(interactive: bool) -> str:
 
       let html = '';
       const section = (title, content) =>
-        `<div style="margin-bottom:18px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#666;letter-spacing:.04em;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e8ecf0">${{title}}</div>${{content}}</div>`;
-      const row2 = (a, b) => `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px">${{a}}${{b}}</div>`;
-      const card = (content, bg, border) => `<div style="background:${{bg||'#f8f9fa'}};border:1px solid ${{border||'#e8ecf0'}};border-radius:8px;padding:12px">${{content}}</div>`;
-      const kv = (k, v2) => `<div style="display:flex;justify-content:space-between;font-size:13px;margin:4px 0"><span style="color:#666">${{k}}</span><strong>${{v2}}</strong></div>`;
+        `<div class="val-section"><div class="val-section-title">${{title}}</div>${{content}}</div>`;
+      const row2 = (a, b) => `<div class="val-grid">${{a}}${{b}}</div>`;
+      const card = (content, bg, border) => `<div class="val-card"${{bg || border ? ' style="' + (bg ? 'background:'+bg+';' : '') + (border ? 'border-color:'+border : '') + '"' : ''}}>${{content}}</div>`;
+      const kv = (k, v2) => `<div class="val-kv"><span class="k">${{k}}</span><span class="v">${{v2}}</span></div>`;
 
-      // ── Archetype pill ────────────────────────────────────────────────────
+      // ── Archetype weights lookup ──────────────────────────────────────────
+      const archetypeWeights = {{
+        'local-service':    {{ attractiveness: 20, demand: 35, competitive: 30, risk: 15 }},
+        'b2b-saas':         {{ attractiveness: 35, demand: 30, competitive: 20, risk: 15 }},
+        'b2c-saas':         {{ attractiveness: 30, demand: 35, competitive: 20, risk: 15 }},
+        'b2b-industrial':   {{ attractiveness: 25, demand: 25, competitive: 30, risk: 20 }},
+        'consumer-cpg':     {{ attractiveness: 30, demand: 35, competitive: 15, risk: 20 }},
+        'marketplace':      {{ attractiveness: 40, demand: 30, competitive: 15, risk: 15 }},
+        'healthcare':       {{ attractiveness: 25, demand: 25, competitive: 20, risk: 30 }},
+        'services-agency':  {{ attractiveness: 25, demand: 30, competitive: 25, risk: 20 }},
+      }};
+      const aw = archetypeWeights[v.archetype] || {{ attractiveness: 30, demand: 25, competitive: 25, risk: 20 }};
+
+      // ── Archetype context card ────────────────────────────────────────────
       if (v.archetype_label) {{
-        html += `<div style="margin-bottom:12px">`;
-        html += `<span style="background:#e8ecf0;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:600">${{esc(v.archetype_label)}}</span>`;
-        if (v.archetype) html += `<span class="muted" style="font-size:12px;margin-left:8px">archetype: ${{esc(v.archetype)}}</span>`;
-        html += `</div>`;
+        let archHtml = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">`;
+        archHtml += `<span class="val-archetype">${{esc(v.archetype_label)}}</span>`;
+        archHtml += `<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+        archHtml += `<span class="val-tag" style="background:#f0f5ff;color:#2563eb;font-weight:600;font-size:11px">Attractiveness ${{aw.attractiveness}}%</span>`;
+        archHtml += `<span class="val-tag" style="background:#f0f5ff;color:#2563eb;font-weight:600;font-size:11px">Demand ${{aw.demand}}%</span>`;
+        archHtml += `<span class="val-tag" style="background:#f0f5ff;color:#2563eb;font-weight:600;font-size:11px">Competition ${{aw.competitive}}%</span>`;
+        archHtml += `<span class="val-tag" style="background:#f0f5ff;color:#2563eb;font-weight:600;font-size:11px">Risk ${{aw.risk}}%</span>`;
+        archHtml += `</div></div>`;
+        html += card(archHtml, '#fafbfc', '#e2e8f0') + '<div style="height:10px"></div>';
       }}
 
       // ── Overall scorecard (4 core bars + 4 module bars) ───────────────────
       {{
-        let coreHtml = '';
-        coreHtml += bar(v.market_attractiveness, 'Market Attractiveness');
-        coreHtml += bar(v.demand_validation, 'Demand');
-        coreHtml += bar(v.competitive_score != null ? 100-v.competitive_score : null, 'Competitive Position', '(higher = less competition)');
-        coreHtml += bar(v.risk_score != null ? 100-v.risk_score : null, 'Risk Profile', '(higher = lower risk)');
+        let coreHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Core Scores <span style="font-weight:500;text-transform:none;color:#94a3b8;margin-left:4px">— drive the verdict</span></div>`;
+        coreHtml += bar(v.market_attractiveness, 'Market Attractiveness (' + aw.attractiveness + '%)', 'TAM size, growth rate, and demand trend in this geography');
+        coreHtml += bar(v.demand_validation, 'Demand (' + aw.demand + '%)', 'Search trends, willingness to pay, and customer need signals');
+        coreHtml += bar(v.competitive_score != null ? 100-v.competitive_score : null, 'Competitive Position (' + aw.competitive + '%)', 'Inverted intensity — higher means less competition, easier entry');
+        coreHtml += bar(v.risk_score != null ? 100-v.risk_score : null, 'Risk Profile (' + aw.risk + '%)', 'Inverted risk — higher means fewer regulatory, tech, and barrier risks');
 
-        let modHtml = '';
-        if (v.unit_economics_score != null) modHtml += bar(v.unit_economics_score, 'Unit Economics');
-        if (v.structural_attractiveness != null) modHtml += bar(v.structural_attractiveness, "Porter's Attractiveness");
-        if (v.timing_score != null) modHtml += bar(v.timing_score, 'Market Timing', v.timing_verdict ? '(' + esc(v.timing_verdict) + ')' : '');
-        if (v.icp_clarity != null) modHtml += bar(v.icp_clarity, 'ICP Clarity');
+        let modHtml = `<div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#475569;margin-bottom:10px;letter-spacing:0.03em">Module Scores <span style="font-weight:500;text-transform:none;color:#94a3b8;margin-left:4px">— supplemental adjustments</span></div>`;
+        if (v.unit_economics_score != null) modHtml += bar(v.unit_economics_score, 'Unit Economics', 'Gross margins, CAC, LTV, and payback period viability');
+        if (v.structural_attractiveness != null) modHtml += bar(v.structural_attractiveness, "Porter's Attractiveness", 'Supplier power, buyer power, substitutes, barriers, rivalry');
+        if (v.timing_score != null) modHtml += bar(v.timing_score, 'Market Timing', 'Enablers vs headwinds — is now the right time to enter?' + (v.timing_verdict ? ' (' + esc(v.timing_verdict) + ')' : ''));
+        if (v.icp_clarity != null) modHtml += bar(v.icp_clarity, 'ICP Clarity', 'How well-defined is the ideal customer profile for this market');
 
-        html += row2(
-          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Core Scores</div>' + coreHtml),
-          card('<div style="font-size:12px;font-weight:700;text-transform:uppercase;color:#555;margin-bottom:8px">Module Scores</div>' + modHtml)
-        );
+        html += row2(card(coreHtml), card(modHtml));
       }}
 
       // ── Analysis reasoning ────────────────────────────────────────────────
@@ -661,7 +764,15 @@ def _html_template(interactive: bool) -> str:
             }}
             timHtml += `</div>`;
           }}
-          if (v.regulatory_risks) timHtml += kv('Regulatory', esc(v.regulatory_risks));
+          if (v.regulatory_risks) {{
+            const regList = parseList(v.regulatory_risks);
+            if (regList.length) {{
+              timHtml += `<div style="margin-top:8px;font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px">Regulatory</div>`;
+              regList.forEach(r => {{ timHtml += `<div style="font-size:12px;margin-bottom:3px;color:#475569;padding-left:10px;border-left:2px solid #e2e8f0">${{esc(r)}}</div>`; }});
+            }} else {{
+              timHtml += kv('Regulatory', esc(v.regulatory_risks));
+            }}
+          }}
           if (v.technology_maturity) timHtml += kv('Tech Maturity', esc(v.technology_maturity));
           html += section('Market Timing & Signals', card(timHtml));
         }}
@@ -796,8 +907,8 @@ def _html_template(interactive: bool) -> str:
         const hasValidationOnly = current && current.total === 0 && current.validation;
         const msg = hasValidationOnly
           ? 'No companies discovered yet — this research only ran <strong>validate</strong>. Run <code>find()</code> to discover companies.'
-          : 'No companies for this project/filter.';
-        document.getElementById('companiesWrap').innerHTML = `<p class="empty">${{msg}}</p>`;
+          : 'No companies found for this project.';
+        document.getElementById('companiesWrap').innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>${{msg}}</p></div>`;
         return;
       }}
 
@@ -852,15 +963,16 @@ def _html_template(interactive: bool) -> str:
           continue;
         }}
 
+        const statusCls = 'status-' + (c.status || 'new').toLowerCase().replace(/\\s+/g, '_');
         body += `
           <tr>
             <td><strong>${{esc(c.company_name)}}</strong><div class="muted" style="font-size:12px">${{esc(c.research_name || '')}}</div></td>
             <td style="font-size:13px">${{websiteCell}}</td>
-            <td style="font-size:13px">${{esc(c.location || '')}}</td>
-            <td style="white-space:nowrap">${{phone}}</td>
-            <td style="font-size:13px">${{email}}</td>
-            <td style="font-size:13px;text-align:center">${{c.priority_score != null ? Math.round(c.priority_score) : '-'}}</td><td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
-            <td>${{esc(c.status || '-')}}</td>
+            <td class="location-cell">${{esc(c.location || '')}}</td>
+            <td class="phone-cell">${{phone}}</td>
+            <td class="email-cell">${{email}}</td>
+            <td class="score-cell">${{c.priority_score != null ? Math.round(c.priority_score) : '-'}}</td><td><span class="badge ${{priorityClass(c.priority_tier)}}">${{esc(c.priority_tier || 'low')}}</span></td>
+            <td><span class="badge ${{statusCls}}">${{esc((c.status || 'new').replace(/_/g, ' '))}}</span></td>
             <td class="notes-cell">${{notesCell}}</td>
             <td style="white-space:nowrap">
               <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit</a>
@@ -897,7 +1009,7 @@ def _html_template(interactive: bool) -> str:
       document.getElementById('emailCount').textContent = `${{rows.length}} rows`;
 
       if (!rows.length) {{
-        document.getElementById('emailsWrap').innerHTML = '<p class="empty">No emails for this project/filter.</p>';
+        document.getElementById('emailsWrap').innerHTML = '<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"/></svg></div><p>No emails for this project.</p></div>';
         return;
       }}
 
@@ -1071,7 +1183,7 @@ def _html_template(interactive: bool) -> str:
         return refreshDataFromServer();
       }}
 
-      const cmd = 'python3 -c "from market_validation.research import update_company; print(update_company(\\'' + escSingle(c.id) + '\\',\\'' + escSingle(c.research_id) + '\\', {{\\'company_name\\':\\'' + escSingle(fields.company_name) + '\\',\\'website\\':\\'' + escSingle(fields.website) + '\\',\\'location\\':\\'' + escSingle(fields.location) + '\\',\\'phone\\':\\'' + escSingle(fields.phone) + '\\',\\'email\\':\\'' + escSingle(fields.email) + '\\',\\'status\\':\\'' + escSingle(fields.status) + '\\',\\'priority_tier\\':\\'' + escSingle(fields.priority_tier) + '\\',\\'notes\\':\\'' + escSingle(fields.notes) + '\\',\\'volume_estimate\\':\\'' + escSingle(fields.volume_estimate) + '\\',\\'volume_unit\\':\\'' + escSingle(fields.volume_unit) + '\\'}}))"';
+      const cmd = 'python3 -c "from market_validation.research import update_company; print(update_company(\\'' + escSingle(c.id) + '\\',\\'' + escSingle(c.research_id) + '\\', {{\\'company_name\\':\\'' + escSingle(fields.company_name) + '\\',\\'website\\':\\'' + escSingle(fields.website) + '\\',\\'location\\':\\'' + escSingle(fields.location) + '\\',\\'phone\\':\\'' + escSingle(fields.phone) + '\\',\\'email\\':\\'' + escSingle(fields.email) + '\\',\\'status\\':\\'' + escSingle(fields.status) + '\\',\\'priority_tier\\':\\'' + escSingle(fields.priority_tier) + '\\',\\'notes\\':\\'' + escSingle(fields.notes) + '\\'}}))"';
       runCommandPrompt(cmd);
       editingCompanyId = null;
       renderCompanies();
@@ -1151,18 +1263,6 @@ def _html_template(interactive: bool) -> str:
 
       const cmd = 'python3 -c "from market_validation.research import add_company; print(add_company(research_id=\\'' + escSingle(rid) + '\\', company_name=\\'' + escSingle(company_name) + '\\', market=\\'' + escSingle(market || 'general') + '\\', website=\\'' + escSingle(website) + '\\', location=\\'' + escSingle(location) + '\\', phone=\\'' + escSingle(phone) + '\\', email=\\'' + escSingle(email) + '\\', notes=\\'' + escSingle(notes) + '\\'))"';
       runCommandPrompt(cmd);
-    }}
-
-    function setResearch(id) {{
-      selectedResearchId = id || '';
-      const next = new URL(window.location.href);
-      if (selectedResearchId) next.searchParams.set('research_id', selectedResearchId);
-      else next.searchParams.delete('research_id');
-      window.history.replaceState({{}}, '', next.toString());
-      setResearchLabel();
-      renderValidation();
-      renderCompanies();
-      renderEmails();
     }}
 
     function wire() {{
@@ -1370,7 +1470,7 @@ def _make_handler(host: str, port: int):
     return Handler
 
 
-def serve_dashboard(host: str = "127.0.0.1", port: int = 8787, open_browser: bool = True) -> str:
+def serve_dashboard(host: str = "127.0.0.1", port: int = 8788, open_browser: bool = True) -> str:
     from http.server import ThreadingHTTPServer
 
     handler = _make_handler(host, port)
@@ -1398,7 +1498,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Serve dashboard by default; use --static for file output")
     parser.add_argument("--static", action="store_true", help="Generate static dashboard.html instead of running server")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument("--port", type=int, default=8788)
     parser.add_argument("--no-open", action="store_true")
     args = parser.parse_args()
 

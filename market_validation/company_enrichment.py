@@ -6,6 +6,36 @@ from pathlib import Path
 from typing import Any
 
 
+_COMMON_EMAIL_PREFIXES = (
+    "info", "contact", "sales", "hello", "support", "admin",
+    "office", "team", "general", "inquiries",
+)
+
+
+def generate_email_patterns(domain: str) -> list[dict[str, str]]:
+    """
+    Given a domain (e.g. ``acmebbq.com``), return common email patterns.
+
+    Each entry is ``{"email": "info@acmebbq.com", "pattern_generated": True}``.
+    These are *suggestions* — not verified.
+    """
+    domain = domain.lower().strip().lstrip("www.")
+    if not domain or "." not in domain:
+        return []
+    return [
+        {"email": f"{prefix}@{domain}", "pattern_generated": True}
+        for prefix in _COMMON_EMAIL_PREFIXES
+    ]
+
+
+def domain_from_url(url: str | None) -> str | None:
+    """Extract bare domain from a URL, stripping scheme and www prefix."""
+    if not url:
+        return None
+    host = url.split("//")[-1].split("/")[0].lower().lstrip("www.")
+    return host if "." in host else None
+
+
 def _iso_now() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")

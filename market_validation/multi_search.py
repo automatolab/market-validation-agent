@@ -30,6 +30,15 @@ WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"
 BBB_SEARCH_URL = "https://www.bbb.org/search"
 OPENCORPORATES_SEARCH_URL = "https://opencorporates.com/companies"
 
+# Cache geocoded bounding boxes so we don't re-geocode the same geography
+_GEO_BBOX_CACHE: dict[str, tuple[float, float, float, float] | None] = {}
+
+# Circuit breaker: skip DDGS for the session once it's rate-limited
+_DDGS_DISABLED = False
+
+# Track last Nominatim request time (usage policy: max 1 req/sec)
+_LAST_NOMINATIM_TIME: float = 0.0
+
 
 @dataclass
 class SearchResult:
@@ -49,12 +58,22 @@ class SearchResult:
 
 def _safe_get(url: str, params: dict[str, Any] | None = None, timeout: int = 20) -> requests.Response | None:
     try:
-        return requests.get(
+        resp = requests.get(
             url,
             params=params,
             headers={"User-Agent": USER_AGENT},
             timeout=timeout,
         )
+        # Retry once on 429 rate-limit
+        if resp.status_code == 429:
+            time.sleep(2)
+            resp = requests.get(
+                url,
+                params=params,
+                headers={"User-Agent": USER_AGENT},
+                timeout=timeout,
+            )
+        return resp
     except Exception:
         return None
 
@@ -68,27 +87,67 @@ def _extract_location_hint(query: str) -> str:
     return ""
 
 
-def _from_nominatim(query: str, num_results: int = 10) -> list[SearchResult]:
+def _nominatim_throttle() -> None:
+    """Ensure at least 1.1s between Nominatim requests (their usage policy)."""
+    global _LAST_NOMINATIM_TIME
+    elapsed = time.time() - _LAST_NOMINATIM_TIME
+    if elapsed < 1.1:
+        time.sleep(1.1 - elapsed)
+    _LAST_NOMINATIM_TIME = time.time()
+
+
+def _geocode_bbox(geography: str) -> tuple[float, float, float, float] | None:
+    """Geocode a geography string to a bounding box (lon1, lat1, lon2, lat2).
+
+    Returns None if geocoding fails.  Results are cached in _GEO_BBOX_CACHE.
+    """
+    key = geography.strip().lower()
+    if key in _GEO_BBOX_CACHE:
+        return _GEO_BBOX_CACHE[key]
+
+    _nominatim_throttle()
     resp = _safe_get(
         NOMINATIM_URL,
         {
-            "q": query,
+            "q": geography,
             "format": "jsonv2",
-            "addressdetails": 1,
-            "extratags": 1,
-            "namedetails": 1,
-            "limit": max(1, min(num_results, 40)),
+            "limit": 1,
         },
-        timeout=20,
+        timeout=15,
     )
     if resp is None or resp.status_code != 200:
-        return []
+        _GEO_BBOX_CACHE[key] = None
+        return None
 
     try:
-        payload = resp.json()
+        items = resp.json()
     except Exception:
-        return []
+        _GEO_BBOX_CACHE[key] = None
+        return None
 
+    if not items:
+        _GEO_BBOX_CACHE[key] = None
+        return None
+
+    bbox = items[0].get("boundingbox")  # [south_lat, north_lat, west_lon, east_lon]
+    if bbox and len(bbox) == 4:
+        try:
+            south, north, west, east = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+            # Expand bbox by ~50% to include wider metro / surrounding area
+            lat_pad = (north - south) * 0.5
+            lon_pad = (east - west) * 0.5
+            result = (west - lon_pad, south - lat_pad, east + lon_pad, north + lat_pad)
+            _GEO_BBOX_CACHE[key] = result
+            return result
+        except (ValueError, TypeError):
+            pass
+
+    _GEO_BBOX_CACHE[key] = None
+    return None
+
+
+def _parse_nominatim_results(payload: list[dict[str, Any]], num_results: int) -> list[SearchResult]:
+    """Parse Nominatim JSON response items into SearchResult list."""
     results: list[SearchResult] = []
     for item in payload:
         display_name = item.get("display_name", "")
@@ -100,12 +159,15 @@ def _from_nominatim(query: str, num_results: int = 10) -> list[SearchResult]:
         website = tags.get("website") or tags.get("contact:website") or ""
         cuisine = tags.get("cuisine", "")
         phone = tags.get("phone") or tags.get("contact:phone") or ""
+        email = tags.get("email") or tags.get("contact:email") or ""
 
         snippet_parts = [display_name]
         if cuisine:
             snippet_parts.append(f"cuisine={cuisine}")
         if phone:
             snippet_parts.append(f"phone={phone}")
+        if email:
+            snippet_parts.append(f"email={email}")
 
         results.append(
             SearchResult(
@@ -119,7 +181,67 @@ def _from_nominatim(query: str, num_results: int = 10) -> list[SearchResult]:
     return results[:num_results]
 
 
-def _from_ddgs(query: str, num_results: int = 10) -> list[SearchResult]:
+def _from_nominatim(query: str, num_results: int = 10, geography: str | None = None) -> list[SearchResult]:
+    params: dict[str, Any] = {
+        "q": query,
+        "format": "jsonv2",
+        "addressdetails": 1,
+        "extratags": 1,
+        "namedetails": 1,
+        "limit": max(1, min(num_results, 40)),
+    }
+
+    used_bounding = False
+    # If geography is provided, geocode it and apply viewbox bounding
+    if geography:
+        bbox = _geocode_bbox(geography)
+        if bbox:
+            # viewbox format: lon1,lat1,lon2,lat2 (west,south,east,north)
+            params["viewbox"] = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
+            params["bounded"] = 1
+            used_bounding = True
+
+    _nominatim_throttle()
+    resp = _safe_get(NOMINATIM_URL, params, timeout=20)
+    if resp is None or resp.status_code != 200:
+        return []
+
+    try:
+        payload = resp.json()
+    except Exception:
+        return []
+
+    results = _parse_nominatim_results(payload, num_results)
+
+    # Fallback: if bounded search returned too few results, retry without bounding
+    # so we don't miss businesses just outside the bbox edge
+    if used_bounding and len(results) < max(3, num_results // 3):
+        unbounded_params = dict(params)
+        unbounded_params.pop("viewbox", None)
+        unbounded_params.pop("bounded", None)
+        _nominatim_throttle()
+        resp2 = _safe_get(NOMINATIM_URL, unbounded_params, timeout=20)
+        if resp2 and resp2.status_code == 200:
+            try:
+                payload2 = resp2.json()
+                extra = _parse_nominatim_results(payload2, num_results)
+                # Merge, dedup by title
+                seen = {r.title.lower().strip() for r in results}
+                for r in extra:
+                    if r.title.lower().strip() not in seen:
+                        results.append(r)
+                        seen.add(r.title.lower().strip())
+            except Exception:
+                pass
+
+    return results[:num_results]
+
+
+def _from_ddgs(query: str, num_results: int = 10, region: str | None = None) -> list[SearchResult]:
+    global _DDGS_DISABLED
+    if _DDGS_DISABLED:
+        return []
+
     DDGS = None
     try:
         from ddgs import DDGS  # type: ignore[no-redef]
@@ -129,21 +251,33 @@ def _from_ddgs(query: str, num_results: int = 10) -> list[SearchResult]:
         except Exception:
             return []
 
-    try:
-        results: list[SearchResult] = []
-        ddgs = DDGS()
-        for row in ddgs.text(query, max_results=max(1, min(num_results, 25))):
-            results.append(
-                SearchResult(
-                    title=row.get("title", ""),
-                    url=row.get("href", row.get("url", "")),
-                    snippet=row.get("body", row.get("snippet", "")),
-                    source="ddgs",
+    max_attempts = 2
+    for attempt in range(max_attempts):
+        try:
+            results: list[SearchResult] = []
+            ddgs = DDGS()
+            kwargs: dict[str, Any] = {"keywords": query, "max_results": max(1, min(num_results, 25))}
+            if region:
+                kwargs["region"] = region  # e.g. "us-en", "wt-wt" (default)
+            for row in ddgs.text(**kwargs):
+                results.append(
+                    SearchResult(
+                        title=row.get("title", ""),
+                        url=row.get("href", row.get("url", "")),
+                        snippet=row.get("body", row.get("snippet", "")),
+                        source="ddgs",
+                    )
                 )
-            )
-        return results[:num_results]
-    except Exception:
-        return []
+            return results[:num_results]
+        except Exception as exc:
+            if "ratelimit" in str(exc).lower():
+                if attempt < max_attempts - 1:
+                    time.sleep(3)
+                    continue
+                # Rate-limited twice — disable DDGS for the rest of this session
+                _DDGS_DISABLED = True
+            return []
+    return []
 
 
 def _from_wikipedia(query: str, num_results: int = 8) -> list[SearchResult]:
@@ -204,7 +338,7 @@ def _from_bbb(query: str, num_results: int = 10) -> list[SearchResult]:
             "find_loc": location_hint or "United States",
             "find_text": find_text,
         },
-        timeout=25,
+        timeout=12,
     )
     if resp is None or resp.status_code != 200:
         return []
@@ -244,7 +378,7 @@ def _from_bbb(query: str, num_results: int = 10) -> list[SearchResult]:
 
 def _from_opencorporates(query: str, num_results: int = 8) -> list[SearchResult]:
     """Best-effort parser; may return empty due to captcha/anti-bot."""
-    resp = _safe_get(OPENCORPORATES_SEARCH_URL, {"q": query}, timeout=25)
+    resp = _safe_get(OPENCORPORATES_SEARCH_URL, {"q": query}, timeout=12)
     if resp is None or resp.status_code != 200:
         return []
 
@@ -316,29 +450,43 @@ def _from_manta(query: str, num_results: int = 8) -> list[SearchResult]:
     return results
 
 
-def search_all_backends(query: str, num_results: int = 10) -> list[dict[str, str]]:
+def search_all_backends(query: str, num_results: int = 10, geography: str | None = None) -> list[dict[str, str]]:
     """
     Run all free backends with polite throttling.
     Deduplicates by (title,url).
+    When *geography* is provided, geo-aware backends constrain results to that area.
     """
     collected: list[SearchResult] = []
-    backends = [
-        _from_nominatim,
-        _from_ddgs,
+
+    # Geo-aware backends get the geography parameter
+    geo_backends: list[tuple[str, Any]] = [
+        ("nominatim", lambda q, n: _from_nominatim(q, n, geography=geography)),
+        ("ddgs", lambda q, n: _from_ddgs(q, n, region=_geography_to_ddgs_region(geography))),
+    ]
+    plain_backends = [
         _from_wikipedia,
         _from_bbb,
         _from_opencorporates,
         _from_manta,
     ]
 
-    for backend in backends:
+    for _label, backend in geo_backends:
         try:
             batch = backend(query, num_results)
             if batch:
                 collected.extend(batch)
         except Exception:
             pass
-        time.sleep(0.6)
+        time.sleep(0.3)
+
+    for backend in plain_backends:
+        try:
+            batch = backend(query, num_results)
+            if batch:
+                collected.extend(batch)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     deduped: dict[tuple[str, str], SearchResult] = {}
     for r in collected:
@@ -349,32 +497,47 @@ def search_all_backends(query: str, num_results: int = 10) -> list[dict[str, str
     return [r.to_dict() for r in list(deduped.values())[: max(1, num_results)]]
 
 
-def quick_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
-    """
-    Main search entrypoint — no API keys required.
-    Strategy:
-    1. Nominatim (for local/geo queries)
-    2. DuckDuckGo (general web search)
-    3. Supplementary backends if still sparse
+def _geography_to_ddgs_region(geography: str | None) -> str | None:
+    """Best-effort mapping from geography string to DuckDuckGo region code."""
+    if not geography:
+        return None
+    geo = geography.lower().strip()
+    # US states / common patterns
+    us_states = {
+        "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga", "hi", "id",
+        "il", "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi", "mn", "ms",
+        "mo", "mt", "ne", "nv", "nh", "nj", "nm", "ny", "nc", "nd", "oh", "ok",
+        "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut", "vt", "va", "wa", "wv",
+        "wi", "wy",
+    }
+    parts = [p.strip().lower() for p in geo.replace("-", " ").split(",")]
+    # Check if any part is a US state abbreviation or contains "us"
+    for p in parts:
+        if p in us_states or "united states" in p or p == "us" or p.startswith("us-"):
+            return "us-en"
+    if any("uk" in p or "united kingdom" in p or "england" in p for p in parts):
+        return "uk-en"
+    if any("canada" in p for p in parts):
+        return "ca-en"
+    if any("australia" in p for p in parts):
+        return "au-en"
+    return None
+
+
+def supplementary_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
+    """Run slow scraped backends (BBB, OpenCorporates, Manta, Wikipedia).
+
+    Meant to be called once for the best query, not per-query.
     """
     batches: list[list[SearchResult]] = []
-
-    # Nominatim — best for local/geo queries
-    nom = _from_nominatim(query, num_results)
-    batches.append(nom)
-
-    # DuckDuckGo — general web search
-    ddg = _from_ddgs(query, num_results)
-    if ddg:
-        batches.append(ddg)
-
-    # Supplementary backends for local/company discovery queries
-    total_so_far = sum(len(b) for b in batches)
-    if total_so_far < max(6, num_results):
-        batches.append(_from_wikipedia(query, max(4, num_results // 2)))
-        batches.append(_from_bbb(query, max(4, num_results // 2)))
-        batches.append(_from_opencorporates(query, max(3, num_results // 3)))
-        batches.append(_from_manta(query, max(3, num_results // 3)))
+    for backend in [_from_wikipedia, _from_bbb, _from_opencorporates, _from_manta]:
+        try:
+            batch = backend(query, max(4, num_results // 2))
+            if batch:
+                batches.append(batch)
+        except Exception:
+            pass
+        time.sleep(0.3)
 
     deduped: dict[tuple[str, str], SearchResult] = {}
     for batch in batches:
@@ -383,7 +546,36 @@ def quick_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
             if key not in deduped:
                 deduped[key] = r
 
-    out = [r.to_dict() for r in list(deduped.values())[: max(1, num_results)]]
-    if out:
-        return out
-    return search_all_backends(query, num_results=num_results)
+    return [r.to_dict() for r in list(deduped.values())[: max(1, num_results)]]
+
+
+def quick_search(query: str, num_results: int = 10, geography: str | None = None) -> list[dict[str, str]]:
+    """
+    Fast search entrypoint — no API keys required.
+    Uses only the fast backends (Nominatim + DuckDuckGo).
+    When *geography* is provided, results are geo-bounded.
+
+    For slower supplementary backends (BBB, Manta, etc.), call
+    supplementary_search() separately — it should only be called once,
+    not per-query.
+    """
+    batches: list[list[SearchResult]] = []
+    ddgs_region = _geography_to_ddgs_region(geography)
+
+    # Nominatim — best for local/geo queries, now geo-bounded
+    nom = _from_nominatim(query, num_results, geography=geography)
+    batches.append(nom)
+
+    # DuckDuckGo — general web search, region-scoped
+    ddg = _from_ddgs(query, num_results, region=ddgs_region)
+    if ddg:
+        batches.append(ddg)
+
+    deduped: dict[tuple[str, str], SearchResult] = {}
+    for batch in batches:
+        for r in batch:
+            key = (r.title.lower().strip(), r.url.lower().strip())
+            if key not in deduped:
+                deduped[key] = r
+
+    return [r.to_dict() for r in list(deduped.values())[: max(1, num_results)]]

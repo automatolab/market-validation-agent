@@ -57,9 +57,55 @@ def _extract_phone(text: str) -> str | None:
     return match.group(0) if match else None
 
 
+def _extract_all_phones(text: str) -> list[str]:
+    """Extract all unique phone numbers from text."""
+    matches = re.findall(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", text)
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in matches:
+        digits = re.sub(r"\D", "", m)
+        if digits not in seen and len(digits) == 10:
+            seen.add(digits)
+            out.append(m)
+    return out[:10]
+
+
 def _extract_email(text: str) -> str | None:
     match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
     return match.group(0) if match else None
+
+
+def _extract_all_emails(text: str) -> list[str]:
+    """Extract all unique email addresses from text, filtering out common false positives."""
+    _JUNK_PATTERNS = {
+        "sentry", "webpack", "wixpress", "example.com", "email.com",
+        "domain.com", "yoursite", "company.com", "test.com",
+    }
+    matches = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in matches:
+        lower = m.lower()
+        if lower in seen:
+            continue
+        if any(junk in lower for junk in _JUNK_PATTERNS):
+            continue
+        # Skip image/file extensions masquerading as emails
+        if lower.endswith((".png", ".jpg", ".gif", ".svg", ".js", ".css")):
+            continue
+        seen.add(lower)
+        out.append(m)
+    return out[:20]
+
+
+def _extract_address(text: str) -> str | None:
+    """Best-effort extraction of a US street address from text."""
+    m = re.search(
+        r"\d{1,5}\s+[A-Za-z0-9.\s]{2,40}(?:Street|St|Avenue|Ave|Boulevard|Blvd|Road|Rd|Drive|Dr|Lane|Ln|Way|Court|Ct|Place|Pl|Suite|Ste)[.,\s]+"
+        r"[A-Za-z\s]+,\s*[A-Z]{2}\s+\d{5}",
+        text, re.IGNORECASE,
+    )
+    return m.group(0).strip() if m else None
 
 
 def _extract_prices(text: str) -> list[str]:
@@ -108,7 +154,102 @@ def _clean_text(soup: BeautifulSoup, max_chars: int = 3000) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 1. Original quick_scrape — contact extraction (unchanged API)
+# 1a. scrape_contact_info — multi-page contact extraction
+# ---------------------------------------------------------------------------
+
+_CONTACT_PATHS = ("/contact", "/contact-us", "/about", "/about-us")
+
+
+def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
+    """
+    Scrape a website's homepage and common contact pages for emails, phones,
+    contact names, and address.
+
+    Returns::
+
+        {"emails": [...], "phones": [...], "contacts": [...], "address": "..."}
+
+    Never raises — returns partial results on failure.
+    """
+    all_emails: list[str] = []
+    all_phones: list[str] = []
+    address: str | None = None
+    contacts: list[dict[str, str]] = []
+    pages_scraped: list[str] = []
+
+    # Normalize base URL
+    if not url.startswith("http"):
+        url = "https://" + url
+    base = url.rstrip("/")
+
+    # Build list of pages to try: homepage + contact paths
+    urls_to_try = [base]
+    for path in _CONTACT_PATHS:
+        urls_to_try.append(base + path)
+
+    for page_url in urls_to_try:
+        resp = _get(page_url, timeout=15)
+        if resp is None:
+            continue
+        pages_scraped.append(page_url)
+
+        text = resp.text
+        # Extract from raw HTML (catches mailto: links etc.)
+        all_emails.extend(_extract_all_emails(text))
+        all_phones.extend(_extract_all_phones(text))
+
+        # Parse with BeautifulSoup for structured extraction
+        soup = BeautifulSoup(text, "html.parser")
+
+        # Extract mailto: links explicitly
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag.get("href", "")
+            if href.startswith("mailto:"):
+                email = href.replace("mailto:", "").split("?")[0].strip()
+                if email and "@" in email:
+                    all_emails.append(email)
+            elif href.startswith("tel:"):
+                phone = href.replace("tel:", "").strip()
+                if phone:
+                    all_phones.append(re.sub(r"[^\d()+\-.\s]", "", phone))
+
+        # Try to find address if we don't have one yet
+        if not address:
+            clean = _clean_text(soup, max_chars=5000)
+            address = _extract_address(clean)
+
+        # Polite delay between pages
+        if page_url != urls_to_try[-1]:
+            time.sleep(delay)
+
+    # Deduplicate
+    seen_emails: set[str] = set()
+    unique_emails: list[str] = []
+    for e in all_emails:
+        lower = e.lower()
+        if lower not in seen_emails:
+            seen_emails.add(lower)
+            unique_emails.append(e)
+
+    seen_phones: set[str] = set()
+    unique_phones: list[str] = []
+    for p in all_phones:
+        digits = re.sub(r"\D", "", p)
+        if digits and digits not in seen_phones:
+            seen_phones.add(digits)
+            unique_phones.append(p)
+
+    return {
+        "emails": unique_emails[:20],
+        "phones": unique_phones[:10],
+        "contacts": contacts,
+        "address": address or "",
+        "pages_scraped": pages_scraped,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 1b. Original quick_scrape — contact extraction (unchanged API)
 # ---------------------------------------------------------------------------
 
 def quick_scrape(url: str) -> dict[str, Any]:

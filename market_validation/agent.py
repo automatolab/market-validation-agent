@@ -30,16 +30,133 @@ from typing import Any
 from urllib.parse import urlparse
 
 
-def _try_multi_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
+def _try_multi_search(query: str, num_results: int = 10, geography: str | None = None) -> list[dict[str, str]]:
     """
     Try direct search using multi-backend search.
     Falls back to empty list if all backends fail.
+    When *geography* is provided, geo-aware backends constrain results to that area.
     """
     try:
         from market_validation.multi_search import quick_search
-        return quick_search(query, num_results)
+        return quick_search(query, num_results, geography=geography)
     except Exception:
         return []
+
+
+def _try_supplementary_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
+    """Run slow scraped backends (BBB, Manta, etc.) once for a single query."""
+    try:
+        from market_validation.multi_search import supplementary_search
+        return supplementary_search(query, num_results)
+    except Exception:
+        return []
+
+
+def _free_enrich_company(
+    company_name: str,
+    website: str | None,
+    location: str | None,
+    existing_notes: str | None = None,
+) -> dict[str, Any]:
+    """
+    Tier 1+2 enrichment: free methods only, no AI calls.
+
+    Tier 1 — website scraping + email pattern generation.
+    Tier 2 — DuckDuckGo search for contact info.
+
+    Returns a dict with keys: emails, phones, contacts, address, sources, tier.
+    """
+    from market_validation.web_scraper import (
+        scrape_contact_info, _extract_all_emails, _extract_all_phones,
+    )
+    from market_validation.company_enrichment import generate_email_patterns, domain_from_url
+
+    emails: list[str] = []
+    phones: list[str] = []
+    contacts: list[dict[str, str]] = []
+    address = ""
+    sources: list[str] = []
+
+    # --- Tier 1a: Scrape the website (homepage + /contact, /about, etc.) ---
+    if website:
+        try:
+            scraped = scrape_contact_info(website, delay=1.0)
+            if scraped.get("emails"):
+                emails.extend(scraped["emails"])
+                sources.append("website_scrape")
+            if scraped.get("phones"):
+                phones.extend(scraped["phones"])
+                if "website_scrape" not in sources:
+                    sources.append("website_scrape")
+            if scraped.get("address"):
+                address = scraped["address"]
+        except Exception:
+            pass
+
+    # --- Tier 1b: Generate email patterns from domain ---
+    domain = domain_from_url(website)
+    if domain:
+        patterns = generate_email_patterns(domain)
+        # Only add pattern-generated emails if we found ZERO real emails
+        if not emails and patterns:
+            emails.extend([p["email"] for p in patterns[:3]])
+            sources.append("email_patterns")
+
+    # --- Tier 1c: Extract from existing notes/snippets ---
+    if existing_notes:
+        note_emails = _extract_all_emails(existing_notes)
+        note_phones = _extract_all_phones(existing_notes)
+        if note_emails:
+            emails.extend(note_emails)
+            sources.append("existing_notes")
+        if note_phones:
+            phones.extend(note_phones)
+            if "existing_notes" not in sources:
+                sources.append("existing_notes")
+
+    # --- Tier 2: DuckDuckGo search (free, no AI) ---
+    if not emails or not phones:
+        loc_str = f" {location}" if location else ""
+        query = f'"{company_name}"{loc_str} email phone contact'
+        try:
+            results = _try_multi_search(query, num_results=5)
+            for r in results:
+                snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
+                found_emails = _extract_all_emails(snippet)
+                found_phones = _extract_all_phones(snippet)
+                if found_emails:
+                    emails.extend(found_emails)
+                if found_phones:
+                    phones.extend(found_phones)
+            if results:
+                sources.append("search")
+        except Exception:
+            pass
+
+    # Deduplicate
+    seen_e: set[str] = set()
+    unique_emails: list[str] = []
+    for e in emails:
+        lower = e.lower()
+        if lower not in seen_e:
+            seen_e.add(lower)
+            unique_emails.append(e)
+
+    seen_p: set[str] = set()
+    unique_phones: list[str] = []
+    for p in phones:
+        digits = re.sub(r"\D", "", p)
+        if digits and digits not in seen_p:
+            seen_p.add(digits)
+            unique_phones.append(p)
+
+    return {
+        "emails": unique_emails,
+        "phones": unique_phones,
+        "contacts": contacts,
+        "address": address,
+        "sources": sources,
+    }
 
 
 def _summarize_backends(rows: list[dict[str, str]]) -> dict[str, int]:
@@ -395,7 +512,7 @@ def _try_source_urls(market: str, geography: str, product: str | None = None) ->
             queries.extend(get_search_queries(config, market, geography, market))
         queries = list(dict.fromkeys(queries))
         for query in queries[:3]:
-            search_results = _try_multi_search(query, 5)
+            search_results = _try_multi_search(query, 5, geography=geography)
             for r in search_results:
                 results.append({
                     "source": r.get("source", "search"),
@@ -742,8 +859,50 @@ def _normalize_name_key(value: str) -> str:
 
 
 def _extract_phone_text(value: str) -> str:
-    match = re.search(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", str(value or ""))
+    # Match international (+1-408-...) and domestic formats
+    match = re.search(r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", str(value or ""))
+    return match.group(0).strip() if match else ""
+
+
+def _extract_email_text(value: str) -> str:
+    match = re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(value or ""))
     return match.group(0) if match else ""
+
+
+def _extract_contact_from_search_result(r: dict[str, str]) -> dict[str, Any]:
+    """Build a company dict from a raw search result, extracting phone/email/location
+    from snippet text.  Works for all backends (Nominatim, DDGS, BBB, etc.)."""
+    snippet = r.get("snippet", "")
+    phone = ""
+    email = ""
+    location = ""
+
+    # Nominatim encodes structured fields in the snippet as "display | phone=... | email=..."
+    if r.get("source") == "nominatim" and snippet:
+        for part in [p.strip() for p in snippet.split("|")]:
+            if part.startswith("phone="):
+                phone = part[len("phone="):].strip()
+            elif part.startswith("email="):
+                email = part[len("email="):].strip()
+            elif not part.startswith("cuisine=") and not location:
+                location = part
+
+    # Fallback: regex extraction from raw snippet (works for all backends)
+    if not phone:
+        phone = _extract_phone_text(snippet)
+    if not email:
+        email = _extract_email_text(snippet)
+
+    return {
+        "company_name": r.get("title", ""),
+        "website": r.get("url", ""),
+        "location": location,
+        "phone": phone,
+        "email": email,
+        "description": snippet,
+        "evidence_url": r.get("url", ""),
+        "source": r.get("source", "search"),
+    }
 
 
 def _print_validation_summary(
@@ -913,7 +1072,7 @@ def _is_useful_business_url(url: str) -> bool:
 
 
 def _build_contact_retry_queries(
-    companies: list[dict[str, Any]], geography: str, max_companies: int = 4
+    companies: list[dict[str, Any]], geography: str, max_companies: int = 6
 ) -> list[str]:
     targets = [
         c
@@ -926,10 +1085,10 @@ def _build_contact_retry_queries(
         name = str(c.get("company_name") or "").strip()
         if not name:
             continue
-        queries.append(f"{name} {geography} official website")
-        if not str(c.get("phone") or "").strip():
-            queries.append(f"{name} {geography} phone")
-        queries.append(f"{name} {geography} contact")
+        # One combined contact query per company (avoids rate-limit hammering)
+        queries.append(f"{name} {geography} contact phone email")
+        if not str(c.get("website") or "").strip():
+            queries.append(f"{name} {geography} official website")
     return _unique_in_order(queries)
 
 
@@ -976,11 +1135,155 @@ def _apply_contact_retry_rows(
                 c["phone"] = phone
                 changed = True
 
+        # Extract email from snippet (Nominatim extratags or scraped text)
+        if not str(c.get("email") or "").strip():
+            snippet = str(row.get("snippet") or "")
+            # Check for Nominatim structured "email=..." first
+            email_match = re.search(r"email=([^\s|]+)", snippet)
+            if email_match:
+                c["email"] = email_match.group(1)
+                changed = True
+            else:
+                found_email = _extract_email_text(snippet)
+                if found_email:
+                    c["email"] = found_email
+                    changed = True
+
         if changed:
             c["source"] = c.get("source") or row.get("source") or "contact_retry"
             updates += 1
 
     return companies, updates
+
+
+def _broaden_product_to_business_types(product: str | None, market: str, category: str) -> list[str]:
+    """Turn a niche product term into broader business-type terms that search
+    backends (Nominatim, directories) can actually find.
+
+    Works across all categories — food, saas, healthcare, industrial, services, general.
+    """
+    broad: list[str] = []
+    if not product:
+        return broad
+    p = product.lower().strip()
+    m = market.lower().strip()
+
+    # ── Food ──
+    _food_map: dict[str, list[str]] = {
+        "brisket": ["BBQ restaurant", "barbecue restaurant", "smokehouse", "BBQ"],
+        "pulled pork": ["BBQ restaurant", "barbecue restaurant", "smokehouse"],
+        "ribs": ["BBQ restaurant", "barbecue restaurant", "rib house"],
+        "smoked meat": ["BBQ restaurant", "smokehouse", "barbecue"],
+        "wings": ["wing restaurant", "sports bar", "chicken restaurant"],
+        "pizza": ["pizza restaurant", "pizzeria"],
+        "sushi": ["sushi restaurant", "Japanese restaurant"],
+        "tacos": ["taco restaurant", "Mexican restaurant", "taqueria"],
+        "ramen": ["ramen restaurant", "Japanese restaurant", "noodle shop"],
+        "pho": ["pho restaurant", "Vietnamese restaurant"],
+        "burger": ["burger restaurant", "hamburger restaurant", "grill"],
+        "steak": ["steakhouse", "steak restaurant", "grill"],
+        "seafood": ["seafood restaurant", "fish market"],
+        "bagel": ["bagel shop", "bakery", "deli"],
+        "donut": ["donut shop", "bakery"],
+        "croissant": ["bakery", "pastry shop", "cafe"],
+        "espresso": ["coffee shop", "cafe", "espresso bar"],
+        "juice": ["juice bar", "smoothie shop", "cafe"],
+        "ice cream": ["ice cream shop", "creamery", "dessert shop"],
+        "acai": ["acai bowl shop", "smoothie shop", "health food"],
+    }
+
+    # ── SaaS / Tech ──
+    _saas_map: dict[str, list[str]] = {
+        "crm": ["CRM software company", "sales software", "customer management platform"],
+        "erp": ["ERP software company", "enterprise software", "business management software"],
+        "analytics": ["analytics platform", "data analytics company", "business intelligence"],
+        "chatbot": ["chatbot company", "conversational AI", "customer support software"],
+        "email marketing": ["email marketing platform", "marketing automation", "newsletter software"],
+        "project management": ["project management software", "task management tool", "collaboration platform"],
+        "accounting": ["accounting software", "bookkeeping software", "financial software"],
+        "payroll": ["payroll software", "HR software", "workforce management"],
+        "scheduling": ["scheduling software", "appointment booking", "calendar software"],
+        "invoicing": ["invoicing software", "billing platform", "payment software"],
+        "ecommerce": ["ecommerce platform", "online store builder", "shopping cart software"],
+    }
+
+    # ── Healthcare ──
+    _healthcare_map: dict[str, list[str]] = {
+        "dental implant": ["dental clinic", "implant dentist", "oral surgery"],
+        "braces": ["orthodontist", "dental clinic", "orthodontic practice"],
+        "physical therapy": ["physical therapy clinic", "rehabilitation center", "PT practice"],
+        "chiropractic": ["chiropractor", "chiropractic clinic", "spine clinic"],
+        "dermatology": ["dermatology clinic", "skin care clinic", "dermatologist"],
+        "optometry": ["optometrist", "eye clinic", "vision center"],
+        "mental health": ["mental health clinic", "therapy practice", "counseling center"],
+        "fertility": ["fertility clinic", "IVF center", "reproductive health"],
+        "veterinary": ["veterinary clinic", "animal hospital", "vet"],
+        "pharmacy": ["pharmacy", "drugstore", "compounding pharmacy"],
+    }
+
+    # ── Industrial / Manufacturing ──
+    _industrial_map: dict[str, list[str]] = {
+        "pcb": ["PCB manufacturer", "circuit board company", "electronics manufacturer"],
+        "cnc": ["CNC machining", "machine shop", "precision manufacturing"],
+        "3d print": ["3D printing service", "additive manufacturing", "prototyping company"],
+        "injection mold": ["injection molding company", "plastics manufacturer", "mold maker"],
+        "steel": ["steel supplier", "metal fabricator", "steel manufacturer"],
+        "bearing": ["bearing manufacturer", "bearing supplier", "industrial parts"],
+        "valve": ["valve manufacturer", "valve supplier", "industrial equipment"],
+        "sensor": ["sensor manufacturer", "IoT hardware", "electronics company"],
+        "drone": ["drone manufacturer", "UAV company", "drone service"],
+        "solar panel": ["solar panel manufacturer", "solar company", "renewable energy"],
+        "battery": ["battery manufacturer", "energy storage company", "battery supplier"],
+    }
+
+    # ── Services ──
+    _services_map: dict[str, list[str]] = {
+        "seo": ["SEO agency", "digital marketing agency", "search marketing firm"],
+        "web design": ["web design agency", "web development company", "digital agency"],
+        "branding": ["branding agency", "brand design firm", "creative agency"],
+        "tax": ["tax preparation", "CPA firm", "accounting firm"],
+        "legal": ["law firm", "legal services", "attorney"],
+        "insurance": ["insurance agency", "insurance broker", "insurance company"],
+        "real estate": ["real estate agency", "realtor", "property management"],
+        "landscaping": ["landscaping company", "lawn care service", "garden service"],
+        "plumbing": ["plumber", "plumbing company", "plumbing service"],
+        "electrical": ["electrician", "electrical contractor", "electrical service"],
+        "hvac": ["HVAC company", "heating and cooling", "air conditioning service"],
+        "cleaning": ["cleaning service", "janitorial service", "commercial cleaning"],
+        "moving": ["moving company", "movers", "relocation service"],
+    }
+
+    # Pick the map for this category
+    category_maps: dict[str, dict[str, list[str]]] = {
+        "food": _food_map,
+        "saas": _saas_map,
+        "healthcare": _healthcare_map,
+        "industrial": _industrial_map,
+        "services": _services_map,
+    }
+
+    # Try category-specific map first
+    cat_map = category_maps.get(category, {})
+    for key, terms in cat_map.items():
+        if key in p:
+            broad.extend(terms)
+            return broad
+
+    # If no specific match, try ALL maps (product might not match detected category)
+    if not broad:
+        for _cat, _map in category_maps.items():
+            if _cat == category:
+                continue
+            for key, terms in _map.items():
+                if key in p:
+                    broad.extend(terms)
+                    return broad
+
+    # Last resort: if market itself is a useful business-type term, use it
+    if not broad and m != p:
+        broad.append(market)
+
+    return broad
 
 
 def _primary_queries(market: str, geography: str, product: str | None) -> list[str]:
@@ -994,6 +1297,14 @@ def _primary_queries(market: str, geography: str, product: str | None) -> list[s
         f"{search_term} companies {geography}",
         f"{search_term} providers {geography}",
     ]
+
+    # Broaden niche product terms → searchable business types for ALL categories
+    # (e.g. "brisket" → "BBQ restaurant", "crm" → "CRM software company")
+    broadened = _broaden_product_to_business_types(product, market, category)
+    for broad_term in broadened:
+        queries.insert(1, f"{broad_term} {geography}")  # right after first query
+    for broad_term in broadened:
+        queries.append(f"{broad_term} near {geography}")
 
     if category == "food":
         queries.extend(
@@ -1034,6 +1345,16 @@ def _primary_queries(market: str, geography: str, product: str | None) -> list[s
                 f"{search_term} consulting firms {geography}",
             ]
         )
+
+    # People/contact-focused queries — help find businesses with reachable contacts nearby
+    queries.extend(
+        [
+            f"{search_term} near {geography}",
+            f"{search_term} owner {geography}",
+            f"{search_term} business contact {geography}",
+            f"{search_term} local business {geography}",
+        ]
+    )
 
     return _unique_in_order([q.strip() for q in queries if q.strip()])
 
@@ -1733,7 +2054,7 @@ class Agent:
             search_queries = _primary_queries(market=market, geography=geography, product=product)
         
         for query in search_queries:
-            search_results = _try_multi_search(query, 15)
+            search_results = _try_multi_search(query, 15, geography=geography)
             backend_counts = _summarize_backends(search_results)
             source_health.append(
                 {
@@ -1747,26 +2068,7 @@ class Agent:
             if search_results:
                 sources_used.append("multi_search")
                 for r in search_results:
-                    snippet = r.get("snippet", "")
-                    # Nominatim stores "display_name | phone=+1..." in snippet — extract them
-                    extracted_phone = ""
-                    extracted_location = ""
-                    if r.get("source") == "nominatim" and snippet:
-                        parts = [p.strip() for p in snippet.split("|")]
-                        for part in parts:
-                            if part.startswith("phone="):
-                                extracted_phone = part[len("phone="):].strip()
-                            elif not part.startswith("cuisine=") and not extracted_location:
-                                extracted_location = part  # first part is display_name / address
-                    all_companies.append({
-                        "company_name": r.get("title", ""),
-                        "website": r.get("url", ""),
-                        "location": extracted_location,
-                        "phone": extracted_phone,
-                        "description": snippet,
-                        "evidence_url": r.get("url", ""),
-                        "source": r.get("source", "search"),
-                    })
+                    all_companies.append(_extract_contact_from_search_result(r))
         
         # Second, try scraping URLs from source config
         source_results = _try_source_urls(market, geography, product)
@@ -1783,15 +2085,34 @@ class Agent:
             for r in source_results:
                 data = r.get("data", {})
                 if data.get("business_name"):
+                    _sc_desc = f"{data.get('rating', '')} - {data.get('reviews_count', '')} reviews"
                     all_companies.append({
                         "company_name": data.get("business_name", ""),
                         "website": data.get("website", ""),
                         "location": data.get("address", ""),
-                        "phone": data.get("phone", ""),
-                        "description": f"{data.get('rating', '')} - {data.get('reviews_count', '')} reviews",
+                        "phone": data.get("phone", "") or _extract_phone_text(_sc_desc),
+                        "email": data.get("email", "") or _extract_email_text(_sc_desc),
+                        "description": _sc_desc,
                         "source": r.get("source", "config"),
                     })
         
+        # Third, try supplementary backends (BBB, Manta, etc.) once with the broadest query
+        supp_query = f"{market} {geography}"
+        supp_results = _try_supplementary_search(supp_query, 10)
+        source_health.append(
+            {
+                "stage": "supplementary_search",
+                "query": supp_query,
+                "results": len(supp_results),
+                "backends": _summarize_backends(supp_results),
+                "status": "ok" if supp_results else "empty",
+            }
+        )
+        if supp_results:
+            sources_used.append("supplementary")
+            for r in supp_results:
+                all_companies.append(_extract_contact_from_search_result(r))
+
         _ai_junk = ai_strategy.get("junk_signals", []) if ai_strategy else []
         _ai_real = ai_strategy.get("real_business_signals", []) if ai_strategy else []
         # If AI gave us a business_type, use it as an additional real signal and
@@ -1821,7 +2142,7 @@ class Agent:
             retry_queries = _build_retry_queries(market=market, geography=geography, product=product)
             retry_companies: list[dict[str, Any]] = []
             for query in retry_queries:
-                retry_rows = _try_multi_search(query, 10)
+                retry_rows = _try_multi_search(query, 10, geography=geography)
                 backend_counts = _summarize_backends(retry_rows)
                 source_health.append(
                     {
@@ -1833,15 +2154,7 @@ class Agent:
                     }
                 )
                 for r in retry_rows:
-                    retry_companies.append(
-                        {
-                            "company_name": r.get("title", ""),
-                            "website": r.get("url", ""),
-                            "description": r.get("snippet", ""),
-                            "evidence_url": r.get("url", ""),
-                            "source": r.get("source", "search"),
-                        }
-                    )
+                    retry_companies.append(_extract_contact_from_search_result(r))
 
             if retry_companies:
                 sources_used.append("quality_gate_retry")
@@ -1877,7 +2190,7 @@ class Agent:
                     adj_queries = _queries_for_adjacent_profile(market, geography, product, adj_cat)
                     adj_companies: list[dict[str, Any]] = []
                     for query in adj_queries:
-                        rows = _try_multi_search(query, 10)
+                        rows = _try_multi_search(query, 10, geography=geography)
                         source_health.append(
                             {
                                 "stage": "profile_switch_search",
@@ -1889,15 +2202,7 @@ class Agent:
                             }
                         )
                         for r in rows:
-                            adj_companies.append(
-                                {
-                                    "company_name": r.get("title", ""),
-                                    "website": r.get("url", ""),
-                                    "description": r.get("snippet", ""),
-                                    "evidence_url": r.get("url", ""),
-                                    "source": r.get("source", "search"),
-                                }
-                            )
+                            adj_companies.append(_extract_contact_from_search_result(r))
 
                     if adj_companies:
                         merged = _dedupe_companies(
@@ -1939,7 +2244,7 @@ class Agent:
             contact_queries = _build_contact_retry_queries(unique_companies, geography=geography)
             contact_rows: list[dict[str, str]] = []
             for query in contact_queries:
-                rows = _try_multi_search(query, 8)
+                rows = _try_multi_search(query, 8, geography=geography)
                 contact_rows.extend(rows)
                 source_health.append(
                     {
@@ -2110,6 +2415,7 @@ Return JSON:
                         website=c.get("website"),
                         location=c.get("location"),
                         phone=c.get("phone"),
+                        email=c.get("email"),
                         notes=c.get("description"),
                         raw_data=c,
                         root=self.root,
@@ -2292,108 +2598,156 @@ Return JSON:
     
     def enrich(self, company_name: str, location: str | None = None) -> dict[str, Any]:
         """
-        STEP 3: Enrich - Find contact info using 8 different sources.
-        
-        Sources:
-        1. Official website
-        2. LinkedIn (indirect via web search)
-        3. Business directories (Yelp, Google, BBB)
-        4. News archives
-        5. Review sites
-        6. Social media
-        7. Business registry
-        8. Supplier pages
+        STEP 3: Enrich - Find contact info using a 3-tier approach.
+
+        Tier 1 (free, fast): Website scraping + email patterns + existing notes.
+        Tier 2 (free search): DuckDuckGo search for contact info.
+        Tier 3 (AI, expensive): Multiple AI source searches run in parallel.
+
+        AI calls are only made when Tier 1+2 fail to find both email AND phone.
         """
-        sources_tried = []
-        all_findings = {}
-        
-        # Source 1: Official website
-        result = self._search_website(company_name, location)
-        if result.get("found"):
-            sources_tried.append("website")
-            all_findings.update(result)
-        
-        # Source 2: LinkedIn (via web search)
-        result = self._search_linkedin(company_name)
-        if result.get("found"):
-            sources_tried.append("linkedin")
-            all_findings.update(result)
-        
-        # Source 3: Business directories
-        result = self._search_directories(company_name, location)
-        if result.get("found"):
-            sources_tried.append("directories")
-            all_findings.update(result)
-        
-        # Source 4: News
-        result = self._search_news(company_name)
-        if result.get("found"):
-            sources_tried.append("news")
-            all_findings.update(result)
-        
-        # Source 5: Reviews
-        result = self._search_reviews(company_name, location)
-        if result.get("found"):
-            sources_tried.append("reviews")
-            all_findings.update(result)
-        
-        # Source 6: Social media
-        result = self._search_social(company_name)
-        if result.get("found"):
-            sources_tried.append("social")
-            all_findings.update(result)
-        
-        # Source 7: Business registry (optional - can be slow)
-        result = self._search_registry(company_name, location)
-        if result.get("found"):
-            sources_tried.append("registry")
-            all_findings.update(result)
-        
-        # Update database if we have research_id and company_id
-        if self.research_id and all_findings:
+        # Look up existing website/notes from DB
+        website = None
+        existing_notes = None
+        if self.research_id:
+            try:
+                from market_validation.research import _connect, _ensure_schema, resolve_db_path
+                db = resolve_db_path(self.root)
+                with _connect(db) as conn:
+                    _ensure_schema(conn)
+                    conn.row_factory = None
+                    row = conn.execute(
+                        """SELECT website, notes FROM companies
+                           WHERE research_id = ? AND (company_name LIKE ? OR company_name LIKE ?)""",
+                        (self.research_id, f"%{company_name}%", f"%{company_name.replace(' ', '%')}%")
+                    ).fetchone()
+                    if row:
+                        website = row[0]
+                        existing_notes = row[1]
+            except Exception:
+                pass
+
+        # ---------- Tier 1 + 2: free methods ----------
+        free_result = _free_enrich_company(company_name, website, location, existing_notes)
+
+        all_emails: list[str] = list(free_result.get("emails", []))
+        all_phones: list[str] = list(free_result.get("phones", []))
+        all_contacts: list[dict[str, str]] = list(free_result.get("contacts", []))
+        all_findings: dict[str, Any] = {}
+        sources_tried: list[str] = list(free_result.get("sources", []))
+
+        if free_result.get("address"):
+            all_findings["address"] = free_result["address"]
+
+        # ---------- Tier 3: AI sources (only if still missing email AND phone) ----------
+        if not all_emails or not all_phones:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            searches: list[tuple[str, Any]] = [
+                ("website", lambda: self._search_website(company_name, location)),
+                ("linkedin", lambda: self._search_linkedin(company_name)),
+                ("directories", lambda: self._search_directories(company_name, location)),
+                ("news", lambda: self._search_news(company_name)),
+                ("reviews", lambda: self._search_reviews(company_name, location)),
+                ("social", lambda: self._search_social(company_name)),
+                ("registry", lambda: self._search_registry(company_name, location)),
+            ]
+
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    pool.submit(search_fn): source_name
+                    for source_name, search_fn in searches
+                }
+                for future in as_completed(futures):
+                    source_name = futures[future]
+                    try:
+                        result = future.result()
+                    except Exception:
+                        result = {"found": False}
+                    if not isinstance(result, dict) or not result.get("found"):
+                        continue
+                    sources_tried.append(source_name)
+
+                    for em in (result.get("emails") or []):
+                        if em and em not in all_emails:
+                            all_emails.append(em)
+                    for ph in (result.get("phones") or []):
+                        if ph and ph not in all_phones:
+                            all_phones.append(ph)
+                    for ct in (result.get("contacts") or result.get("employees_found") or []):
+                        if isinstance(ct, dict) and ct not in all_contacts:
+                            all_contacts.append(ct)
+
+                    for key in ("website", "rating_estimate", "years_in_business", "pricing_perception"):
+                        if result.get(key) and not all_findings.get(key):
+                            all_findings[key] = result[key]
+
+                    if result.get("notes"):
+                        prev = all_findings.get("notes", "")
+                        all_findings["notes"] = f"{prev} | {source_name}: {result['notes']}" if prev else f"{source_name}: {result['notes']}"
+
+        all_findings["emails"] = all_emails
+        all_findings["phones"] = all_phones
+        all_findings["contacts"] = all_contacts
+        all_findings["decision_makers"] = [c.get("name", "") for c in all_contacts if c.get("name")]
+
+        # Update database
+        if self.research_id and (all_emails or all_phones or all_contacts or all_findings.get("website")):
             self._update_company_from_findings(company_name, all_findings)
-        
+
         return {
             "result": "ok",
             "company": company_name,
             "sources_tried": sources_tried,
             "findings": all_findings,
         }
-    
+
     def _update_company_from_findings(self, company_name: str, findings: dict):
-        """Update company record with enriched data."""
+        """Update company record with enriched contact data."""
         from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company
-        
+
         db = resolve_db_path(self.root)
-        
+        updates: dict[str, Any] = {}
+
         with _connect(db) as conn:
             _ensure_schema(conn)
             conn.row_factory = None
             company = conn.execute(
-                """SELECT id FROM companies 
+                """SELECT id, phone, email, website FROM companies
                    WHERE research_id = ? AND (company_name LIKE ? OR company_name LIKE ?)""",
                 (self.research_id, f"%{company_name}%", f"%{company_name.replace(' ', '%')}%")
             ).fetchone()
-        
-        if company:
+
+            if not company:
+                return
+
             cid = str(company[0])
-            updates = {}
-            
-            # Email
-            email = (findings.get("emails") or [None])[0]
-            if email and not findings.get("email"):
-                findings["email"] = email
-            if email:
-                updates["email"] = email
-            
-            # Phone (if we found additional)
-            if findings.get("phones"):
-                existing = conn.execute("SELECT phone FROM companies WHERE id = ?", (cid,)).fetchone()
-                if existing and not existing[0]:
-                    updates["phone"] = findings["phones"][0]
-            
-            if updates:
-                update_company(cid, self.research_id, updates, root=self.root)
+            existing_phone = company[1] or ""
+            existing_email = company[2] or ""
+            existing_website = company[3] or ""
+
+            # Email — use first found if DB is empty
+            emails = findings.get("emails") or []
+            if emails and not existing_email:
+                updates["email"] = emails[0]
+
+            # Phone — use first found if DB is empty
+            phones = findings.get("phones") or []
+            if phones and not existing_phone:
+                updates["phone"] = phones[0]
+
+            # Website — use found if DB is empty
+            if findings.get("website") and not existing_website:
+                updates["website"] = findings["website"]
+
+            # Contacts / decision makers — append to notes
+            contacts = findings.get("contacts") or []
+            if contacts:
+                contact_lines = [f"{c.get('name', '?')} ({c.get('title', '?')})" for c in contacts[:5]]
+                updates["notes"] = "Contacts: " + "; ".join(contact_lines)
+
+        if updates:
+            update_company(cid, self.research_id, updates, root=self.root)
     
     def _search_website(self, company: str, location: str | None) -> dict:
         """Source 1: Official website."""
@@ -2527,7 +2881,11 @@ Return JSON:
         """
         Run enrichment (phone, email, contact) on all companies matching the given statuses.
         Default: qualified companies only.
-        Updates phone, email, location in DB for each company found.
+
+        Uses a 3-tier approach to minimize expensive AI calls:
+          Tier 1 (free/fast): Website scraping + email patterns + existing notes
+          Tier 2 (free search): DuckDuckGo search for contact info
+          Tier 3 (AI): Only for companies still missing BOTH email AND phone
         """
         if not self.research_id:
             return {"result": "error", "error": "No research_id set"}
@@ -2543,7 +2901,7 @@ Return JSON:
             _ensure_schema(conn)
             conn.row_factory = None
             companies = conn.execute(
-                f"""SELECT id, company_name, website, location, phone, email
+                f"""SELECT id, company_name, website, location, phone, email, notes
                     FROM companies
                     WHERE research_id = ? AND status IN ({placeholders})
                     ORDER BY priority_score DESC NULLS LAST""",
@@ -2556,15 +2914,56 @@ Return JSON:
         enriched = 0
         emails_found = 0
         phones_found = 0
+        ai_calls = 0
+        tier1_hits = 0
+        tier2_hits = 0
 
         for company in companies:
-            cid, company_name, website, location, current_phone, current_email = company
+            cid, company_name, website, location, current_phone, current_email, current_notes = company
 
-            # Build a focused prompt to find phone + email + contacts
-            website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
-            location_hint = f" Located in {location}." if location else ""
+            # Skip companies that already have both phone and email
+            if current_phone and current_email:
+                continue
 
-            prompt = f"""Find contact information for "{company_name}".{location_hint}
+            # -------- Tier 1 + 2: Free methods --------
+            free = _free_enrich_company(company_name, website, location, current_notes)
+
+            free_emails = free.get("emails", [])
+            free_phones = free.get("phones", [])
+
+            updates: dict[str, Any] = {}
+            got_email_free = False
+            got_phone_free = False
+
+            if free_emails and not current_email:
+                updates["email"] = free_emails[0]
+                emails_found += 1
+                got_email_free = True
+            if free_phones and not current_phone:
+                updates["phone"] = free_phones[0]
+                phones_found += 1
+                got_phone_free = True
+            if free.get("address") and not location:
+                updates["location"] = free["address"]
+            if not website and free.get("website"):
+                updates["website"] = free["website"]
+
+            if got_email_free or got_phone_free:
+                tier_label = "tier1" if any(s in ("website_scrape", "email_patterns", "existing_notes") for s in free.get("sources", [])) else "tier2"
+                if tier_label == "tier1":
+                    tier1_hits += 1
+                else:
+                    tier2_hits += 1
+
+            # -------- Tier 3: AI (only if still missing BOTH email AND phone) --------
+            still_missing_email = not current_email and not got_email_free
+            still_missing_phone = not current_phone and not got_phone_free
+
+            if still_missing_email and still_missing_phone:
+                website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
+                location_hint = f" Located in {location}." if location else ""
+
+                prompt = f"""Find contact information for "{company_name}".{location_hint}
 {website_hint}
 
 Priority: find a direct phone number and a contact email address.
@@ -2587,43 +2986,38 @@ Return JSON only:
   "notes": "brief summary of what was found"
 }}"""
 
-            result = self._run(prompt, timeout=150)
+                result = self._run(prompt, timeout=150)
+                ai_calls += 1
 
-            if result.get("result") == "error":
-                continue
+                if result.get("result") != "error":
+                    if result.get("phone") and not current_phone and "phone" not in updates:
+                        updates["phone"] = str(result["phone"])
+                        phones_found += 1
+                    if result.get("email") and not current_email and "email" not in updates:
+                        updates["email"] = str(result["email"])
+                        emails_found += 1
+                    if result.get("website") and not website and "website" not in updates:
+                        updates["website"] = str(result["website"])
+                    if result.get("location") and not location and "location" not in updates:
+                        updates["location"] = str(result["location"])
 
-            updates: dict[str, Any] = {}
-            if result.get("phone") and not current_phone:
-                updates["phone"] = str(result["phone"])
-                phones_found += 1
-            if result.get("email") and not current_email:
-                updates["email"] = str(result["email"])
-                emails_found += 1
-            if result.get("website") and not website:
-                updates["website"] = str(result["website"])
-            if result.get("location") and not location:
-                updates["location"] = str(result["location"])
-
-            # Append contact findings to notes
-            if result.get("contacts") or result.get("notes"):
-                db_conn = _connect(db)
-                with db_conn:
-                    db_conn.row_factory = None
-                    current_notes = (db_conn.execute("SELECT notes FROM companies WHERE id=?", (cid,)).fetchone() or [None])[0] or ""
-                parts = []
-                if result.get("contacts"):
-                    contacts_str = "; ".join(
-                        f"{c.get('name','?')} ({c.get('title','?')})"
-                        for c in result["contacts"]
-                        if isinstance(c, dict)
-                    )
-                    if contacts_str:
-                        parts.append(f"Contacts: {contacts_str}")
-                if result.get("notes"):
-                    parts.append(str(result["notes"]))
-                if parts:
-                    suffix = " | " + " | ".join(parts)
-                    updates["notes"] = current_notes + suffix if current_notes else suffix
+                    # Append contact findings to notes
+                    if result.get("contacts") or result.get("notes"):
+                        parts = []
+                        if result.get("contacts"):
+                            contacts_str = "; ".join(
+                                f"{c.get('name','?')} ({c.get('title','?')})"
+                                for c in result["contacts"]
+                                if isinstance(c, dict)
+                            )
+                            if contacts_str:
+                                parts.append(f"Contacts: {contacts_str}")
+                        if result.get("notes"):
+                            parts.append(str(result["notes"]))
+                        if parts:
+                            suffix = " | " + " | ".join(parts)
+                            base_notes = current_notes or ""
+                            updates["notes"] = base_notes + suffix if base_notes else suffix
 
             if updates:
                 update_company(str(cid), self.research_id, updates, root=self.root)
@@ -2635,6 +3029,9 @@ Return JSON only:
             "emails_found": emails_found,
             "phones_found": phones_found,
             "total_companies": len(companies),
+            "ai_calls": ai_calls,
+            "tier1_hits": tier1_hits,
+            "tier2_hits": tier2_hits,
         }
 
 
