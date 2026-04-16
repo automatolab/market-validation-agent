@@ -175,6 +175,45 @@ def _parse_nominatim_results(payload: list[dict[str, Any]], num_results: int) ->
     return results[:num_results]
 
 
+# Filler words stripped when simplifying a verbose query for Nominatim,
+# which interprets the whole string as a single place/amenity phrase.
+_NOMINATIM_FILLER = {
+    "the", "a", "an", "and", "or", "of", "for", "with", "in", "at", "on", "to",
+    "best", "top", "near", "me", "local", "independent", "small", "large",
+    "company", "companies", "business", "businesses", "service", "services",
+    "supplier", "suppliers", "store", "stores", "shop", "shops", "custom", "whole",
+    "bulk", "wholesale", "retail", "food", "purveyor", "purveyors",
+}
+
+
+def _simplify_for_nominatim(query: str, geography: str | None) -> str:
+    """Reduce a verbose AI-generated query to a short Nominatim-friendly phrase.
+
+    Strips filler tokens and tokens that appear in *geography* (which is already
+    applied via viewbox). Keeps the first 3 remaining content tokens.
+    """
+    geo_tokens: set[str] = set()
+    if geography:
+        geo_tokens = {
+            re.sub(r"[^\w]", "", t.lower())
+            for t in re.split(r"[\s,]+", geography)
+            if len(t) >= 2
+        }
+    tokens = [re.sub(r"[^\w]", "", t) for t in query.split()]
+    kept: list[str] = []
+    for tok in tokens:
+        low = tok.lower()
+        if not low or low in _NOMINATIM_FILLER or low in geo_tokens:
+            continue
+        kept.append(tok)
+        # Nominatim is a geocoder — it matches the query as a single phrase
+        # against OSM names. 2 content tokens is the sweet spot; 3+ usually
+        # misses because no place name contains all three verbatim.
+        if len(kept) >= 2:
+            break
+    return " ".join(kept) if kept else query
+
+
 def _from_nominatim(query: str, num_results: int = 10, geography: str | None = None) -> list[SearchResult]:
     params: dict[str, Any] = {
         "q": query,
@@ -206,6 +245,27 @@ def _from_nominatim(query: str, num_results: int = 10, geography: str | None = N
         return []
 
     results = _parse_nominatim_results(payload, num_results)
+
+    # Retry with a simplified query if the verbose form produced too few results.
+    # Nominatim treats the whole query as a single phrase and fails on long AI queries.
+    if len(results) < max(3, num_results // 3):
+        simplified = _simplify_for_nominatim(query, geography)
+        if simplified and simplified.lower() != query.lower():
+            simpler = dict(params)
+            simpler["q"] = simplified
+            _nominatim_throttle()
+            resp_s = _safe_get(NOMINATIM_URL, simpler, timeout=20)
+            if resp_s and resp_s.status_code == 200:
+                try:
+                    payload_s = resp_s.json()
+                    extra = _parse_nominatim_results(payload_s, num_results)
+                    seen = {r.title.lower().strip() for r in results}
+                    for r in extra:
+                        if r.title.lower().strip() not in seen:
+                            results.append(r)
+                            seen.add(r.title.lower().strip())
+                except Exception:
+                    pass
 
     # Fallback: if bounded search returned too few results, retry without bounding
     # so we don't miss businesses just outside the bbox edge
@@ -250,10 +310,10 @@ def _from_ddgs(query: str, num_results: int = 10, region: str | None = None) -> 
         try:
             results: list[SearchResult] = []
             ddgs = DDGS()
-            kwargs: dict[str, Any] = {"keywords": query, "max_results": max(1, min(num_results, 25))}
+            kwargs: dict[str, Any] = {"max_results": max(1, min(num_results, 25))}
             if region:
                 kwargs["region"] = region  # e.g. "us-en", "wt-wt" (default)
-            for row in ddgs.text(**kwargs):
+            for row in ddgs.text(query, **kwargs):
                 results.append(
                     SearchResult(
                         title=row.get("title", ""),
@@ -546,12 +606,11 @@ def supplementary_search(query: str, num_results: int = 10) -> list[dict[str, st
 def quick_search(query: str, num_results: int = 10, geography: str | None = None) -> list[dict[str, str]]:
     """
     Fast search entrypoint — no API keys required.
-    Uses only the fast backends (Nominatim + DuckDuckGo).
-    When *geography* is provided, results are geo-bounded.
+    Primary backends: Nominatim + DuckDuckGo. When these return sparse results
+    (e.g. DDG rate-limited), falls back to supplementary scrapers
+    (Wikipedia, BBB, OpenCorporates, Manta) so we don't collapse to a single backend.
 
-    For slower supplementary backends (BBB, Manta, etc.), call
-    supplementary_search() separately — it should only be called once,
-    not per-query.
+    When *geography* is provided, geo-aware backends constrain results to that area.
     """
     batches: list[list[SearchResult]] = []
     ddgs_region = _geography_to_ddgs_region(geography)
@@ -564,6 +623,19 @@ def quick_search(query: str, num_results: int = 10, geography: str | None = None
     ddg = _from_ddgs(query, num_results, region=ddgs_region)
     if ddg:
         batches.append(ddg)
+
+    # Fallback: if the fast backends returned too little, try the scraped backends
+    # inline for this query. This restores pre-4288fd2 behavior where a single
+    # quick_search() call would survive a DDG rate-limit.
+    total_fast = sum(len(b) for b in batches)
+    if total_fast < max(6, num_results // 2):
+        for backend in (_from_wikipedia, _from_bbb, _from_opencorporates, _from_manta):
+            try:
+                batch = backend(query, max(3, num_results // 2))
+                if batch:
+                    batches.append(batch)
+            except Exception:
+                pass
 
     deduped: dict[tuple[str, str], SearchResult] = {}
     for batch in batches:

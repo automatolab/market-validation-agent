@@ -28,3 +28,4 @@ opencode.json
 
 # macOS
 .DS_Store
+*.lock

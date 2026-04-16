@@ -112,22 +112,40 @@ def _extract_email(text: str) -> str | None:
     return match.group(0) if match else None
 
 
+_EMAIL_JUNK_PATTERNS = {
+    "sentry", "webpack", "wixpress", "example.com", "email.com",
+    "domain.com", "yoursite", "company.com", "test.com",
+    "mysite.com", "placeholder", "noreply", "no-reply",
+    "sentry.io", "cloudflare", "squarespace.com", "wix.com",
+}
+
+
 def _extract_all_emails(text: str) -> list[str]:
-    """Extract all unique email addresses from text, filtering out common false positives."""
-    _JUNK_PATTERNS = {
-        "sentry", "webpack", "wixpress", "example.com", "email.com",
-        "domain.com", "yoursite", "company.com", "test.com",
-        "mysite.com", "placeholder", "noreply", "no-reply",
-        "sentry.io", "cloudflare", "squarespace.com", "wix.com",
-    }
-    matches = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
+    """Extract all unique email addresses from text, filtering out common false positives.
+
+    Handles plain, HTML-entity-encoded (``&#64;``), and simple obfuscated forms
+    (``name [at] domain [dot] com``, ``(at)``, ``{at}``).
+    """
+    import html as _html
+    # Unescape all HTML entities (handles &#64;, &#46;, fully entity-encoded emails, etc.)
+    decoded = _html.unescape(text)
+
+    # De-obfuscate common patterns: "name [at] domain [dot] com" → "name@domain.com"
+    deobf = re.sub(
+        r"([A-Za-z0-9._%+-]+)\s*(?:\[at\]|\(at\)|\{at\}|\s+at\s+)\s*([A-Za-z0-9.-]+)\s*(?:\[dot\]|\(dot\)|\{dot\}|\s+dot\s+)\s*([A-Za-z]{2,})",
+        r"\1@\2.\3",
+        decoded,
+        flags=re.IGNORECASE,
+    )
+
+    matches = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", deobf)
     seen: set[str] = set()
     out: list[str] = []
     for m in matches:
         lower = m.lower()
         if lower in seen:
             continue
-        if any(junk in lower for junk in _JUNK_PATTERNS):
+        if any(junk in lower for junk in _EMAIL_JUNK_PATTERNS):
             continue
         # Skip image/file extensions masquerading as emails
         if lower.endswith((".png", ".jpg", ".gif", ".svg", ".js", ".css")):
@@ -135,6 +153,67 @@ def _extract_all_emails(text: str) -> list[str]:
         seen.add(lower)
         out.append(m)
     return out[:20]
+
+
+def _decode_cfemail(hexstr: str) -> str | None:
+    """Decode a Cloudflare-obfuscated email from its data-cfemail hex payload."""
+    try:
+        data = bytes.fromhex(hexstr)
+    except ValueError:
+        return None
+    if len(data) < 2:
+        return None
+    key = data[0]
+    decoded = "".join(chr(b ^ key) for b in data[1:])
+    return decoded if "@" in decoded and "." in decoded else None
+
+
+def _extract_jsonld_contacts(soup: BeautifulSoup) -> tuple[list[str], list[str]]:
+    """Pull telephone/email from schema.org JSON-LD blocks (Restaurant, LocalBusiness, Organization)."""
+    import json as _json
+
+    emails: list[str] = []
+    phones: list[str] = []
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, dict):
+            tel = node.get("telephone")
+            if isinstance(tel, str) and tel.strip():
+                phones.append(tel.strip())
+            em = node.get("email")
+            if isinstance(em, str) and "@" in em:
+                emails.append(em.replace("mailto:", "").strip())
+            for v in node.values():
+                _walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    for tag in soup.find_all("script", type="application/ld+json"):
+        raw = tag.string or tag.get_text() or ""
+        if not raw.strip():
+            continue
+        try:
+            _walk(_json.loads(raw))
+        except Exception:
+            # Some sites embed multiple JSON blobs concatenated; try each separately
+            for chunk in re.split(r"}\s*{", raw):
+                try:
+                    _walk(_json.loads("{" + chunk.strip("{}") + "}"))
+                except Exception:
+                    continue
+
+    return emails, phones
+
+
+def _extract_cfemails(soup: BeautifulSoup) -> list[str]:
+    """Decode all Cloudflare-obfuscated emails on the page."""
+    out: list[str] = []
+    for tag in soup.find_all(attrs={"data-cfemail": True}):
+        dec = _decode_cfemail(tag.get("data-cfemail", ""))
+        if dec:
+            out.append(dec)
+    return out
 
 
 def _extract_address(text: str) -> str | None:
@@ -215,32 +294,34 @@ _EXTENDED_CONTACT_PATHS = (
     "/contact", "/contact-us", "/about", "/about-us",
     "/team", "/our-team", "/staff", "/leadership", "/people",
     "/connect", "/reach-us", "/get-in-touch", "/support",
+    "/locations", "/location", "/stores", "/store-locator", "/find-us",
+    "/careers", "/jobs", "/press", "/media",
 )
 
-# Patterns used to identify contact-related links on the homepage
+# Patterns used to identify contact-related links anywhere on the site
 _CONTACT_LINK_PATTERNS = re.compile(
-    r"contact|about|team|staff|reach|connect|email|get.in.touch|support|leadership|people",
+    r"contact|about|team|staff|reach|connect|email|get.in.touch|support|leadership|"
+    r"people|location|store|find.us|branch|office|press|careers|jobs",
     re.IGNORECASE,
 )
 
-_MAX_DISCOVERED_LINKS = 5
+_MAX_DISCOVERED_LINKS = 8  # per page
+_MAX_TOTAL_PAGES = 12       # cap for the whole crawl
 
 
-def _discover_contact_links(soup: BeautifulSoup, base: str) -> list[str]:
-    """Parse homepage HTML and return up to 5 internal links that look contact-related."""
+def _discover_contact_links(soup: BeautifulSoup, base: str, already_seen: set[str]) -> list[str]:
+    """Return internal links on *soup* that look contact-related and aren't already visited."""
     found: list[str] = []
-    seen_paths: set[str] = set()
+    local_seen: set[str] = set()
     base_domain = _domain(base)
 
     for a_tag in soup.find_all("a", href=True):
         href = a_tag.get("href", "").strip()
         link_text = a_tag.get_text(" ", strip=True)
 
-        # Resolve relative URLs
         if href.startswith("/"):
             full_url = base.rstrip("/") + href.split("?")[0].split("#")[0]
         elif href.startswith("http"):
-            # Only follow internal links
             if _domain(href) != base_domain:
                 continue
             full_url = href.split("?")[0].split("#")[0]
@@ -250,17 +331,35 @@ def _discover_contact_links(soup: BeautifulSoup, base: str) -> list[str]:
         path = full_url.replace(base.rstrip("/"), "").lower()
         if not path or path == "/":
             continue
-        if path in seen_paths:
+        if full_url in already_seen or full_url in local_seen:
             continue
 
-        # Check if link text or href path matches contact-related patterns
         if _CONTACT_LINK_PATTERNS.search(link_text) or _CONTACT_LINK_PATTERNS.search(path):
-            seen_paths.add(path)
+            local_seen.add(full_url)
             found.append(full_url)
             if len(found) >= _MAX_DISCOVERED_LINKS:
                 break
 
     return found
+
+
+def _discover_sitemap_urls(base: str, base_domain: str) -> list[str]:
+    """Fetch /sitemap.xml (if present) and return contact-related URLs for the same domain."""
+    resp = _get(base.rstrip("/") + "/sitemap.xml", timeout=10)
+    if resp is None:
+        return []
+    # Extract <loc>...</loc> URLs
+    locs = re.findall(r"<loc>\s*([^<\s]+?)\s*</loc>", resp.text, re.IGNORECASE)
+    out: list[str] = []
+    for url in locs:
+        if _domain(url) != base_domain:
+            continue
+        path_lower = url.lower()
+        if _CONTACT_LINK_PATTERNS.search(path_lower):
+            out.append(url.split("?")[0].split("#")[0])
+        if len(out) >= _MAX_DISCOVERED_LINKS:
+            break
+    return out
 
 
 def _scrape_page_contacts(
@@ -283,12 +382,21 @@ def _scrape_page_contacts(
     # restaurants commonly put phone/email/address in the footer only
     visible = _visible_text(soup, max_chars=10000)
 
-    # Extract emails from raw HTML (catches mailto: href values reliably)
+    # Extract emails from raw HTML (catches mailto: href values + HTML-entity + [at] forms)
     all_emails.extend(_extract_all_emails(text))
 
     # Extract phones from visible text (including footer) — NOT raw HTML
     # which contains JS/CSS digit sequences that produce false positives
     all_phones.extend(_extract_all_phones(visible))
+
+    # JSON-LD structured data (schema.org/Restaurant, LocalBusiness, Organization)
+    # — restaurants and service businesses commonly publish real phone/email here
+    jl_emails, jl_phones = _extract_jsonld_contacts(soup)
+    all_emails.extend(jl_emails)
+    all_phones.extend(jl_phones)
+
+    # Cloudflare-obfuscated emails (data-cfemail="<hex>")
+    all_emails.extend(_extract_cfemails(soup))
 
     # Extract mailto: and tel: links explicitly (most reliable source)
     for a_tag in soup.find_all("a", href=True):
@@ -309,17 +417,21 @@ def _scrape_page_contacts(
 
 def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
     """
-    Scrape a website's homepage and discovered contact pages for emails,
-    phones, contact names, and address.
+    Scrape a site for emails, phones, and address with 2-level BFS crawl.
 
     Strategy:
-    1. Fetch the homepage and extract contacts + discover navigation links.
-    2. Follow up to 5 discovered contact-related links from the homepage nav.
-    3. If no contact links are discovered, fall back to hardcoded paths.
+    1. Fetch the homepage, extract contacts, and discover contact-related links.
+    2. Shortcut: pull contact-related URLs from /sitemap.xml when present.
+    3. Crawl level-1 pages (contact, about, locations, team, …) and harvest contacts.
+       From each level-1 page, discover more links (team bios, per-location pages).
+    4. Crawl level-2 pages (up to _MAX_TOTAL_PAGES total).
+    5. If the homepage had no discoverable contact links at all, fall back to the
+       hardcoded path list so we still try the obvious spots.
 
     Returns::
 
-        {"emails": [...], "phones": [...], "contacts": [...], "address": "..."}
+        {"emails": [...], "phones": [...], "contacts": [...],
+         "address": "...", "pages_scraped": [...]}
 
     Never raises — returns partial results on failure.
     """
@@ -329,41 +441,62 @@ def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
     contacts: list[dict[str, str]] = []
     pages_scraped: list[str] = []
 
-    # Normalize base URL
     if not url.startswith("http"):
         url = "https://" + url
     base = url.rstrip("/")
+    base_domain = _domain(base)
+    visited: set[str] = set()
 
-    # --- Step 1: Fetch and scrape the homepage ---
-    homepage_soup, homepage_address = _scrape_page_contacts(base, all_emails, all_phones)
-    if homepage_soup is not None:
-        pages_scraped.append(base)
-        if homepage_address:
-            address = homepage_address
-
-    # --- Step 2: Discover contact-related links from the homepage ---
-    discovered_links: list[str] = []
-    if homepage_soup is not None:
-        discovered_links = _discover_contact_links(homepage_soup, base)
-
-    # --- Step 3: Choose which pages to follow ---
-    if discovered_links:
-        urls_to_try = discovered_links
-    else:
-        # Fallback: try the extended hardcoded paths
-        urls_to_try = [base + path for path in _EXTENDED_CONTACT_PATHS]
-
-    for page_url in urls_to_try:
-        # Skip the homepage — already scraped
-        if page_url.rstrip("/") == base:
-            continue
-
-        time.sleep(delay)
+    def _visit(page_url: str) -> BeautifulSoup | None:
+        """Fetch + harvest contacts from one page. Updates closures in-place."""
+        nonlocal address
+        if page_url in visited or len(pages_scraped) >= _MAX_TOTAL_PAGES:
+            return None
+        visited.add(page_url)
         soup, page_address = _scrape_page_contacts(page_url, all_emails, all_phones)
         if soup is not None:
             pages_scraped.append(page_url)
             if not address and page_address:
                 address = page_address
+        return soup
+
+    # --- Level 0: homepage ---
+    homepage_soup = _visit(base)
+
+    # --- Level-1 candidates: from nav + sitemap ---
+    level1: list[str] = []
+    if homepage_soup is not None:
+        level1.extend(_discover_contact_links(homepage_soup, base, visited))
+    sitemap_links = _discover_sitemap_urls(base, base_domain)
+    for s in sitemap_links:
+        if s not in level1:
+            level1.append(s)
+
+    # Fallback when nothing was discovered at all: use hardcoded paths
+    if not level1:
+        level1 = [base + path for path in _EXTENDED_CONTACT_PATHS]
+
+    level2_candidates: list[str] = []
+    for page_url in level1:
+        if len(pages_scraped) >= _MAX_TOTAL_PAGES:
+            break
+        if page_url.rstrip("/") == base:
+            continue
+        time.sleep(delay)
+        soup = _visit(page_url)
+        # Discover deeper contact-ish links from this page (team member bios,
+        # per-location pages referenced only from the locations index, etc.)
+        if soup is not None:
+            for deeper in _discover_contact_links(soup, base, visited):
+                if deeper not in level2_candidates:
+                    level2_candidates.append(deeper)
+
+    # --- Level-2 crawl ---
+    for page_url in level2_candidates:
+        if len(pages_scraped) >= _MAX_TOTAL_PAGES:
+            break
+        time.sleep(delay)
+        _visit(page_url)
 
     # Deduplicate
     seen_emails: set[str] = set()

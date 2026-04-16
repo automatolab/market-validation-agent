@@ -158,6 +158,18 @@ def _free_enrich_company(
     }
 
 
+def _email_source_label(source: str) -> str:
+    """Human-readable label for an email-source key (used in company notes)."""
+    return {
+        "scraped": "Email source: scraped from website",
+        "search": "Email source: found via search results",
+        "adaptive_search_mx": "Email source: found via targeted search (MX verified)",
+        "adaptive_search": "Email source: found via targeted search (unverified)",
+        "adaptive_person_guess_mx": "Email source: GUESSED from contact name + domain MX (not verified as real mailbox)",
+        "adaptive_generic_guess_mx": "Email source: GUESSED as info@domain (MX valid, but mailbox may not exist — verify before sending)",
+    }.get(source, f"Email source: {source}")
+
+
 def _adaptive_find_email(
     company_name: str,
     website: str | None,
@@ -187,7 +199,12 @@ def _adaptive_find_email(
     if not domain and website:
         domain = domain_from_url(website)
 
-    # --- Strategy A: Targeted search for real company email ---
+    # Order matters — always prefer real emails over guessed patterns.
+    # 1) Search snippets (may surface a real email)
+    # 2) Person-based construction (if we know names from AI contacts)
+    # 3) Generic pattern (info@, contact@) as last-resort guess — clearly labeled
+
+    # --- Strategy 1: Targeted search for real company email ---
     if company_name and not found_email:
         query = f'"{company_name}" email contact'
         if location:
@@ -201,18 +218,79 @@ def _adaptive_find_email(
             for r in results:
                 snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
                 found_emails = _extract_all_emails(snippet)
-                if found_emails:
-                    # Verify via MX
-                    for candidate in found_emails:
-                        vr = verify_email(candidate)
-                        if vr["valid"]:
-                            found_email = candidate
-                            _log.info("  [adaptive] %s: found %s from search + MX verified", company_name, found_email)
-                            return {"email": found_email, "source": "adaptive_search_mx", "actions_tried": actions_tried}
-                    # If none verified, still use the first one
-                    found_email = found_emails[0]
-                    _log.info("  [adaptive] %s: found %s from search (unverified)", company_name, found_email)
-                    return {"email": found_email, "source": "adaptive_search", "actions_tried": actions_tried}
+                if not found_emails:
+                    continue
+                # Prefer a candidate whose domain matches this company's domain
+                preferred = [e for e in found_emails if domain and e.lower().endswith("@" + domain)]
+                candidates_ordered = preferred + [e for e in found_emails if e not in preferred]
+                for candidate in candidates_ordered:
+                    vr = verify_email(candidate)
+                    if vr["valid"]:
+                        _log.info("  [adaptive] %s: found %s from search + MX verified", company_name, candidate)
+                        return {"email": candidate, "source": "adaptive_search_mx", "actions_tried": actions_tried}
+                # No MX-valid candidate — use the first preferred (or first) unverified
+                fallback = candidates_ordered[0]
+                _log.info("  [adaptive] %s: found %s from search (unverified)", company_name, fallback)
+                return {"email": fallback, "source": "adaptive_search", "actions_tried": actions_tried}
+        except Exception:
+            pass
+
+    # --- Strategy 2: Person-based email construction (requires contact names) ---
+    if domain and contacts and not found_email:
+        for c in contacts:
+            name = c.get("name", "").strip()
+            if not name or " " not in name:
+                continue
+            parts = name.lower().split()
+            first, last = parts[0], parts[-1]
+            first = re.sub(r"[^a-z]", "", first)
+            last = re.sub(r"[^a-z]", "", last)
+            if not first or not last:
+                continue
+
+            candidates = [
+                f"{first}.{last}@{domain}",
+                f"{first}{last}@{domain}",
+                f"{first[0]}{last}@{domain}",
+            ]
+            action = f"person_email({name}@{domain})"
+            actions_tried.append(action)
+            _log.info("  [adaptive] %s: %s", company_name, action)
+
+            # MX is per-domain, so all three resolve to the same answer.
+            # Use the most common convention (first.last) — still a guess,
+            # but anchored to a real person's name from the AI contacts.
+            vr = verify_email(candidates[0])
+            if vr["valid"]:
+                _log.info(
+                    "  [adaptive] %s: guessed %s via person pattern (MX valid, mailbox unverified)",
+                    company_name, candidates[0],
+                )
+                return {
+                    "email": candidates[0],
+                    "source": "adaptive_person_guess_mx",
+                    "actions_tried": actions_tried,
+                }
+
+    # --- Strategy 3: Generic pattern (info@, contact@) — last resort, clearly a guess ---
+    if domain and not found_email:
+        action = f"generic_pattern({domain})"
+        actions_tried.append(action)
+        _log.info("  [adaptive] %s: %s", company_name, action)
+        try:
+            patterns = generate_email_patterns(domain)
+            for p in patterns:
+                if p.get("valid"):
+                    found_email = p["email"]
+                    _log.info(
+                        "  [adaptive] %s: guessed %s via generic pattern (MX valid, mailbox unverified)",
+                        company_name, found_email,
+                    )
+                    return {
+                        "email": found_email,
+                        "source": "adaptive_generic_guess_mx",
+                        "actions_tried": actions_tried,
+                    }
         except Exception:
             pass
 
@@ -3483,9 +3561,7 @@ Return JSON:
                 if adaptive.get("email"):
                     updates["email"] = adaptive["email"]
                     adaptive_hit = True
-                    # Track adaptive email source in notes
-                    _adaptive_src = adaptive.get("source", "adaptive")
-                    _adaptive_label = f"Email source: {_adaptive_src}"
+                    _adaptive_label = _email_source_label(adaptive.get("source", "adaptive"))
                     base = updates.get("notes") or current_notes or ""
                     if base:
                         updates["notes"] = f"{base} | {_adaptive_label}"
@@ -3533,7 +3609,7 @@ Return JSON:
             still_missing_email = not current_email and not got_email_free and not adaptive_hit
             still_missing_phone = not current_phone and not got_phone_free
 
-            if still_missing_email and still_missing_phone:
+            if still_missing_email or still_missing_phone:
                 need_ai.append((company, updates))
             elif updates:
                 update_company(str(cid), self.research_id, updates, root=self.root)
@@ -3627,9 +3703,7 @@ Return JSON only:
                     updates["email"] = adaptive["email"]
                     emails_found += 1
                     adaptive_hits += 1
-                    # Track adaptive email source in notes
-                    _adaptive_src = adaptive.get("source", "adaptive")
-                    _adaptive_label = f"Email source: {_adaptive_src}"
+                    _adaptive_label = _email_source_label(adaptive.get("source", "adaptive"))
                     base_notes = updates.get("notes") or current_notes or ""
                     if base_notes:
                         updates["notes"] = f"{base_notes} | {_adaptive_label}"
