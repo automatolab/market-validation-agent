@@ -1,3 +1,11 @@
+"""
+Contact enrichment utilities: email pattern generation and MX verification.
+
+Generates candidate email addresses from company domains using common
+patterns (info@, contact@, firstname.lastname@), then verifies deliverability
+via MX and A record lookups using dnspython or socket fallback.
+"""
+
 from __future__ import annotations
 
 import json

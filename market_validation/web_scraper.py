@@ -1,13 +1,9 @@
 """
-Lightweight web scraper helpers for market research.
+HTTP scraper for contact info, competitor data, and business directories.
 
-No Playwright dependency required. Uses requests + BeautifulSoup.
-
-Three tiers of scraping:
-1. quick_scrape(url)          — contact info extraction (original, for company leads)
-2. scrape_competitor(url)     — extract pricing, description, features from competitor sites
-3. scrape_yelp_search()       — local business density, ratings, price range from Yelp
-4. scrape_page_content(url)   — generic deep content extraction (industry report pages etc.)
+Uses requests + BeautifulSoup (no Playwright required). Provides contact
+extraction from company websites, competitor pricing/feature scraping,
+Yelp business density lookups, and generic page content extraction.
 """
 
 from __future__ import annotations

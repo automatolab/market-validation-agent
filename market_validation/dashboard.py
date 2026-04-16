@@ -1,9 +1,9 @@
 """
-Dashboard HTML generator and optional local server.
+Interactive web dashboard and local HTTP server (default port 8788).
 
-Modes:
-- Static HTML: generate_html()
-- Interactive server with direct row CRUD: main --serve
+Generates an HTML dashboard with project selector, validation scorecards,
+company table (inline edit, delete, paginate, CSV export), email queue
+management, and Gmail sync. Can also produce a static HTML file.
 """
 
 from __future__ import annotations

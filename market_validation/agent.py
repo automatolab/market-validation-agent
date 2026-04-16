@@ -1,23 +1,10 @@
 """
-Market Research Agent - Simple 3-step pipeline:
+Market Validation Agent -- orchestrates the full research pipeline.
 
-1. find()      - Discover companies in a market
-2. qualify()   - Score and rank them  
-3. enrich()    - Find contact info (8 sources)
-
-Usage:
-    from market_validation.agent import Agent
-    
-    agent = Agent(research_id="<research_id>")
-    
-    # Step 1: Find companies
-    agent.find("<market>", "<geography>")
-    
-    # Step 2: Qualify (AI assessment)
-    agent.qualify()
-    
-    # Step 3: Enrich contact info
-    agent.enrich("<company_name>")
+Provides the Agent class with four main methods: validate() for market
+opportunity assessment, find() for multi-backend company discovery,
+qualify() for AI-scored lead ranking, and enrich() for 3-tier contact
+enrichment. AI calls are dispatched to the claude or opencode CLI.
 """
 
 from __future__ import annotations
@@ -1747,12 +1734,10 @@ def _clamp_score(value: Any) -> int:
 
 class Agent:
     """
-    Market Research Pipeline Agent.
-    
-    Simple 3-step pipeline:
-    1. find()    - Discover companies
-    2. qualify() - Score them
-    3. enrich()  - Find contacts
+    Market Validation Pipeline Agent.
+
+    Pipeline: validate() -> find() -> qualify() -> enrich()/enrich_all().
+    AI calls dispatched via claude or opencode CLI on PATH.
     """
     
     def __init__(self, research_id: str | None = None, root: str | Path = "."):

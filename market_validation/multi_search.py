@@ -1,15 +1,9 @@
 """
-Free search helpers (no API keys required).
+Multi-backend company search using free sources (no API keys required).
 
-Backends (all free/no key):
-1. Nominatim (OpenStreetMap)
-2. DuckDuckGo via `duckduckgo_search` (DDGS), if available
-3. Wikipedia search API
-4. BBB public search page scraping
-5. OpenCorporates public search page (best-effort, often captcha)
-6. Public city directory templates (best-effort)
-
-All backends are best-effort and can return partial results depending on anti-bot policies.
+Queries Nominatim/OpenStreetMap, DuckDuckGo (DDGS), Wikipedia, BBB,
+OpenCorporates, and Manta in parallel. All backends are best-effort
+with automatic fallback; results include source attribution metadata.
 """
 
 from __future__ import annotations

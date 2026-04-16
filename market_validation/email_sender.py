@@ -1,3 +1,11 @@
+"""
+Email outreach queue and SMTP sender.
+
+Manages a draft/review/approve workflow backed by JSON queue files and
+SQLite persistence. Supports single sends, templated sends, and batch
+operations. Integrates with the dashboard for review and approval.
+"""
+
 from __future__ import annotations
 
 import base64
