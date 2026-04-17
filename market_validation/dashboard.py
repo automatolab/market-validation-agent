@@ -481,6 +481,85 @@ def _html_template(interactive: bool) -> str:
       <div class="note-modal-footer"><button class="note-modal-close" onclick="closeNoteModal()">Close</button></div>
     </div>
   </div>
+  <div id="email-modal-overlay" class="note-modal-overlay" onclick="if(event.target===this)closeEmailModal()">
+    <div class="note-modal" style="max-width:640px;width:92%">
+      <div class="note-modal-header">
+        <h3 id="email-modal-title">Draft email</h3>
+        <div class="muted" id="email-modal-meta" style="font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="note-modal-body">
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Subject</label>
+        <input id="email-modal-subject" class="cell-input" style="width:100%;margin-bottom:12px" />
+        <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Body</label>
+        <textarea id="email-modal-body-text" class="cell-input" style="width:100%;min-height:220px;font-family:inherit"></textarea>
+        <div id="email-modal-status" class="muted" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      </div>
+      <div class="note-modal-footer" style="display:flex;gap:8px">
+        <button class="note-modal-close" onclick="closeEmailModal()">Cancel</button>
+        <button class="note-modal-close" id="email-modal-regen" onclick="regenDraft()" style="background:#e2e8f0;color:#0f172a">Regenerate</button>
+        <button class="note-modal-close" id="email-modal-queue" onclick="queueDraft()" style="background:#2563eb;color:#fff">Queue draft</button>
+      </div>
+    </div>
+  </div>
+  <div id="company-modal-overlay" class="note-modal-overlay" onclick="if(event.target===this)closeCompanyModal()">
+    <div class="note-modal" style="max-width:680px;width:92%">
+      <div class="note-modal-header">
+        <h3 id="company-modal-title">Edit company</h3>
+        <div class="muted" id="company-modal-meta" style="font-size:12px;margin-top:4px"></div>
+      </div>
+      <div class="note-modal-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Company name</label>
+            <input id="cm-company_name" class="cell-input" style="width:100%" />
+          </div>
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Website</label>
+            <input id="cm-website" class="cell-input" style="width:100%" />
+          </div>
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Location</label>
+            <input id="cm-location" class="cell-input" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Phone</label>
+            <input id="cm-phone" class="cell-input" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Email</label>
+            <input id="cm-email" class="cell-input" style="width:100%" />
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Priority</label>
+            <select id="cm-priority_tier" class="cell-input" style="width:100%">
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Status</label>
+            <select id="cm-status" class="cell-input" style="width:100%">
+              <option value="new">new</option>
+              <option value="qualified">qualified</option>
+              <option value="contacted">contacted</option>
+              <option value="interested">interested</option>
+              <option value="not_interested">not_interested</option>
+            </select>
+          </div>
+          <div style="grid-column:1 / -1">
+            <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Notes</label>
+            <textarea id="cm-notes" class="cell-input" style="width:100%;min-height:140px;font-family:inherit"></textarea>
+          </div>
+        </div>
+        <div id="company-modal-status" class="muted" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      </div>
+      <div class="note-modal-footer" style="display:flex;gap:8px">
+        <button class="note-modal-close" onclick="closeCompanyModal()">Cancel</button>
+        <button class="note-modal-close" id="company-modal-save" onclick="saveCompanyModal()" style="background:#2563eb;color:#fff">Save</button>
+      </div>
+    </div>
+  </div>
   <div class='app'>
     <div class='header'>
       <div class='title'>
@@ -488,14 +567,14 @@ def _html_template(interactive: bool) -> str:
         <p>Generated __GENERATED_AT__</p>
       </div>
       <div class='kpis'>
-        <div class='kpi'><div class='v'>__RESEARCH_COUNT__</div><div class='l'>Projects</div></div>
-        <div class='kpi kpi-brand'><div class='v'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
-        <div class='kpi kpi-ok'><div class='v'>__QUALIFIED_COUNT__</div><div class='l'>Qualified</div></div>
-        <div class='kpi kpi-purple'><div class='v'>__PHONE_COUNT__</div><div class='l'>With Phone</div></div>
-        <div class='kpi kpi-info'><div class='v'>__EMAIL_COUNT__</div><div class='l'>With Email</div></div>
-        <div class='kpi kpi-warn'><div class='v'>__PENDING_COUNT__</div><div class='l'>Pending</div></div>
-        <div class='kpi'><div class='v'>__SENT_COUNT__</div><div class='l'>Sent</div></div>
-        <div class='kpi kpi-ok'><div class='v'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
+        <div class='kpi'><div class='v' id='kpiProjects'>__RESEARCH_COUNT__</div><div class='l'>Projects</div></div>
+        <div class='kpi kpi-brand'><div class='v' id='kpiCompanies'>__COMPANY_COUNT__</div><div class='l'>Companies</div></div>
+        <div class='kpi kpi-ok'><div class='v' id='kpiQualified'>__QUALIFIED_COUNT__</div><div class='l'>Qualified</div></div>
+        <div class='kpi kpi-purple'><div class='v' id='kpiPhone'>__PHONE_COUNT__</div><div class='l'>With Phone</div></div>
+        <div class='kpi kpi-info'><div class='v' id='kpiEmail'>__EMAIL_COUNT__</div><div class='l'>With Email</div></div>
+        <div class='kpi kpi-warn'><div class='v' id='kpiPending'>__PENDING_COUNT__</div><div class='l'>Pending</div></div>
+        <div class='kpi'><div class='v' id='kpiSent'>__SENT_COUNT__</div><div class='l'>Sent</div></div>
+        <div class='kpi kpi-ok'><div class='v' id='kpiReplied'>__REPLIED_COUNT__</div><div class='l'>Replied</div></div>
       </div>
     </div>
     <section class='panel'>
@@ -522,6 +601,7 @@ def _html_template(interactive: bool) -> str:
           <span id='companyCount' class='count-pill'>0 rows</span>
           <a class='btn-link' href='#' onclick='addCompanyRow(); return false;'>Add Company</a>
           <a class='btn-link' href='#' onclick='exportCSV(); return false;'>Export CSV</a>
+          <a class='btn-link' href='#' onclick='draftAllQualified(); return false;'>Draft Emails (qualified)</a>
         </div>
         <div id='companiesWrap' class='table-wrap'></div>
         <div id='companiesPagination' class='pagination'></div>
@@ -533,7 +613,11 @@ def _html_template(interactive: bool) -> str:
         <span id='syncStatus' class='count-pill' style='font-size:12px;color:var(--muted)'></span>
       </div>
       <div class='panel-body'>
-        <div class='toolbar'><span id='emailCount' class='count-pill'>0 rows</span></div>
+        <div class='toolbar'>
+          <span id='emailCount' class='count-pill'>0 rows</span>
+          <a class='btn-link' href='#' onclick='approveAllEmails(); return false;'>Approve all pending</a>
+          <a class='btn-link' href='#' onclick='rejectAllEmails(); return false;'>Reject all pending</a>
+        </div>
         <div id='emailsWrap' class='table-wrap'></div>
       </div>
     </section>
@@ -921,6 +1005,148 @@ def _html_template(interactive: bool) -> str:
       }}
     }}
 
+    // --- Email drafting / bulk approval ------------------------------------
+
+    let draftModalContext = null;  // {{ company_id, research_id }}
+
+    function openEmailModal(ctx, draft) {{
+      draftModalContext = ctx;
+      const verb = ctx.mode === 'edit' ? 'Edit draft' : 'Draft email';
+      document.getElementById('email-modal-title').textContent = draft.company_name
+        ? `${{verb}} → ${{draft.company_name}}`
+        : verb;
+      document.getElementById('email-modal-meta').textContent = draft.to_email || '';
+      document.getElementById('email-modal-subject').value = draft.subject || '';
+      document.getElementById('email-modal-body-text').value = draft.body || '';
+      document.getElementById('email-modal-status').textContent = '';
+      document.getElementById('email-modal-queue').textContent =
+        ctx.mode === 'edit' ? 'Save changes' : 'Queue draft';
+      document.getElementById('email-modal-overlay').classList.add('open');
+    }}
+
+    function closeEmailModal() {{
+      document.getElementById('email-modal-overlay').classList.remove('open');
+      draftModalContext = null;
+    }}
+
+    async function draftEmailForCompany(companyId) {{
+      if (!INTERACTIVE) {{ alert('Drafting requires interactive mode'); return; }}
+      const c = companyById(companyId);
+      if (!c || !c.email) {{ alert('Company has no email on file'); return; }}
+
+      openEmailModal(
+        {{ mode: 'new', company_id: companyId, research_id: c.research_id, to_email: c.email, company_name: c.company_name }},
+        {{ company_name: c.company_name, to_email: c.email, subject: '(generating…)', body: 'Asking Claude to draft…' }}
+      );
+
+      const res = await apiPost('/api/email/draft', {{ company_id: companyId }});
+      if (res.result !== 'ok') {{
+        document.getElementById('email-modal-status').textContent = `Error: ${{res.error || 'draft failed'}}`;
+        document.getElementById('email-modal-subject').value = '';
+        document.getElementById('email-modal-body-text').value = '';
+        return;
+      }}
+      document.getElementById('email-modal-subject').value = res.subject || '';
+      document.getElementById('email-modal-body-text').value = res.body || '';
+      document.getElementById('email-modal-meta').textContent = res.to_email || '';
+    }}
+
+    async function regenDraft() {{
+      if (!draftModalContext) return;
+      const cid = draftModalContext.company_id;
+      document.getElementById('email-modal-status').textContent = 'Regenerating…';
+      const res = await apiPost('/api/email/draft', {{ company_id: cid }});
+      if (res.result !== 'ok') {{
+        document.getElementById('email-modal-status').textContent = `Error: ${{res.error || 'draft failed'}}`;
+        return;
+      }}
+      document.getElementById('email-modal-subject').value = res.subject || '';
+      document.getElementById('email-modal-body-text').value = res.body || '';
+      document.getElementById('email-modal-status').textContent = 'Regenerated.';
+    }}
+
+    async function queueDraft() {{
+      if (!draftModalContext) return;
+      const subject = document.getElementById('email-modal-subject').value.trim();
+      const body = document.getElementById('email-modal-body-text').value.trim();
+      if (!subject || !body) {{
+        document.getElementById('email-modal-status').textContent = 'Subject and body are required.';
+        return;
+      }}
+      const btn = document.getElementById('email-modal-queue');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = draftModalContext.mode === 'edit' ? 'Saving…' : 'Queueing…';
+
+      let res;
+      if (draftModalContext.mode === 'edit') {{
+        res = await apiPost('/api/email/update', {{
+          email_id: draftModalContext.email_id,
+          subject, body,
+        }});
+      }} else {{
+        res = await apiPost('/api/email/queue', {{
+          to_email: draftModalContext.to_email,
+          subject, body,
+          company_name: draftModalContext.company_name,
+          research_id: draftModalContext.research_id,
+          company_id: draftModalContext.company_id,
+        }});
+      }}
+
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+
+      if (res.result === 'ok') {{
+        closeEmailModal();
+        refreshDataFromServer();
+      }} else {{
+        document.getElementById('email-modal-status').textContent = `Error: ${{res.error || 'save failed'}}`;
+      }}
+    }}
+
+    async function draftAllQualified() {{
+      if (!INTERACTIVE) return;
+      if (!selectedResearchId) {{
+        alert('Select a research project first.');
+        return;
+      }}
+      const proj = selectedResearch();
+      const projName = proj ? proj.name : selectedResearchId;
+      if (!confirm(`Draft emails for every qualified company with an email in "${{projName}}"? This calls Claude once per company.`)) return;
+      const res = await apiPost('/api/email/draft-all', {{ research_id: selectedResearchId }});
+      if (res.result === 'ok') {{
+        alert(`Drafted ${{res.drafted}} · skipped ${{res.skipped}} · failed ${{res.failed}} (candidates: ${{res.candidates}})`);
+        refreshDataFromServer();
+      }} else {{
+        alert(`Error: ${{res.error || 'draft-all failed'}}`);
+      }}
+    }}
+
+    async function approveAllEmails() {{
+      if (!INTERACTIVE) return;
+      if (!confirm('Send every pending email now? This cannot be undone.')) return;
+      const res = await apiPost('/api/email/approve-all', {{}});
+      if (res.result === 'ok') {{
+        alert(`Sent ${{res.sent}} · failed ${{res.failed}}`);
+        refreshDataFromServer();
+      }} else {{
+        alert(`Error: ${{res.error || 'approve-all failed'}}`);
+      }}
+    }}
+
+    async function rejectAllEmails() {{
+      if (!INTERACTIVE) return;
+      if (!confirm('Delete every pending draft? This cannot be undone.')) return;
+      const res = await apiPost('/api/email/reject-all', {{}});
+      if (res.result === 'ok') {{
+        alert(`Deleted ${{res.deleted}} pending drafts`);
+        refreshDataFromServer();
+      }} else {{
+        alert(`Error: ${{res.error || 'reject-all failed'}}`);
+      }}
+    }}
+
     function filteredCompanies() {{
       return DATA.companies.filter((c) => {{
         if (selectedResearchId && c.research_id !== selectedResearchId) return false;
@@ -1037,6 +1263,7 @@ def _html_template(interactive: bool) -> str:
             <td class="notes-cell">${{notesCell}}</td>
             <td style="white-space:nowrap">
               <a class="action-link" href="#" onclick="startEditCompany('${{esc(c.id)}}'); return false;">Edit</a>
+              ${{c.email ? `<a class="action-link" href="#" onclick="draftEmailForCompany('${{esc(c.id)}}'); return false;">Draft</a>` : ''}}
               <a class="action-link" href="#" onclick="deleteCompany('${{esc(c.id)}}'); return false;">Delete</a>
             </td>
           </tr>
@@ -1108,6 +1335,17 @@ def _html_template(interactive: bool) -> str:
           previewCell = `<div class="sent-content">${{esc(e.body || '-')}}</div>`;
         }}
 
+        // Per-row actions: only for pending drafts (anything sent/replied/bounced
+        // is either live on someone's inbox or settled — don't let the user touch it)
+        let actionsCell = '-';
+        if (status === 'pending') {{
+          actionsCell = `
+            <a class="action-link" href="#" onclick="approveEmail('${{esc(e.id)}}'); return false;">Approve</a>
+            <a class="action-link" href="#" onclick="editEmail('${{esc(e.id)}}'); return false;">Edit</a>
+            <a class="action-link" href="#" onclick="deleteEmail('${{esc(e.id)}}'); return false;">Reject</a>
+          `;
+        }}
+
         body += `
           <tr>
             <td>
@@ -1120,6 +1358,7 @@ def _html_template(interactive: bool) -> str:
               ${{dateLabel ? `<div class="status-date">${{dateLabel}}</div>` : ''}}
             </td>
             <td class="preview-cell">${{previewCell}}</td>
+            <td style="white-space:nowrap">${{actionsCell}}</td>
           </tr>
         `;
       }}
@@ -1132,6 +1371,7 @@ def _html_template(interactive: bool) -> str:
               <th>To</th>
               <th>Status</th>
               <th>Content</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>${{body}}</tbody>
@@ -1148,6 +1388,29 @@ def _html_template(interactive: bool) -> str:
       return res.json();
     }}
 
+    function renderKpis() {{
+      // KPI cards react to the current research filter — if a single project
+      // is selected, show its counts; otherwise show global totals.
+      const companies = filteredCompanies();
+      const emails = filteredEmails();
+      const has = (v) => v !== null && v !== undefined && String(v).trim() !== '';
+      const qualified = companies.filter(c => (c.status || '').toLowerCase() === 'qualified').length;
+      const withPhone = companies.filter(c => has(c.phone)).length;
+      const withEmail = companies.filter(c => has(c.email)).length;
+      const pending = emails.filter(e => (e.status || 'pending') === 'pending').length;
+      const sent = emails.filter(e => e.status === 'sent' || e.status === 'opened' || e.status === 'clicked' || e.status === 'replied').length;
+      const replied = emails.filter(e => e.status === 'replied').length;
+
+      document.getElementById('kpiProjects').textContent = selectedResearchId ? '1' : String(DATA.researches.length);
+      document.getElementById('kpiCompanies').textContent = String(companies.length);
+      document.getElementById('kpiQualified').textContent = String(qualified);
+      document.getElementById('kpiPhone').textContent = String(withPhone);
+      document.getElementById('kpiEmail').textContent = String(withEmail);
+      document.getElementById('kpiPending').textContent = String(pending);
+      document.getElementById('kpiSent').textContent = String(sent);
+      document.getElementById('kpiReplied').textContent = String(replied);
+    }}
+
     function setResearch(id) {{
       selectedResearchId = id || '';
       currentPage = 1;
@@ -1157,6 +1420,7 @@ def _html_template(interactive: bool) -> str:
       else next.searchParams.delete('research_id');
       window.history.replaceState({{}}, '', next.toString());
       setResearchLabel();
+      renderKpis();
       renderCompanies();
       renderEmails();
       renderValidation();
@@ -1168,19 +1432,96 @@ def _html_template(interactive: bool) -> str:
 
     async function refreshDataFromServer() {{
       if (!INTERACTIVE) return;
-      const res = await fetch('/api/refresh');
-      await res.json();
+      // Fetch a fresh data payload and swap into DATA in-place, then re-render.
+      // Avoids the full-page reload that used to happen here.
+      try {{
+        const res = await fetch('/api/data', {{ cache: 'no-store' }});
+        const payload = await res.json();
+        if (payload.result === 'ok' && payload.data) {{
+          DATA.researches = payload.data.researches || [];
+          DATA.companies = payload.data.companies || [];
+          DATA.emails = payload.data.emails || [];
+          DATA.validations = payload.data.validations || {{}};
+          // Guard: selected research may have been deleted
+          if (selectedResearchId && !DATA.researches.some(r => r.id === selectedResearchId)) {{
+            selectedResearchId = '';
+          }}
+          renderKpis();
+          renderCompanies();
+          renderEmails();
+          renderValidation();
+          return;
+        }}
+      }} catch (e) {{
+        console.warn('fast refresh failed, falling back to full reload', e);
+      }}
+      // Fallback: old full-page reload
       window.location.reload();
     }}
 
+    let editingCompanyModalId = null;
+
     function startEditCompany(companyId) {{
-      editingCompanyId = companyId;
-      renderCompanies();
+      // Open the company-edit modal pre-filled with the current company row.
+      const c = companyById(companyId);
+      if (!c) return;
+      editingCompanyModalId = companyId;
+      document.getElementById('company-modal-title').textContent = `Edit → ${{c.company_name || 'company'}}`;
+      document.getElementById('company-modal-meta').textContent = c.research_name || '';
+      document.getElementById('cm-company_name').value = c.company_name || '';
+      document.getElementById('cm-website').value = c.website || '';
+      document.getElementById('cm-location').value = c.location || '';
+      document.getElementById('cm-phone').value = c.phone || '';
+      document.getElementById('cm-email').value = c.email || '';
+      document.getElementById('cm-priority_tier').value = (c.priority_tier || 'low').toLowerCase();
+      document.getElementById('cm-status').value = (c.status || 'new').toLowerCase();
+      document.getElementById('cm-notes').value = c.notes || '';
+      document.getElementById('company-modal-status').textContent = '';
+      document.getElementById('company-modal-overlay').classList.add('open');
     }}
 
+    function closeCompanyModal() {{
+      editingCompanyModalId = null;
+      document.getElementById('company-modal-overlay').classList.remove('open');
+    }}
+
+    async function saveCompanyModal() {{
+      if (!editingCompanyModalId) return;
+      const c = companyById(editingCompanyModalId);
+      if (!c) return;
+      const fields = {{
+        company_name: document.getElementById('cm-company_name').value.trim(),
+        website: document.getElementById('cm-website').value,
+        location: document.getElementById('cm-location').value,
+        phone: document.getElementById('cm-phone').value,
+        email: document.getElementById('cm-email').value,
+        priority_tier: document.getElementById('cm-priority_tier').value || 'low',
+        status: document.getElementById('cm-status').value || 'new',
+        notes: document.getElementById('cm-notes').value,
+      }};
+      if (!fields.company_name) {{
+        document.getElementById('company-modal-status').textContent = 'Company name is required.';
+        return;
+      }}
+      const btn = document.getElementById('company-modal-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      const res = await apiPost('/api/company/update', {{
+        company_id: c.id,
+        research_id: c.research_id,
+        fields,
+      }});
+      btn.disabled = false; btn.textContent = 'Save';
+      if (res.result === 'ok' || res.ok) {{
+        closeCompanyModal();
+        refreshDataFromServer();
+      }} else {{
+        document.getElementById('company-modal-status').textContent = `Error: ${{res.error || 'save failed'}}`;
+      }}
+    }}
+
+    // Legacy handlers used by non-interactive mode / old code paths. Safe no-ops.
     function cancelEditCompany() {{
-      editingCompanyId = null;
-      renderCompanies();
+      closeCompanyModal();
     }}
 
     function showNoteModal(companyId) {{
@@ -1222,7 +1563,13 @@ def _html_template(interactive: bool) -> str:
     function closeNoteModal() {{
       document.getElementById('note-modal-overlay').classList.remove('open');
     }}
-    document.addEventListener('keydown', (e) => {{ if (e.key === 'Escape') closeNoteModal(); }});
+    document.addEventListener('keydown', (e) => {{
+      if (e.key === 'Escape') {{
+        closeNoteModal();
+        closeEmailModal();
+        closeCompanyModal();
+      }}
+    }});
 
     async function saveEditCompany(companyId) {{
       const c = companyById(companyId);
@@ -1289,19 +1636,27 @@ def _html_template(interactive: bool) -> str:
       runCommandPrompt(cmd);
     }}
 
-    async function editEmail(id) {{
-      const body = prompt('Enter new email body:');
-      if (body === null) return;
-      const subject = prompt('Enter new subject (optional):', '');
-      if (subject === null) return;
-
-      if (INTERACTIVE) {{
-        await apiPost('/api/email/update', {{ email_id: id, subject, body }});
-        return refreshDataFromServer();
+    function editEmail(id) {{
+      // Open the draft modal pre-populated with the existing email so the user
+      // can refine subject/body in-place (nicer than prompt() dialogs).
+      const em = DATA.emails.find(e => e.id === id);
+      if (!em) return;
+      if (!INTERACTIVE) {{
+        const cmd = 'python3 -c "from market_validation.email_sender import update_queued_email; print(update_queued_email(\\'' + escSingle(id) + '\\'))"';
+        runCommandPrompt(cmd);
+        return;
       }}
-
-      const cmd = 'python3 -c "from market_validation.email_sender import update_queued_email; print(update_queued_email(\\'' + escSingle(id) + '\\', subject=\\'' + escSingle(subject) + '\\', body=\\'' + escSingle(body) + '\\'))"';
-      runCommandPrompt(cmd);
+      openEmailModal(
+        {{
+          mode: 'edit',
+          email_id: id,
+          to_email: em.to_email,
+          company_name: em.company_name,
+          company_id: em.company_id,
+          research_id: em.research_id,
+        }},
+        {{ company_name: em.company_name, to_email: em.to_email, subject: em.subject, body: em.body }},
+      );
     }}
 
     async function deleteEmail(id) {{
@@ -1374,6 +1729,7 @@ def _html_template(interactive: bool) -> str:
       }}
 
       setResearchLabel();
+      renderKpis();
       renderValidation();
       renderCompanies();
       renderEmails();
@@ -1447,7 +1803,16 @@ def _make_handler(host: str, port: int):
     from http.server import BaseHTTPRequestHandler
     from urllib.parse import urlparse
 
-    from market_validation.email_sender import approve_email, delete_email, update_queued_email
+    from market_validation.email_sender import (
+        approve_all_emails,
+        approve_email,
+        delete_email,
+        draft_email_for_company,
+        draft_emails_for_research,
+        prep_email,
+        reject_all_emails,
+        update_queued_email,
+    )
     from market_validation.email_tracker import TRANSPARENT_GIF, record_open
     from market_validation.gmail_tracker import sync_all as gmail_sync_all
     from market_validation.research import add_company, delete_company, update_company
@@ -1496,6 +1861,12 @@ def _make_handler(host: str, port: int):
             if path == "/api/refresh":
                 generate_html(open_browser=False, interactive=True)
                 return self._json({"result": "ok"})
+
+            if path == "/api/data":
+                # Lightweight data endpoint — returns the same payload that's
+                # embedded in the HTML, but without re-rendering the page.
+                # Used by client-side refresh to avoid full page reloads.
+                return self._json({"result": "ok", "data": _load_data()})
 
             if path.startswith("/api/validation/"):
                 research_id = path.split("/api/validation/", 1)[1].strip("/")
@@ -1556,6 +1927,37 @@ def _make_handler(host: str, port: int):
 
                 if path == "/api/email/sync":
                     return self._json(gmail_sync_all())
+
+                if path == "/api/email/draft":
+                    return self._json(draft_email_for_company(data["company_id"]))
+
+                if path == "/api/email/queue":
+                    result = prep_email(
+                        to_email=data["to_email"],
+                        subject=data["subject"],
+                        body=data["body"],
+                        company_name=data.get("company_name"),
+                        contact_name=data.get("contact_name"),
+                        research_id=data.get("research_id"),
+                        company_id=data.get("company_id"),
+                    )
+                    return self._json(result)
+
+                if path == "/api/email/draft-all":
+                    statuses = data.get("statuses") or ["qualified"]
+                    return self._json(
+                        draft_emails_for_research(
+                            research_id=data["research_id"],
+                            statuses=statuses,
+                            skip_existing=bool(data.get("skip_existing", True)),
+                        )
+                    )
+
+                if path == "/api/email/approve-all":
+                    return self._json(approve_all_emails())
+
+                if path == "/api/email/reject-all":
+                    return self._json(reject_all_emails())
 
             except Exception as exc:
                 return self._json({"result": "error", "error": str(exc)}, 400)

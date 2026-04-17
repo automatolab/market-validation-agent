@@ -450,16 +450,272 @@ def update_queued_email(
 
 
 def delete_email(email_id: str) -> dict[str, Any]:
-    """Delete a queued email JSON file."""
+    """Delete a queued email JSON file and its DB row."""
     queue_file = EMAIL_QUEUE_DIR / f"{email_id}.json"
-    if not queue_file.exists():
-        return {"result": "error", "error": "Email not found in queue"}
+    existed = queue_file.exists()
+    if existed:
+        queue_file.unlink()
+    # Also remove from the emails table so the dashboard reflects the delete
+    try:
+        db_path = resolve_db_path(PROJECT_ROOT)
+        conn = _connect(db_path)
+        try:
+            _ensure_email_schema(conn)
+            conn.execute("DELETE FROM emails WHERE id = ?", (email_id,))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        pass
 
-    queue_file.unlink()
+    if not existed:
+        return {"result": "error", "error": "Email not found in queue"}
     return {
         "result": "ok",
         "email_id": email_id,
         "deleted": True,
+    }
+
+
+def reject_all_emails() -> dict[str, Any]:
+    """Delete every pending email (queue JSON + DB row)."""
+    queue = get_email_queue(status="pending")
+    results = []
+    for e in queue.get("emails", []):
+        results.append(delete_email(e["id"]))
+    deleted = sum(1 for r in results if r.get("result") == "ok")
+    return {"result": "ok", "deleted": deleted, "details": results}
+
+
+# ---------------------------------------------------------------------------
+# AI drafting — generate a cold-outreach email from company + research context
+# ---------------------------------------------------------------------------
+
+def _load_research_and_company(company_id: str) -> dict[str, Any]:
+    """Pull a company row and its parent research row. Returns {} on miss."""
+    db_path = resolve_db_path(PROJECT_ROOT)
+    conn = _connect(db_path)
+    try:
+        conn.row_factory = None
+        crow = conn.execute(
+            """SELECT id, research_id, company_name, website, location, phone, email,
+                      priority_tier, priority_score, notes, volume_estimate, volume_unit,
+                      status
+               FROM companies WHERE id = ?""",
+            (company_id,),
+        ).fetchone()
+        if not crow:
+            return {}
+        research_id = crow[1]
+        rrow = conn.execute(
+            "SELECT id, name, market, product, geography, description FROM researches WHERE id = ?",
+            (research_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    return {
+        "company": {
+            "id": crow[0], "research_id": crow[1], "company_name": crow[2],
+            "website": crow[3], "location": crow[4], "phone": crow[5], "email": crow[6],
+            "priority_tier": crow[7], "priority_score": crow[8], "notes": crow[9],
+            "volume_estimate": crow[10], "volume_unit": crow[11], "status": crow[12],
+        },
+        "research": (
+            {"id": rrow[0], "name": rrow[1], "market": rrow[2], "product": rrow[3],
+             "geography": rrow[4], "description": rrow[5]}
+            if rrow else None
+        ),
+    }
+
+
+def _ai_draft_subject_body(
+    *,
+    company_name: str,
+    market: str,
+    product: str | None,
+    geography: str | None,
+    notes: str | None,
+    description: str | None,
+    contact_name: str | None = None,
+) -> dict[str, str]:
+    """Ask Claude/opencode for a short cold email. Returns {subject, body}."""
+    from market_validation.company_enrichment import _run_ai_prompt
+
+    product_line = product or market
+    ctx_bits: list[str] = []
+    if description:
+        ctx_bits.append(f"Our product/service: {description}")
+    if geography:
+        ctx_bits.append(f"Target area: {geography}")
+    if notes:
+        ctx_bits.append(f"What we know about them: {notes[:600]}")
+    context = "\n".join(ctx_bits) if ctx_bits else "No extra context."
+
+    greeting_target = contact_name or "the team"
+    prompt = f"""Write a short cold-outreach email from a seller of "{product_line}" (market: "{market}") to "{company_name}".
+
+{context}
+
+Requirements:
+- Subject: concise, specific to {company_name} — no generic "Quick question" or "Reaching out". Max 70 chars.
+- Body: 4-6 short lines, plain text, no markdown. Open with a specific hook tied to what we know about them. State one clear value prop. End with a single low-commitment ask (15-minute call, reply if interested).
+- Salutation: address {greeting_target}. No "Hi there" or "Dear Sir/Madam".
+- No emojis. No "I hope this email finds you well." No postscripts.
+- Sign off with "Best," only — leave the sender name blank (the human will fill it).
+
+Return ONLY JSON with exactly these two keys:
+{{"subject": "...", "body": "..."}}"""
+
+    raw = _run_ai_prompt(prompt, timeout=60)
+
+    # Parse first JSON object in the response
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start < 0 or end <= start:
+        raise ValueError(f"AI response had no JSON object: {raw[:200]}")
+    data = json.loads(raw[start : end + 1])
+    subject = str(data.get("subject") or "").strip()
+    body = str(data.get("body") or "").strip()
+    if not subject or not body:
+        raise ValueError("AI returned empty subject or body")
+    return {"subject": subject, "body": body}
+
+
+def draft_email_for_company(company_id: str) -> dict[str, Any]:
+    """Generate a draft email for a single company. Does NOT queue."""
+    loaded = _load_research_and_company(company_id)
+    if not loaded:
+        return {"result": "error", "error": f"company {company_id} not found"}
+
+    c = loaded["company"]
+    r = loaded["research"] or {}
+    if not c.get("email"):
+        return {"result": "error", "error": f"{c['company_name']} has no email on file"}
+
+    try:
+        draft = _ai_draft_subject_body(
+            company_name=c["company_name"],
+            market=(r.get("market") or ""),
+            product=r.get("product"),
+            geography=r.get("geography"),
+            notes=c.get("notes"),
+            description=r.get("description"),
+        )
+    except Exception as exc:
+        return {"result": "error", "error": f"AI draft failed: {exc}"}
+
+    return {
+        "result": "ok",
+        "company_id": c["id"],
+        "research_id": c["research_id"],
+        "company_name": c["company_name"],
+        "to_email": c["email"],
+        "subject": draft["subject"],
+        "body": draft["body"],
+    }
+
+
+def draft_emails_for_research(
+    research_id: str,
+    statuses: list[str] | None = None,
+    skip_existing: bool = True,
+) -> dict[str, Any]:
+    """Draft + queue emails for every company in *research_id* matching *statuses*.
+
+    By default targets "qualified" leads that have an email and are not already
+    in the queue. Returns counts and per-company details.
+    """
+    if not statuses:
+        statuses = ["qualified"]
+
+    db_path = resolve_db_path(PROJECT_ROOT)
+    conn = _connect(db_path)
+    try:
+        # The emails table is created lazily on first prep_email call. Ensure it
+        # exists before querying for already-queued drafts so the initial
+        # draft-all call on a fresh DB doesn't fail with "no such table: emails".
+        _ensure_email_schema(conn)
+        conn.row_factory = None
+        placeholders = ",".join("?" for _ in statuses)
+        rows = conn.execute(
+            f"""SELECT id FROM companies
+                WHERE research_id = ?
+                  AND email IS NOT NULL AND email != ''
+                  AND status IN ({placeholders})
+                ORDER BY priority_score DESC NULLS LAST, company_name""",
+            (research_id, *statuses),
+        ).fetchall()
+        company_ids = [r[0] for r in rows]
+
+        already_drafted: set[str] = set()
+        if skip_existing:
+            existing = conn.execute(
+                "SELECT company_id FROM emails WHERE research_id = ? AND status = 'pending'",
+                (research_id,),
+            ).fetchall()
+            already_drafted = {r[0] for r in existing if r[0]}
+    finally:
+        conn.close()
+
+    # Partition: work to do vs. skipped-because-already-queued
+    work: list[str] = []
+    details: list[dict[str, Any]] = []
+    for cid in company_ids:
+        if cid in already_drafted:
+            details.append({"company_id": cid, "status": "skipped", "reason": "already_queued"})
+        else:
+            work.append(cid)
+
+    # Parallel AI drafting — each worker calls Claude/opencode for one company.
+    # The AI CLI is the bottleneck; prep_email (queue file + DB upsert) is cheap.
+    drafted = 0
+    failed = 0
+    skipped = sum(1 for d in details if d["status"] == "skipped")
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _draft_one(cid: str) -> dict[str, Any]:
+        d = draft_email_for_company(cid)
+        if d.get("result") != "ok":
+            return {"company_id": cid, "status": "failed", "error": d.get("error")}
+        q = prep_email(
+            to_email=d["to_email"],
+            subject=d["subject"],
+            body=d["body"],
+            company_name=d["company_name"],
+            research_id=d["research_id"],
+            company_id=d["company_id"],
+        )
+        return {
+            "company_id": cid,
+            "status": "queued",
+            "email_id": q.get("email_id"),
+            "subject": d["subject"],
+        }
+
+    if work:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            futures = {pool.submit(_draft_one, cid): cid for cid in work}
+            for fut in as_completed(futures):
+                cid = futures[fut]
+                try:
+                    result = fut.result()
+                except Exception as exc:
+                    result = {"company_id": cid, "status": "failed", "error": str(exc)}
+                details.append(result)
+                if result["status"] == "queued":
+                    drafted += 1
+                else:
+                    failed += 1
+
+    return {
+        "result": "ok",
+        "research_id": research_id,
+        "candidates": len(company_ids),
+        "drafted": drafted,
+        "skipped": skipped,
+        "failed": failed,
+        "details": details,
     }
 
 

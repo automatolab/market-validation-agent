@@ -48,6 +48,11 @@ agent = Agent(research_id=rid)
 result = agent.research(
     'MARKET', 'GEOGRAPHY', 'PRODUCT',
     validate=VALIDATE_BOOL,      # True or False
+    draft_emails=True,           # Auto-draft cold-outreach emails for all
+                                 # qualified leads with an email on file.
+                                 # Runs 4-way parallel; adds ~2-4 min to the run.
+                                 # Drafts land in the dashboard's Email queue
+                                 # as pending, ready for Approve / Edit / Reject.
 )
 
 s = result['summary']
@@ -58,6 +63,8 @@ print(f'Companies found:  {s[\"companies_found\"]}')
 print(f'Qualified:        {s[\"qualified\"]}')
 print(f'Phones found:     {s[\"phones_found\"]}')
 print(f'Emails found:     {s[\"emails_found\"]}')
+if 'drafts_queued' in s:
+    print(f'Drafts queued:    {s[\"drafts_queued\"]}')
 if 'verdict' in s:
     print(f'Market verdict:   {s[\"verdict\"]} ({s[\"overall_score\"]}/100)')
 "
@@ -70,12 +77,12 @@ if 'verdict' in s:
 After the pipeline completes, start the dashboard server **in the background**:
 
 ```bash
-cd "$(git rev-parse --show-toplevel)" && .venv/bin/python -m market_validation.dashboard --port 8788
+cd "$(git rev-parse --show-toplevel)" && .venv/bin/python -m market_validation.dashboard --host 0.0.0.0 --port 8788 --no-open
 ```
 
-Tell the user:
+`--host 0.0.0.0` makes the port reachable over SSH port-forwards and LAN; `--no-open` avoids a headless xdg-open crash. Tell the user:
 
-> Dashboard is live at **http://127.0.0.1:8788** — opening in your browser now.
+> Dashboard is live at **http://127.0.0.1:8788** (or your forwarded host) — opening in your browser now.
 
 ### Step 4: Show results summary
 

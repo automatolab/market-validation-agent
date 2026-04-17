@@ -108,8 +108,14 @@ def _extract_all_phones(text: str) -> list[str]:
 
 
 def _extract_email(text: str) -> str | None:
-    match = re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", text)
-    return match.group(0) if match else None
+    """Return the first junk-filtered email found in *text*, or None.
+
+    Uses ``_extract_all_emails`` (which strips Sentry / Wix / placeholder
+    domains) and returns the first hit, so a raw ``noreply@sentry.io`` from
+    embedded JS doesn't leak past this helper.
+    """
+    hits = _extract_all_emails(text)
+    return hits[0] if hits else None
 
 
 _EMAIL_JUNK_PATTERNS = {
@@ -305,8 +311,10 @@ _CONTACT_LINK_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-_MAX_DISCOVERED_LINKS = 8  # per page
-_MAX_TOTAL_PAGES = 12       # cap for the whole crawl
+_MAX_DISCOVERED_LINKS = 10  # per page
+_MAX_TOTAL_PAGES = 20       # cap for the whole crawl
+_MAX_PDFS_PER_CRAWL = 3     # fetch up to N PDFs referenced from the site
+_MAX_SOCIAL_PAGES = 2       # fetch up to N public FB /about/ pages
 
 
 def _discover_contact_links(soup: BeautifulSoup, base: str, already_seen: set[str]) -> list[str]:
@@ -358,6 +366,86 @@ def _discover_sitemap_urls(base: str, base_domain: str) -> list[str]:
         if _CONTACT_LINK_PATTERNS.search(path_lower):
             out.append(url.split("?")[0].split("#")[0])
         if len(out) >= _MAX_DISCOVERED_LINKS:
+            break
+    return out
+
+
+def _discover_pdf_links(soup: BeautifulSoup, base: str) -> list[str]:
+    """Return up to N internal PDF URLs linked from *soup*.
+
+    Restaurants and catering businesses frequently publish menus / catering
+    packets / press kits as PDFs that embed a real contact email.
+    """
+    base_domain = _domain(base)
+    found: list[str] = []
+    seen: set[str] = set()
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "").strip()
+        if not href or ".pdf" not in href.lower():
+            continue
+        if href.startswith("/"):
+            full = base.rstrip("/") + href.split("?")[0].split("#")[0]
+        elif href.startswith("http"):
+            if _domain(href) != base_domain:
+                continue
+            full = href.split("?")[0].split("#")[0]
+        else:
+            continue
+        if full in seen:
+            continue
+        seen.add(full)
+        found.append(full)
+        if len(found) >= _MAX_PDFS_PER_CRAWL:
+            break
+    return found
+
+
+def _extract_pdf_text(url: str) -> str:
+    """Download a PDF and return its extracted text, or '' on any failure."""
+    try:
+        from pypdf import PdfReader  # type: ignore
+    except ImportError:
+        return ""
+    import io
+    try:
+        resp = requests.get(url, headers=_HEADERS, timeout=20, allow_redirects=True)
+        if resp.status_code != 200 or not resp.content:
+            return ""
+        # Defensive: don't try to parse very large PDFs
+        if len(resp.content) > 10 * 1024 * 1024:
+            return ""
+        reader = PdfReader(io.BytesIO(resp.content))
+        # Cap at first 20 pages — restaurants' catering PDFs are tiny,
+        # huge PDFs waste time.
+        pages = reader.pages[:20]
+        return "\n".join((p.extract_text() or "") for p in pages)
+    except Exception:
+        return ""
+
+
+def _discover_social_about_links(soup: BeautifulSoup) -> list[str]:
+    """Return public 'about' URLs for FB/Instagram pages linked from *soup*.
+
+    Small businesses often publish their email on their Facebook page's
+    ``/about/`` tab even when it's missing from their own website.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "").strip()
+        if not href.startswith("http"):
+            continue
+        h = href.lower()
+        about_url: str | None = None
+        # Facebook page — append /about/
+        m = re.match(r"https?://(?:www\.|m\.)?facebook\.com/([A-Za-z0-9.\-_]+)/?", h)
+        if m and m.group(1) not in {"sharer", "dialog", "plugins", "tr", "events"}:
+            page = m.group(1)
+            about_url = f"https://www.facebook.com/{page}/about/"
+        if about_url and about_url not in seen:
+            seen.add(about_url)
+            out.append(about_url)
+        if len(out) >= _MAX_SOCIAL_PAGES:
             break
     return out
 
@@ -477,6 +565,12 @@ def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
         level1 = [base + path for path in _EXTENDED_CONTACT_PATHS]
 
     level2_candidates: list[str] = []
+    pdf_candidates: list[str] = []
+    social_candidates: list[str] = []
+    if homepage_soup is not None:
+        pdf_candidates.extend(_discover_pdf_links(homepage_soup, base))
+        social_candidates.extend(_discover_social_about_links(homepage_soup))
+
     for page_url in level1:
         if len(pages_scraped) >= _MAX_TOTAL_PAGES:
             break
@@ -484,12 +578,18 @@ def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
             continue
         time.sleep(delay)
         soup = _visit(page_url)
-        # Discover deeper contact-ish links from this page (team member bios,
-        # per-location pages referenced only from the locations index, etc.)
+        # Discover deeper contact-ish links, PDFs, and social-about links
+        # from this page (team member bios, per-location pages, menu PDFs).
         if soup is not None:
             for deeper in _discover_contact_links(soup, base, visited):
                 if deeper not in level2_candidates:
                     level2_candidates.append(deeper)
+            for pdf in _discover_pdf_links(soup, base):
+                if pdf not in pdf_candidates:
+                    pdf_candidates.append(pdf)
+            for social in _discover_social_about_links(soup):
+                if social not in social_candidates:
+                    social_candidates.append(social)
 
     # --- Level-2 crawl ---
     for page_url in level2_candidates:
@@ -497,6 +597,28 @@ def scrape_contact_info(url: str, delay: float = 1.0) -> dict[str, Any]:
             break
         time.sleep(delay)
         _visit(page_url)
+
+    # --- PDFs: menu/catering PDFs often embed a real contact email ---
+    for pdf_url in pdf_candidates[:_MAX_PDFS_PER_CRAWL]:
+        if len(pages_scraped) >= _MAX_TOTAL_PAGES:
+            break
+        text = _extract_pdf_text(pdf_url)
+        if text:
+            all_emails.extend(_extract_all_emails(text))
+            all_phones.extend(_extract_all_phones(text))
+            pages_scraped.append(pdf_url)
+            if not address:
+                maybe_addr = _extract_address(text)
+                if maybe_addr:
+                    address = maybe_addr
+        time.sleep(delay)
+
+    # --- Public social-media about pages (FB mostly) ---
+    for social_url in social_candidates[:_MAX_SOCIAL_PAGES]:
+        if len(pages_scraped) >= _MAX_TOTAL_PAGES:
+            break
+        time.sleep(delay)
+        _visit(social_url)
 
     # Deduplicate
     seen_emails: set[str] = set()
@@ -542,19 +664,33 @@ def quick_scrape(url: str) -> dict[str, Any]:
         title = (soup.title.string or "").strip() if soup.title else ""
         text = soup.get_text(" ", strip=True)
 
+        # Only surface an outgoing link as "website" if it's the same host as
+        # the scraped page — arbitrary outbound links (a competitor, a review
+        # site, a payment processor) are not this company's website.
         website = ""
+        self_host = _domain(url)
         for a in soup.find_all("a", href=True):
             href = a.get("href", "")
-            if href.startswith("http") and "google" not in href and "yelp" not in href:
+            if href.startswith("http") and _domain(href) == self_host:
                 website = href
                 break
+        if not website:
+            website = url  # fall back to the page we scraped
+
+        candidate_email = _extract_email(text)
+        try:
+            from market_validation.company_enrichment import is_plausible_email
+            if candidate_email and not is_plausible_email(candidate_email):
+                candidate_email = None
+        except Exception:
+            pass
 
         return {
             "url": url,
             "business_name": title,
             "address": "",
             "phone": _extract_phone(text),
-            "email": _extract_email(text),
+            "email": candidate_email,
             "website": website,
             "rating": "",
             "reviews_count": "",

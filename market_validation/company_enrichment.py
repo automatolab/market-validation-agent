@@ -22,6 +22,80 @@ _COMMON_EMAIL_PREFIXES = (
     "office", "team", "general", "inquiries",
 )
 
+# Domains we must NEVER pattern-guess against — they're directories, online-ordering
+# platforms, aggregators, or SaaS hosts. Generating `info@<these>` would send mail
+# to the wrong company (or a marketing inbox the business doesn't control).
+_AGGREGATOR_DOMAINS = frozenset({
+    # Review / directory aggregators
+    "yelp.com", "tripadvisor.com", "yellowpages.com", "superpages.com",
+    "bbb.org", "manta.com", "opentable.com", "thumbtack.com", "angi.com",
+    "angieslist.com", "zomato.com", "foursquare.com", "mapquest.com",
+    # Ordering / reservation / table-management
+    "netwaiter.com", "toasttab.com", "toast.com", "resy.com", "seated.com",
+    "doordash.com", "grubhub.com", "ubereats.com", "chownow.com",
+    "clover.com", "squareup.com", "touchbistro.com", "menufy.com",
+    "eatstreet.com", "slicelife.com", "orderonline.com",
+    # Event / booking platforms
+    "eventective.com", "theknot.com", "weddingwire.com", "eventbrite.com",
+    "sagemenu.com", "foodtruckavenue.com", "res-menu.net", "wholesaleseeker.com",
+    "einnews.com", "sumferkitchens.com",
+    # Social / content hosts
+    "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
+    "tiktok.com", "youtube.com", "pinterest.com",
+    # Generic website builders / hosts (sometimes surface as "website")
+    "wixsite.com", "squarespace.com", "weebly.com", "godaddysites.com",
+    "myshopify.com", "blogspot.com", "wordpress.com", "medium.com",
+    # Search / map / news properties
+    "google.com", "maps.google.com", "bing.com", "apple.com",
+    "wikipedia.org", "wikimedia.org",
+})
+
+
+def _is_aggregator_domain(domain: str | None) -> bool:
+    """True if *domain* belongs to (or is a subdomain of) a known aggregator/directory."""
+    if not domain:
+        return False
+    d = domain.lower().lstrip("www.")
+    if d in _AGGREGATOR_DOMAINS:
+        return True
+    # e.g. "samsbbqdiner.netwaiter.com" → matches "netwaiter.com"
+    return any(d.endswith("." + agg) for agg in _AGGREGATOR_DOMAINS)
+
+
+# Commonly-seen real public TLDs. 2-letter ccTLDs are also accepted universally.
+_VALID_TLD_WHITELIST = frozenset({
+    "com", "net", "org", "io", "co", "biz", "info", "me", "app", "ai",
+    "store", "shop", "menu", "restaurant", "kitchen", "farm", "bar", "pub",
+    "pizza", "cafe", "food", "life", "live", "club", "site", "online",
+    "email", "link", "inc", "llc", "us",
+})
+
+
+def is_plausible_email(email: str | None) -> bool:
+    """Return True if *email* looks like a real, writable email address.
+
+    Rejects strings with embedded commentary ("x@y.com (inferred)"), unknown
+    long TLDs (`.loc`, `.corp`), aggregator domains (`@yelp.com`,
+    `@netwaiter.com`), and obvious placeholders. Allows normal 2-letter ccTLDs.
+    """
+    if not email:
+        return False
+    e = email.strip()
+    # No whitespace and no parenthetical comments inside the address
+    if re.search(r"\s|\(|\)|<|>|,", e):
+        return False
+    m = re.fullmatch(r"([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+)\.([A-Za-z]{2,})", e)
+    if not m:
+        return False
+    domain = (m.group(2) + "." + m.group(3)).lower()
+    tld = m.group(3).lower()
+    # TLD check — accept all 2-letter ccTLDs, else must be a known public TLD
+    if len(tld) > 2 and tld not in _VALID_TLD_WHITELIST:
+        return False
+    if _is_aggregator_domain(domain):
+        return False
+    return True
+
 # ---------------------------------------------------------------------------
 # Email MX verification
 # ---------------------------------------------------------------------------
@@ -160,10 +234,14 @@ def generate_email_patterns(domain: str) -> list[dict[str, Any]]:
     Given a domain (e.g. ``acmebbq.com``), return common email patterns.
 
     Each entry includes ``"email"``, ``"pattern_generated": True``,
-    and a ``"valid"`` field from MX verification.
+    and a ``"valid"`` field from MX verification. Returns [] for aggregator
+    / directory domains — pattern-guessing against yelp.com, netwaiter.com,
+    etc. would produce emails for the wrong company.
     """
     domain = domain.lower().strip().lstrip("www.")
     if not domain or "." not in domain:
+        return []
+    if _is_aggregator_domain(domain):
         return []
 
     # Check domain MX once (cached), then apply result to all patterns

@@ -110,10 +110,11 @@ def _free_enrich_company(
         loc_str = f" {location}" if location else ""
         query = f'"{company_name}"{loc_str} email phone contact'
         try:
+            from market_validation.company_enrichment import is_plausible_email
             results = _try_multi_search(query, num_results=5)
             for r in results:
                 snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
-                found_emails = _extract_all_emails(snippet)
+                found_emails = [e for e in _extract_all_emails(snippet) if is_plausible_email(e)]
                 found_phones = _extract_all_phones(snippet)
                 if found_emails:
                     for _em in found_emails:
@@ -188,7 +189,7 @@ def _adaptive_find_email(
     Returns ``{"email": str|None, "source": str, "actions_tried": [...]}``.
     """
     from market_validation.company_enrichment import (
-        generate_email_patterns, domain_from_url, verify_email,
+        generate_email_patterns, domain_from_url, verify_email, _is_aggregator_domain,
     )
     from market_validation.web_scraper import _extract_all_emails
 
@@ -199,103 +200,80 @@ def _adaptive_find_email(
     if not domain and website:
         domain = domain_from_url(website)
 
-    # Order matters — always prefer real emails over guessed patterns.
-    # 1) Search snippets (may surface a real email)
-    # 2) Person-based construction (if we know names from AI contacts)
-    # 3) Generic pattern (info@, contact@) as last-resort guess — clearly labeled
+    # Facts-only policy: never save a pattern-guessed email (info@domain) or a
+    # person-pattern guess. Only accept emails that were actually observed —
+    # in search snippets, on the site, in mailto:, JSON-LD, etc.
 
-    # --- Strategy 1: Targeted search for real company email ---
+    # Skip if the "domain" is an aggregator/directory — it's not this company's.
+    if domain and _is_aggregator_domain(domain):
+        domain = None
+
+    # --- Strategy: Targeted search for a real company email ---
+    # Fire several query variants sequentially — stop on the first on-domain
+    # or MX-verified hit. Each query reaches a different slice of the web:
+    #   1) Generic company + email keyword (broadest)
+    #   2) site:<domain> scoped (restricts to pages hosted on their own site —
+    #      surfaces "mailto:" strings in cached Google results, menu PDFs, etc.)
+    #   3) mailto: / @<domain> literal — targets pages with raw email syntax
     if company_name and not found_email:
-        query = f'"{company_name}" email contact'
-        if location:
-            query += f" {location}"
-        action = f"search({query})"
-        actions_tried.append(action)
-        _log.info("  [adaptive] %s: %s", company_name, action)
+        from market_validation.company_enrichment import is_plausible_email
 
-        try:
-            results = _try_multi_search(query, num_results=5)
+        queries: list[str] = []
+        loc_suffix = f" {location}" if location else ""
+        queries.append(f'"{company_name}" email contact{loc_suffix}')
+        if domain:
+            queries.append(f'site:{domain} email OR contact OR mailto')
+            queries.append(f'"{company_name}" "@{domain}"')
+        queries.append(f'"{company_name}" mailto{loc_suffix}')
+
+        on_domain_fallback: str | None = None
+
+        for query in queries:
+            action = f"search({query})"
+            actions_tried.append(action)
+            _log.info("  [adaptive] %s: %s", company_name, action)
+            try:
+                results = _try_multi_search(query, num_results=5)
+            except Exception:
+                continue
+
             for r in results:
                 snippet = f"{r.get('title', '')} {r.get('snippet', '')} {r.get('url', '')}"
-                found_emails = _extract_all_emails(snippet)
+                found_emails = [e for e in _extract_all_emails(snippet) if is_plausible_email(e)]
                 if not found_emails:
                     continue
-                # Prefer a candidate whose domain matches this company's domain
                 preferred = [e for e in found_emails if domain and e.lower().endswith("@" + domain)]
                 candidates_ordered = preferred + [e for e in found_emails if e not in preferred]
                 for candidate in candidates_ordered:
                     vr = verify_email(candidate)
                     if vr["valid"]:
-                        _log.info("  [adaptive] %s: found %s from search + MX verified", company_name, candidate)
-                        return {"email": candidate, "source": "adaptive_search_mx", "actions_tried": actions_tried}
-                # No MX-valid candidate — use the first preferred (or first) unverified
-                fallback = candidates_ordered[0]
-                _log.info("  [adaptive] %s: found %s from search (unverified)", company_name, fallback)
-                return {"email": fallback, "source": "adaptive_search", "actions_tried": actions_tried}
-        except Exception:
-            pass
+                        _log.info(
+                            "  [adaptive] %s: found %s from search + MX verified",
+                            company_name, candidate,
+                        )
+                        return {
+                            "email": candidate,
+                            "source": "adaptive_search_mx",
+                            "actions_tried": actions_tried,
+                        }
+                # Remember an on-domain hit as a softer fallback — only use it
+                # if NO later query yields an MX-verified address.
+                if preferred and not on_domain_fallback:
+                    on_domain_fallback = preferred[0]
 
-    # --- Strategy 2: Person-based email construction (requires contact names) ---
-    if domain and contacts and not found_email:
-        for c in contacts:
-            name = c.get("name", "").strip()
-            if not name or " " not in name:
-                continue
-            parts = name.lower().split()
-            first, last = parts[0], parts[-1]
-            first = re.sub(r"[^a-z]", "", first)
-            last = re.sub(r"[^a-z]", "", last)
-            if not first or not last:
-                continue
-
-            candidates = [
-                f"{first}.{last}@{domain}",
-                f"{first}{last}@{domain}",
-                f"{first[0]}{last}@{domain}",
-            ]
-            action = f"person_email({name}@{domain})"
-            actions_tried.append(action)
-            _log.info("  [adaptive] %s: %s", company_name, action)
-
-            # MX is per-domain, so all three resolve to the same answer.
-            # Use the most common convention (first.last) — still a guess,
-            # but anchored to a real person's name from the AI contacts.
-            vr = verify_email(candidates[0])
-            if vr["valid"]:
-                _log.info(
-                    "  [adaptive] %s: guessed %s via person pattern (MX valid, mailbox unverified)",
-                    company_name, candidates[0],
-                )
-                return {
-                    "email": candidates[0],
-                    "source": "adaptive_person_guess_mx",
-                    "actions_tried": actions_tried,
-                }
-
-    # --- Strategy 3: Generic pattern (info@, contact@) — last resort, clearly a guess ---
-    if domain and not found_email:
-        action = f"generic_pattern({domain})"
-        actions_tried.append(action)
-        _log.info("  [adaptive] %s: %s", company_name, action)
-        try:
-            patterns = generate_email_patterns(domain)
-            for p in patterns:
-                if p.get("valid"):
-                    found_email = p["email"]
-                    _log.info(
-                        "  [adaptive] %s: guessed %s via generic pattern (MX valid, mailbox unverified)",
-                        company_name, found_email,
-                    )
-                    return {
-                        "email": found_email,
-                        "source": "adaptive_generic_guess_mx",
-                        "actions_tried": actions_tried,
-                    }
-        except Exception:
-            pass
+        if on_domain_fallback:
+            _log.info(
+                "  [adaptive] %s: using on-domain fallback %s (unverified by MX)",
+                company_name, on_domain_fallback,
+            )
+            return {
+                "email": on_domain_fallback,
+                "source": "adaptive_search",
+                "actions_tried": actions_tried,
+            }
 
     if not found_email:
-        _log.info("  [adaptive] %s: no email found after trying %s", company_name, actions_tried)
+        _log.info("  [adaptive] %s: no verifiable email found after %s, leaving blank", company_name, actions_tried)
 
     return {"email": found_email, "source": "adaptive_none", "actions_tried": actions_tried}
 
@@ -1410,31 +1388,23 @@ def _print_validation_summary(
 
 
 def _is_useful_business_url(url: str) -> bool:
+    """True if *url* looks like a real company website (not an aggregator/directory).
+
+    Delegates to ``_is_aggregator_domain`` so every site in the shared aggregator
+    list (Yelp, Toast, NetWaiter, Eventective, Sagemenu, Wix subdomains, social
+    networks, etc.) is rejected as a "website" — those are third-party platforms,
+    not the company's own presence.
+    """
     if not url:
         return False
     try:
-        host = (urlparse(url).netloc or "").lower()
+        host = (urlparse(url).netloc or "").lower().lstrip("www.")
     except Exception:
         return False
     if not host or "." not in host:
         return False
-    blocked_hosts = {
-        "wikipedia.org",
-        "www.wikipedia.org",
-        "bbb.org",
-        "www.bbb.org",
-        "opencorporates.com",
-        "www.opencorporates.com",
-        "google.com",
-        "www.google.com",
-        "yelp.com",
-        "www.yelp.com",
-        "tripadvisor.com",
-        "www.tripadvisor.com",
-        "yellowpages.com",
-        "www.yellowpages.com",
-    }
-    if host in blocked_hosts:
+    from market_validation.company_enrichment import _is_aggregator_domain
+    if _is_aggregator_domain(host):
         return False
     return True
 
@@ -1503,19 +1473,21 @@ def _apply_contact_retry_rows(
                 c["phone"] = phone
                 changed = True
 
-        # Extract email from snippet (Nominatim extratags or scraped text)
+        # Extract email from snippet (Nominatim extratags or scraped text).
+        # Gate through is_plausible_email so junk like "info@mail.loc" and
+        # aggregator-domain emails don't slip in.
         if not str(c.get("email") or "").strip():
+            from market_validation.company_enrichment import is_plausible_email
             snippet = str(row.get("snippet") or "")
-            # Check for Nominatim structured "email=..." first
             email_match = re.search(r"email=([^\s|]+)", snippet)
+            candidate: str | None = None
             if email_match:
-                c["email"] = email_match.group(1)
-                changed = True
+                candidate = email_match.group(1)
             else:
-                found_email = _extract_email_text(snippet)
-                if found_email:
-                    c["email"] = found_email
-                    changed = True
+                candidate = _extract_email_text(snippet)
+            if candidate and is_plausible_email(candidate):
+                c["email"] = candidate
+                changed = True
 
         if changed:
             c["source"] = c.get("source") or row.get("source") or "contact_retry"
@@ -2882,6 +2854,7 @@ Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}""
                     _time.sleep(1)
 
             enriched = 0
+            from market_validation.company_enrichment import is_plausible_email
             for c in companies:
                 data = scrape_results.get(id(c))
                 if not data:
@@ -2889,7 +2862,7 @@ Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}""
                 if not c.get("phone") and data.get("phone"):
                     c["phone"] = data["phone"]
                     enriched += 1
-                if not c.get("email") and data.get("email"):
+                if not c.get("email") and data.get("email") and is_plausible_email(data["email"]):
                     c["email"] = data["email"]
                     enriched += 1
                 if not c.get("description") and data.get("raw_text"):
@@ -3288,8 +3261,8 @@ Return JSON:
             if phones and not existing_phone:
                 updates["phone"] = phones[0]
 
-            # Website — use found if DB is empty
-            if findings.get("website") and not existing_website:
+            # Website — use found if DB is empty, rejecting aggregator URLs.
+            if findings.get("website") and not existing_website and _is_useful_business_url(str(findings["website"])):
                 updates["website"] = findings["website"]
 
             # Contacts / decision makers — append to notes
@@ -3527,7 +3500,7 @@ Return JSON:
                 got_phone_free = True
             if free.get("address") and not location:
                 updates["location"] = free["address"]
-            if not website and free.get("website"):
+            if not website and free.get("website") and _is_useful_business_url(str(free["website"])):
                 updates["website"] = free["website"]
 
             # Append email source to notes
@@ -3652,14 +3625,23 @@ Return JSON only:
             ai_calls += 1
 
             if result.get("result") != "error":
+                from market_validation.company_enrichment import is_plausible_email
                 if result.get("phone") and not current_phone and "phone" not in updates:
                     updates["phone"] = str(result["phone"])
                     phones_found += 1
-                if result.get("email") and not current_email and "email" not in updates:
-                    updates["email"] = str(result["email"])
+                # AI sometimes returns emails with embedded commentary like
+                # "x@y.com (inferred from pattern)" — reject anything that
+                # isn't a clean, plausible address.
+                ai_email = str(result.get("email") or "").strip()
+                ai_email_ok = is_plausible_email(ai_email)
+                if ai_email_ok and not current_email and "email" not in updates:
+                    updates["email"] = ai_email
                     emails_found += 1
                 if result.get("website") and not website and "website" not in updates:
-                    updates["website"] = str(result["website"])
+                    ai_site = str(result["website"]).strip()
+                    # Reject AI-returned URLs that point at an aggregator/directory.
+                    if _is_useful_business_url(ai_site):
+                        updates["website"] = ai_site
                 if result.get("location") and not location and "location" not in updates:
                     updates["location"] = str(result["location"])
 
@@ -3676,8 +3658,10 @@ Return JSON only:
                 if result.get("notes"):
                     parts.append(str(result["notes"]))
                 # Track AI email source in notes
-                if result.get("email") and not current_email:
+                if ai_email_ok and not current_email:
                     parts.append("Email source: found via AI search")
+                elif ai_email and not ai_email_ok:
+                    parts.append(f"AI returned unusable email: {ai_email[:80]}")
                 if parts:
                     suffix = " | " + " | ".join(parts)
                     base_notes = updates.get("notes") or current_notes or ""
@@ -3735,9 +3719,10 @@ Return JSON only:
         enrich_statuses: list[str] | None = None,
         validate: bool = False,
         archetype: str | None = None,
+        draft_emails: bool = False,
     ) -> dict[str, Any]:
         """
-        Full pipeline: [validate →] find → qualify → enrich_all.
+        Full pipeline: [validate →] find → qualify → enrich_all [→ draft_emails].
 
         This is the default way to run a complete market research.
         Automatically runs all steps and returns a combined summary.
@@ -3748,11 +3733,14 @@ Return JSON only:
             product:         Specific product/service within the market (optional)
             enrich_statuses: Which company statuses to enrich. Default: ["qualified", "new"]
             validate:        If True, run market validation (Step 0) before find.
+            draft_emails:    If True, AI-draft a cold outreach email for every qualified
+                             lead with an email on file and queue as pending. Runs in
+                             parallel (4 workers) after enrichment, before returning.
         """
         if enrich_statuses is None:
             enrich_statuses = ["qualified", "new"]
 
-        total_steps = 4 if validate else 3
+        total_steps = 3 + (1 if validate else 0) + (1 if draft_emails else 0)
         step = 0
 
         validate_result = None
@@ -3780,6 +3768,22 @@ Return JSON only:
         enrich_result = self.enrich_all(statuses=enrich_statuses)
         print(f"[research] → enriched={enrich_result.get('enriched')}/{enrich_result.get('total_companies')} | phones={enrich_result.get('phones_found')} emails={enrich_result.get('emails_found')}")
 
+        draft_result = None
+        if draft_emails and self.research_id:
+            step += 1
+            print(f"[research] Step {step}/{total_steps}: draft_emails (qualified leads with email)")
+            from market_validation.email_sender import draft_emails_for_research
+            draft_result = draft_emails_for_research(
+                research_id=self.research_id,
+                statuses=["qualified"],
+                skip_existing=True,
+            )
+            print(
+                f"[research] → drafts queued={draft_result.get('drafted')} "
+                f"skipped={draft_result.get('skipped')} failed={draft_result.get('failed')} "
+                f"candidates={draft_result.get('candidates')}"
+            )
+
         result: dict[str, Any] = {
             "result": "ok",
             "research_id": self.research_id,
@@ -3793,6 +3797,9 @@ Return JSON only:
                 "emails_found": enrich_result.get("emails_found", 0),
             },
         }
+        if draft_result:
+            result["drafts"] = draft_result
+            result["summary"]["drafts_queued"] = draft_result.get("drafted", 0)
         if validate_result:
             result["validate"] = validate_result
             result["summary"]["verdict"] = validate_result.get("scorecard", {}).get("verdict")
