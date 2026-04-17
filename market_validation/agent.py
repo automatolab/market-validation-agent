@@ -980,19 +980,84 @@ def _normalize_companies(companies: list[dict[str, Any]]) -> list[dict[str, Any]
     return normalized
 
 
+_NAME_LEADING_ARTICLES = re.compile(r"^(?:the|a|an)\s+", re.IGNORECASE)
+_NAME_TRAILING_SUFFIXES = re.compile(
+    r"\s+(?:company|co|corp|corporation|inc|incorporated|llc|ltd|limited|group|holdings|enterprises|plc)\.?$",
+    re.IGNORECASE,
+)
+_NAME_PUNCT = re.compile(r"[^\w\s]+")
+
+
+def _dedupe_key_website(url: str | None) -> str:
+    """Canonicalize a URL for dedup. Strips scheme, www, trailing slash, case."""
+    if not url:
+        return ""
+    u = str(url).strip().lower()
+    u = re.sub(r"^https?://", "", u)
+    if u.startswith("www."):
+        u = u[4:]
+    return u.rstrip("/")
+
+
+def _dedupe_key_name(name: str | None) -> str:
+    """Canonicalize a company name for dedup.
+
+    Strips leading articles (The/A/An), trailing corporate suffixes
+    (Company/Inc/LLC/Corp/...), punctuation, and collapses whitespace.
+    """
+    if not name:
+        return ""
+    n = str(name).strip().lower()
+    n = _NAME_LEADING_ARTICLES.sub("", n)
+    n = _NAME_TRAILING_SUFFIXES.sub("", n)
+    n = _NAME_PUNCT.sub(" ", n)
+    return " ".join(n.split())
+
+
 def _dedupe_companies(companies: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    deduped: dict[str, dict[str, Any]] = {}
+    """Deduplicate by (canonical website) OR (canonical company name).
+
+    A row matches an existing entry if either key collides — so
+    "Smoking Pig BBQ Company" at https://www.smokingpigbbq.net/ and
+    "Smoking Pig BBQ" at https://smokingpigbbq.net collapse to one.
+    """
+    deduped: list[dict[str, Any]] = []
+    seen_web: dict[str, int] = {}
+    seen_name: dict[str, int] = {}
+
     for c in companies:
-        key = (
-            c.get("website")
-            or c.get("evidence_url")
-            or " ".join(str(c.get("company_name", "")).strip().lower().split())
-        )
-        if not key:
+        web_key = _dedupe_key_website(c.get("website") or c.get("evidence_url"))
+        name_key = _dedupe_key_name(c.get("company_name"))
+        if not web_key and not name_key:
             continue
-        if key not in deduped:
-            deduped[key] = c
-    return list(deduped.values())
+
+        existing_idx: int | None = None
+        if web_key and web_key in seen_web:
+            existing_idx = seen_web[web_key]
+        elif name_key and name_key in seen_name:
+            existing_idx = seen_name[name_key]
+
+        if existing_idx is not None:
+            # Merge: prefer non-empty fields from the duplicate into the kept row.
+            kept = deduped[existing_idx]
+            for field in ("website", "phone", "email", "location", "description", "evidence_url"):
+                if not kept.get(field) and c.get(field):
+                    kept[field] = c[field]
+            # Also register any new keys so later duplicates merge too
+            if web_key and web_key not in seen_web:
+                seen_web[web_key] = existing_idx
+            if name_key and name_key not in seen_name:
+                seen_name[name_key] = existing_idx
+            continue
+
+        idx = len(deduped)
+        deduped.append(c)
+        if web_key:
+            seen_web[web_key] = idx
+        if name_key:
+            seen_name[name_key] = idx
+
+    return deduped
 
 
 _JUNK_NAME_PATTERNS = [
