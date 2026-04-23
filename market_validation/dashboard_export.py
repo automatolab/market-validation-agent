@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +12,7 @@ CALL_SHEET_EXPORT_STATUSES = ("call_ready", "replied_interested", "qualified")
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def get_call_sheet_from_db(
@@ -31,7 +30,7 @@ def get_call_sheet_from_db(
         conn.row_factory = sqlite3.Row
 
         query = """
-        SELECT 
+        SELECT
             c.id as company_id,
             c.company_name,
             c.status,
@@ -170,7 +169,7 @@ def export_markdown_call_sheet(
 
     now = _iso_now()
     lines = [
-        f"# Call Sheet",
+        "# Call Sheet",
         "",
         f"Generated: {now}",
         f"Total: {data['count']} companies",
@@ -261,7 +260,7 @@ def build_parser() -> Any:
     call_sheet_parser.add_argument("--status-filter", default=None, help="Filter by status")
     call_sheet_parser.add_argument("--limit", type=int, default=50, help="Max results")
 
-    dashboard_parser = subparsers.add_parser("dashboard", help="Export dashboard summary from DB")
+    subparsers.add_parser("dashboard", help="Export dashboard summary from DB")
 
     notes_parser = subparsers.add_parser("company", help="Export full company data with notes")
     notes_parser.add_argument("--company-id", required=True, help="Company ID")
@@ -270,7 +269,6 @@ def build_parser() -> Any:
 
 
 def main() -> None:
-    import json
 
     parser = build_parser()
     args = parser.parse_args()
@@ -307,4 +305,4 @@ def main() -> None:
 
     except Exception as exc:
         print(json.dumps({"result": "failed", "error": str(exc)}, ensure_ascii=True))
-        raise SystemExit(1)
+        raise SystemExit(1) from exc

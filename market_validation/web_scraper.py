@@ -16,7 +16,6 @@ from typing import Any
 import requests
 from bs4 import BeautifulSoup
 
-
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
@@ -67,7 +66,7 @@ def _get_cffi(url: str, timeout: int = 15) -> requests.Response | None:
 
 
 def _domain(url: str) -> str:
-    return url.split("//")[-1].split("/")[0].lower().lstrip("www.")
+    return url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
 
 
 def _extract_phone(text: str) -> str | None:
@@ -967,7 +966,6 @@ def scrape_search_result_pages(
 def is_playwright_available() -> bool:
     """Optional check only; project works without Playwright."""
     try:
-        import playwright  # type: ignore
         return True
     except Exception:
         return False

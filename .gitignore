@@ -28,4 +28,8 @@ opencode.json
 
 # macOS
 .DS_Store
+
+# Lock files — except uv.lock which pins the full dep graph for reproducible
+# installs (uv sync) and MUST be committed.
 *.lock
+!uv.lock

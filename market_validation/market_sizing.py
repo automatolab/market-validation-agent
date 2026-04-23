@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -104,11 +105,13 @@ def estimate_market_size(
     # Pull free structured data sources (BLS, EDGAR, Wikipedia, Yelp) — no paid API needed
     try:
         from market_validation.free_data_sources import (
-            bls_industry_data, edgar_search, wikipedia_industry_summary,
+            bls_industry_data,
+            edgar_search,
+            wikipedia_industry_summary,
             yelp_local_market_data,
         )
-        from market_validation.query_context import detect_market_category
         from market_validation.market_archetype import detect_archetype
+        from market_validation.query_context import detect_market_category
         category = detect_market_category(market, product)
         archetype_key, _ = detect_archetype(market, product)
 

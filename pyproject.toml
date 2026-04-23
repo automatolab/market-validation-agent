@@ -15,6 +15,11 @@ dependencies = [
   "beautifulsoup4>=4.12.0,<5.0.0",
   "requests>=2.31.0,<3.0.0",
   "pypdf>=5.0.0",
+  "pydantic>=2.0,<3.0",
+  "jinja2>=3.1,<4.0",
+  "fastapi>=0.110,<1.0",
+  "uvicorn[standard]>=0.27,<1.0",
+  "alembic>=1.13,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -25,28 +30,65 @@ gmail = [
   "google-api-python-client>=2.0.0",
 ]
 dev = [
-  "pytest>=8.3.0,<9.0.0"
+  "pytest>=8.3.0,<9.0.0",
+  "ruff>=0.6.0,<1.0",
+  "mypy>=1.10,<2.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["market_validation*"]
 
+[tool.setuptools.package-data]
+"market_validation" = ["templates/*.html", "static/*.css", "static/*.js"]
+
 [project.scripts]
-market-merge-tracker = "market_validation.file_pipeline:main_merge_cli"
-market-verify-pipeline = "market_validation.file_pipeline:main_verify_cli"
-market-batch-worker = "market_validation.batch_worker:main"
-market-output-store = "market_validation.output_store:main"
-market-lead-pipeline = "market_validation.lead_pipeline:main"
-market-call-notes = "market_validation.db_store:main"
 market-source-discover = "market_validation.source_discovery:main"
 market-email-send = "market_validation.email_sender:main"
-market-email-fetch = "market_validation.gmail_inbox:main"
 market-dashboard = "market_validation.dashboard_export:main"
 market-dashboard-ui = "market_validation.dashboard:main"
 market-research = "market_validation.research:main"
 market-research-run = "market_validation.research_runner:main"
+market-api = "market_validation.api.__main__:main"
+market-db-migrate = "market_validation.db.migrations:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# -p no:<name> disables pytest plugins pulled in from the environment
+# (ROS ships launch_testing + launch_ros entry points that crash pluggy's
+# hook validation on non-ROS projects). See: PluginValidationError on
+# pytest_launch_collect_makemodule.
+addopts = "-q -p no:launch_testing -p no:launch_ros"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+# E, W: pycodestyle;  F: pyflakes;  I: isort;  UP: pyupgrade;  B: bugbear.
+# Starting lenient — add more rules as the codebase tightens.
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+  "E501",  # line-too-long — handled pragmatically rather than mechanically
+  "B008",  # function-call-in-default-argument — common FastAPI pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]                     # re-exports
+"tests/*" = ["F401", "E402"]                  # sys.path munging + re-exports
+"market_validation/agent.py" = ["F401"]       # backward-compat shim re-exports
+
+[tool.mypy]
+python_version = "3.11"
+# Starting loose — just enough to catch the most obvious type errors.
+# Tighten once the baseline is green.
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+# The market_validation.services package was built with type hints;
+# require them there first, then widen the scope over time.
+[[tool.mypy.overrides]]
+module = "market_validation.services.*"
+disallow_untyped_defs = true

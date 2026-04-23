@@ -13,13 +13,11 @@ All functions return [] or {} on failure — callers always get usable output.
 
 from __future__ import annotations
 
-import time
-from typing import Any
-
-import urllib.request
-import urllib.parse
 import json as _json
-
+import time
+import urllib.parse
+import urllib.request
+from typing import Any
 
 _HEADERS = {
     "User-Agent": "market-validation-agent/1.0 (research tool; contact: noreply@example.com)",

@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -44,7 +45,6 @@ def gather_market_signals(
     Returns dict with job_posting_volume, news_sentiment, regulatory_risks,
     technology_maturity, and signals_data.
     """
-    search_term = product or market
     signals: dict[str, Any] = {}
 
     # Load market-aware queries

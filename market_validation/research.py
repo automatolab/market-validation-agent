@@ -3,16 +3,20 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+from market_validation.log import get_logger
+
+_log = get_logger("research")
 
 DEFAULT_DB_PATH = "output/market-research.sqlite3"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _connect(db_file: Path) -> sqlite3.Connection:
@@ -36,7 +40,14 @@ def resolve_db_path(root: Path | str, db_path: str | None = None) -> Path:
 
 
 def _add_columns_if_missing(conn: Any) -> None:
-    """Add new columns to market_validations for archetype, unit economics, Porter's 5 forces, timing, and customer segments."""
+    """Add new columns to market_validations for archetype, unit economics, Porter's 5 forces, timing, and customer segments.
+
+    DEPRECATED for new additions — new schema changes should be written as
+    an alembic migration under ``migrations/versions/`` instead, run via
+    ``market-db-migrate upgrade``. This function is kept so databases
+    created before alembic was adopted still converge on startup without
+    needing an explicit ``stamp + upgrade`` step.
+    """
     new_columns = [
         # Archetype
         ("archetype", "TEXT"),
@@ -82,11 +93,22 @@ def _add_columns_if_missing(conn: Any) -> None:
             conn.execute(
                 f"ALTER TABLE market_validations ADD COLUMN {col_name} {col_type}"
             )
-        except Exception:
-            pass  # Column already exists
+        except sqlite3.OperationalError as exc:
+            # "duplicate column name" is the expected case — column already
+            # exists from a prior migration. Anything else is a real schema
+            # problem we want to see.
+            if "duplicate column name" not in str(exc):
+                _log.warning("ALTER TABLE market_validations ADD %s failed: %s", col_name, exc)
 
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
+    """Bootstrap the SQLite schema on a new or legacy database.
+
+    Idempotent — uses ``CREATE TABLE IF NOT EXISTS`` and matches the baseline
+    alembic migration (``migrations/versions/0001_baseline_schema.py``). For
+    *new* schema changes, write an alembic migration instead of extending this
+    function or ``_add_columns_if_missing``.
+    """
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS researches (
             id TEXT PRIMARY KEY,
@@ -189,9 +211,10 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(researches)").fetchall()]
         if "last_source_health" not in cols:
             conn.execute("ALTER TABLE researches ADD COLUMN last_source_health TEXT")
-    except Exception:
-        # Be permissive: if PRAGMA or ALTER fails, continue without breaking
-        pass
+    except sqlite3.OperationalError as exc:
+        # Be permissive: if PRAGMA or ALTER fails, continue without breaking —
+        # but log so a genuine schema problem is visible in the logs.
+        _log.warning("last_source_health column migration failed: %s", exc)
     _add_columns_if_missing(conn)
 
 
@@ -255,7 +278,7 @@ def list_researches(
         for row in rows:
             r = dict(row)
             stats = conn.execute(
-                """SELECT 
+                """SELECT
                     COUNT(*) as total,
                     SUM(CASE WHEN status = 'qualified' THEN 1 ELSE 0 END) as qualified,
                     SUM(CASE WHEN status = 'contacted' THEN 1 ELSE 0 END) as contacted,
@@ -293,16 +316,16 @@ def get_research(
             return {"result": "not_found", "research_id": research_id}
 
         companies = conn.execute(
-            """SELECT c.*, 
+            """SELECT c.*,
                (SELECT COUNT(*) FROM call_notes WHERE company_id = c.id) as note_count
-               FROM companies c 
-               WHERE c.research_id = ? 
+               FROM companies c
+               WHERE c.research_id = ?
                ORDER BY c.priority_score DESC NULLS LAST, c.company_name""",
             (research_id,),
         ).fetchall()
 
         stats = conn.execute(
-            """SELECT 
+            """SELECT
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new_count,
                 SUM(CASE WHEN status = 'qualified' THEN 1 ELSE 0 END) as qualified_count,
@@ -348,13 +371,13 @@ def add_company(
 
     with _connect(db_file) as conn:
         _ensure_schema(conn)
-        
+
         normalized_name = " ".join(company_name.strip().lower().split())
 
         existing = conn.execute(
-            """SELECT id, company_name FROM companies 
+            """SELECT id, company_name FROM companies
                WHERE research_id = ? AND (
-                   company_name = ? OR 
+                   company_name = ? OR
                    company_name_normalized = ? OR
                    company_name_normalized = ?
                )""",
@@ -388,8 +411,8 @@ def add_company(
                 return None
 
         conn.execute(
-            """INSERT INTO companies 
-               (id, research_id, market, company_name, company_name_normalized, website, location, phone, email, 
+            """INSERT INTO companies
+               (id, research_id, market, company_name, company_name_normalized, website, location, phone, email,
                 status, hours, menu_items, prices, ratings, reviews_count, notes, raw_data, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
@@ -916,4 +939,4 @@ def main() -> None:
 
     except Exception as exc:
         print(json.dumps({"result": "failed", "error": str(exc)}, ensure_ascii=True))
-        raise SystemExit(1)
+        raise SystemExit(1) from exc

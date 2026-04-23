@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -265,7 +266,7 @@ Community discussions (Reddit/forums) — {len(reddit_posts)} posts sorted by up
 {snippet_text or '(none found)'}
 
 Google News headlines ({len(news_snippets)} articles):
-{chr(10).join(f"- {{s}}" for s in news_snippets[:10]) or "(none found)"}
+{chr(10).join("- {s}" for s in news_snippets[:10]) or "(none found)"}
 
 Crowdfunding campaigns (Kickstarter/Indiegogo — proves willingness to pay):
 {crowdfunding_text}

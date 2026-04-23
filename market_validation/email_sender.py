@@ -14,20 +14,22 @@ import json
 import os
 import smtplib
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from pathlib import Path
 from typing import Any
 
 from market_validation.environment import load_project_env
+from market_validation.log import get_logger
 from market_validation.research import PROJECT_ROOT, _connect, resolve_db_path
+
+_log = get_logger("email_sender")
 
 load_project_env()
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _get_smtp_connection() -> smtplib.SMTP:
@@ -85,7 +87,18 @@ def send_email(
             "subject": subject,
             "message_id": message_id,
         }
+    except smtplib.SMTPException as e:
+        _log.warning("SMTP send failed for %s: %s", to_email, e)
+        return {
+            "result": "failed",
+            "error": str(e),
+            "to": to_email,
+            "subject": subject,
+        }
     except Exception as e:
+        # Keep a broader fallback so unexpected errors (DNS, socket, etc.)
+        # don't propagate and kill the queue worker, but log with traceback.
+        _log.exception("unexpected send_email failure to %s: %s", to_email, e)
         return {
             "result": "failed",
             "error": str(e),
@@ -326,7 +339,10 @@ def approve_email(email_id: str) -> dict[str, Any]:
     try:
         from market_validation.email_tracker import build_html_body
         html_body = build_html_body(email_data["body"], email_id)
-    except Exception:
+    except Exception as exc:
+        # HTML rendering is optional — plaintext still gets sent. Log so a
+        # broken tracker module shows up instead of silently losing HTML.
+        _log.warning("email_tracker.build_html_body failed for %s: %s", email_id, exc)
         html_body = None
 
     result = send_email(
@@ -351,8 +367,8 @@ def approve_all_emails() -> dict[str, Any]:
     """Approve and send all pending emails."""
     queue = get_email_queue(status="pending")
     results = []
-    for email in queue.get("emails", []):
-        result = approve_email(email["id"])
+    for queued in queue.get("emails", []):
+        result = approve_email(queued["id"])
         results.append(result)
 
     sent = sum(1 for r in results if r.get("result") == "ok")
@@ -376,23 +392,23 @@ def export_email_queue_markdown(status: str | None = None) -> str:
         "",
     ]
 
-    for i, email in enumerate(emails, 1):
+    for i, queued in enumerate(emails, 1):
         lines.extend([
-            f"## {i}. {email['subject']}",
+            f"## {i}. {queued['subject']}",
             "",
-            f"**ID:** `{email['id']}`",
-            f"**Status:** {email['status']}",
-            f"**To:** {email['to_email']}",
-            f"**Company:** {email.get('company_name') or '-'}",
-            f"**Contact:** {email.get('contact_name') or '-'}",
-            f"**Created:** {email['created_at']}",
+            f"**ID:** `{queued['id']}`",
+            f"**Status:** {queued['status']}",
+            f"**To:** {queued['to_email']}",
+            f"**Company:** {queued.get('company_name') or '-'}",
+            f"**Contact:** {queued.get('contact_name') or '-'}",
+            f"**Created:** {queued['created_at']}",
             "",
             "### Subject",
-            f"{email['subject']}",
+            f"{queued['subject']}",
             "",
             "### Body",
             "```",
-            email['body'],
+            queued['body'],
             "```",
             "",
             "---",
@@ -465,8 +481,10 @@ def delete_email(email_id: str) -> dict[str, Any]:
             conn.commit()
         finally:
             conn.close()
-    except Exception:
-        pass
+    except sqlite3.Error as exc:
+        # JSON queue file was already deleted above; DB delete is a best-effort
+        # cleanup. Log so an out-of-sync state shows up.
+        _log.warning("delete_email: DB cleanup failed for %s: %s", email_id, exc)
 
     if not existed:
         return {"result": "error", "error": "Email not found in queue"}
@@ -602,6 +620,10 @@ def draft_email_for_company(company_id: str) -> dict[str, Any]:
             description=r.get("description"),
         )
     except Exception as exc:
+        # AI drafting is pure content generation — failures shouldn't spam
+        # the log at warning level, but operators need to see them when
+        # debugging why drafts aren't appearing in the queue.
+        _log.info("AI draft failed for company %s: %s", c.get("id"), exc)
         return {"result": "error", "error": f"AI draft failed: {exc}"}
 
     return {
@@ -701,6 +723,7 @@ def draft_emails_for_research(
                 try:
                     result = fut.result()
                 except Exception as exc:
+                    _log.info("draft-all: worker failed for %s: %s", cid, exc)
                     result = {"company_id": cid, "status": "failed", "error": str(exc)}
                 details.append(result)
                 if result["status"] == "queued":

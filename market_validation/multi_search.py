@@ -17,7 +17,6 @@ from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 
-
 USER_AGENT = "market-validation-agent/0.1"
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php"

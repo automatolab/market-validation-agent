@@ -8,7 +8,8 @@ AI is optionally used to generate a reasoning paragraph.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:

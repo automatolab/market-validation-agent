@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -43,7 +44,7 @@ def _gather_raw_candidates(results: list[dict[str, str]]) -> list[dict[str, str]
         title = r.get("title", "").strip()
         if not url or not title:
             continue
-        domain = url.split("//")[-1].split("/")[0].lower().lstrip("www.")
+        domain = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
         if any(skip in domain for skip in always_skip):
             continue
         if domain in seen_domains:
@@ -146,7 +147,7 @@ def analyze_competition(
             website = ec.get("website", "")
             if not name:
                 continue
-            domain = website.split("//")[-1].split("/")[0].lstrip("www.") if website else ""
+            domain = website.split("//")[-1].split("/")[0].removeprefix("www.") if website else ""
             if domain and domain in seen_domains:
                 continue
             if domain:
@@ -194,7 +195,7 @@ def analyze_competition(
         # Look for matching scraped profile
         for sp in scraped_profiles:
             if not sp.get("error") and not sp.get("skipped"):
-                sp_domain = sp.get("url", "").split("//")[-1].split("/")[0].lstrip("www.")
+                sp_domain = sp.get("url", "").split("//")[-1].split("/")[0].removeprefix("www.")
                 if sp_domain == c.get("domain"):
                     if sp.get("description"):
                         line += f" | Description: {sp['description'][:150]}"

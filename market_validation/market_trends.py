@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
 def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def get_google_trends_data(
@@ -170,8 +170,6 @@ def build_parser() -> Any:
 
 
 def main() -> None:
-    import argparse
-    import sys
 
     parser = build_parser()
     args = parser.parse_args()

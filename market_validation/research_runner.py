@@ -5,16 +5,18 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from market_validation.log import get_logger
 from market_validation.research import (
-    create_research,
-    get_research,
-    add_company,
-    update_company,
-    resolve_db_path,
     _connect,
     _ensure_schema,
+    add_company,
+    create_research,
+    resolve_db_path,
+    update_company,
 )
 from market_validation.source_discovery import discover_sources
+
+_log = get_logger("research_runner")
 
 
 def run_market_research(
@@ -54,8 +56,10 @@ def run_market_research(
         )
         if demand_result.get("result") == "ok" and not demand_result.get("skipped"):
             demand_data = demand_result
-    except Exception:
-        pass
+    except Exception as exc:
+        # Trend data is a nice-to-have; its absence doesn't affect the
+        # main research pipeline. Debug-level so it doesn't spam normal runs.
+        _log.debug("market trends fetch failed for %r: %s", product or market, exc)
 
     return {
         "result": "ok",
@@ -162,8 +166,12 @@ Search for: "{search_term} {geography}", "best {market} businesses {geography}""
         }
 
     except subprocess.TimeoutExpired:
+        _log.error("run_company_discovery: subprocess timeout")
         return {"result": "failed", "error": "Timeout"}
     except Exception as e:
+        # Keep the pipeline's structured error contract, but log a full
+        # traceback so operators can see what failed.
+        _log.exception("run_company_discovery failed: %s", e)
         return {"result": "failed", "error": str(e)}
 
 
@@ -270,6 +278,7 @@ Companies: {json.dumps(company_list, indent=2)}"""
         }
 
     except Exception as e:
+        _log.exception("qualify_companies failed: %s", e)
         return {"result": "failed", "error": str(e)}
 
 
@@ -343,5 +352,6 @@ def main() -> None:
             print(json.dumps(result, ensure_ascii=True, indent=2))
 
     except Exception as exc:
+        _log.exception("CLI command failed: %s", exc)
         print(json.dumps({"result": "failed", "error": str(exc)}, ensure_ascii=True))
-        raise SystemExit(1)
+        raise SystemExit(1) from exc

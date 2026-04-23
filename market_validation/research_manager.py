@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import json
-import re
 import subprocess
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
 
 def _iso_now() -> str:
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    from datetime import datetime
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class ResearchManager:
@@ -101,16 +101,15 @@ class ResearchManager:
         }
 
     def enrich_all_qualified(self, limit: int = 20) -> dict[str, Any]:
-        from market_validation.research import _connect, _ensure_schema, resolve_db_path
         from market_validation.company_enrichment import enrich_company_contact
-        from market_validation.research import update_company
+        from market_validation.research import _connect, _ensure_schema, resolve_db_path, update_company
 
         db_file = resolve_db_path(self.root)
         with _connect(db_file) as conn:
             _ensure_schema(conn)
             companies = conn.execute(
-                """SELECT id, research_id, company_name, website, location, email 
-                   FROM companies 
+                """SELECT id, research_id, company_name, website, location, email
+                   FROM companies
                    WHERE research_id = ? AND status IN ('qualified', 'new')
                    AND (email IS NULL OR email = '')
                    ORDER BY priority_score DESC NULLS LAST
@@ -293,7 +292,7 @@ Use web search to gather information. Return your findings as JSON:
             ).fetchone()
         if company:
             cols = [desc[0] for desc in conn.execute("PRAGMA table_info(companies)").fetchall()]
-            return dict(zip(cols, company))
+            return dict(zip(cols, company, strict=False))
         return {}
 
     def get_all_companies(self, status: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
@@ -328,7 +327,7 @@ Use web search to gather information. Return your findings as JSON:
             ).fetchall()
         if notes:
             cols = [desc[0] for desc in conn.execute("PRAGMA table_info(call_notes)").fetchall()]
-            return [dict(zip(cols, n)) for n in notes]
+            return [dict(zip(cols, n, strict=False)) for n in notes]
         return []
 
     def get_call_sheet(self, status: str | None = "qualified", limit: int = 50) -> dict[str, Any]:
@@ -382,28 +381,28 @@ def main():
     parser = argparse.ArgumentParser(description="Research Agent - Dynamic market research tool")
     parser.add_argument("--research-id", required=True, help="Research ID to operate on")
     parser.add_argument("--root", default=".", help="Repository root")
-    
+
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     # Suggest next actions
     subparsers.add_parser("suggest", help="Get suggested next actions")
-    
+
     # Research task
     research_parser = subparsers.add_parser("research", help="Run a research task")
     research_parser.add_argument("--task", required=True, help="Research task description")
-    
+
     # Enrich companies
     enrich_parser = subparsers.add_parser("enrich", help="Enrich company contacts")
     enrich_parser.add_argument("--limit", type=int, default=20, help="Max companies")
-    
+
     # Generate call sheet
     subparsers.add_parser("call-sheet", help="Export call sheet")
     subparsers.add_parser("summary", help="Get research summary")
-    
+
     args = parser.parse_args()
-    
+
     agent = ResearchAgent(research_id=args.research_id, root=args.root)
-    
+
     if args.command == "suggest":
         result = agent.suggest_next_actions()
         print(json.dumps(result, indent=2))

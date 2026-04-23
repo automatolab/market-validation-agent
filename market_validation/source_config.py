@@ -99,11 +99,11 @@ def get_sources_dir() -> Path:
 def load_source_config(market_type: str | None = None) -> dict[str, Any]:
     """
     Load source configuration for a market type.
-    
+
     Args:
         market_type: Market type (e.g., 'brisket-bbq', 'restaurants', 'tech-saas')
                     If None, tries to auto-detect from keywords.
-    
+
     Returns:
         Source configuration dict
     """
@@ -118,10 +118,10 @@ def load_source_config(market_type: str | None = None) -> dict[str, Any]:
                 return loaded
         if normalized in DEFAULT_SOURCE_CONFIGS:
             return copy.deepcopy(DEFAULT_SOURCE_CONFIGS[normalized])
-    
+
     # Try auto-detection
     market_lower = normalized
-    
+
     # Keyword matching
     if any(kw in market_lower for kw in ["restaurant", "food", "cafe", "coffee", "dining", "bbq", "barbecue", "catering", "brewery", "winery", "bakery", "deli", "butcher"]):
         config_file = sources_dir / "restaurants.yaml"
@@ -130,7 +130,7 @@ def load_source_config(market_type: str | None = None) -> dict[str, Any]:
             if loaded:
                 return loaded
         return copy.deepcopy(DEFAULT_SOURCE_CONFIGS["restaurants"])
-    
+
     if any(kw in market_lower for kw in ["saas", "software", "tech", "startup"]):
         config_file = sources_dir / "tech-saas.yaml"
         if config_file.exists():
@@ -138,7 +138,7 @@ def load_source_config(market_type: str | None = None) -> dict[str, Any]:
             if loaded:
                 return loaded
         return copy.deepcopy(DEFAULT_SOURCE_CONFIGS["tech-saas"])
-    
+
     return copy.deepcopy(DEFAULT_SOURCE_CONFIGS["general"])
 
 
@@ -181,14 +181,14 @@ def get_search_queries(config: dict[str, Any], market: str, geography: str, prod
     """Generate search queries from config template."""
     queries = config.get("search_queries", [])
     product = product or market
-    
+
     results = []
     for q in queries:
         q = q.replace("{market}", market)
         q = q.replace("{product}", product)
         q = q.replace("{geography}", geography)
         results.append(q)
-    
+
     return results
 
 
@@ -196,7 +196,7 @@ def get_directory_urls(config: dict[str, Any], market: str, geography: str, prod
     """Generate directory URLs from config template."""
     directories = config.get("directories", [])
     product = product or market
-    
+
     results = []
     for d in directories:
         url = d.get("search_url", "")
@@ -209,7 +209,7 @@ def get_directory_urls(config: dict[str, Any], market: str, geography: str, prod
                 "url": url,
                 "type": d.get("type", "directory"),
             })
-    
+
     return results
 
 

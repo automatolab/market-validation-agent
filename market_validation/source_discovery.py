@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
-import re
 from pathlib import Path
 from typing import Any
 
@@ -238,7 +236,6 @@ def build_parser() -> Any:
 
 
 def main() -> None:
-    import json
 
     parser = build_parser()
     args = parser.parse_args()

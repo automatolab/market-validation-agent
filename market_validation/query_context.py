@@ -9,7 +9,6 @@ healthcare, industrial, and general markets alike.
 
 from __future__ import annotations
 
-
 _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
     "saas": ("saas", "software", "api", "platform", "cloud", "automation", "app", "tool"),
     "food": ("restaurant", "food", "bbq", "barbecue", "catering", "cafe", "coffee", "dining", "grocery", "produce", "beverage", "butcher", "deli", "bakery", "brewery", "winery"),
@@ -80,7 +79,7 @@ def _sizing_queries(market: str, geography: str, search_term: str, category: str
         "food": [
             f"food service industry {geography} market size",
             f"{search_term} wholesale distribution market",
-            f"restaurant supply chain market size United States",
+            "restaurant supply chain market size United States",
         ],
         "saas": [
             f"{search_term} software market size worldwide",
@@ -216,7 +215,7 @@ def _competition_queries(market: str, geography: str, search_term: str, category
     extra_funding: dict[str, list[str]] = {
         "food": [
             f"food tech {market} funding investment",
-            f"food service startup acquisition 2024",
+            "food service startup acquisition 2024",
         ],
         "saas": [
             f"{search_term} SaaS funding series A B round",
@@ -254,21 +253,21 @@ def _signals_queries(market: str, geography: str, search_term: str, category: st
             ],
             "regulatory": [
                 f"food safety regulation {geography} 2024 2025",
-                f"USDA meat inspection requirements commercial",
+                "USDA meat inspection requirements commercial",
             ],
             "tech": [
-                f"food delivery supply chain technology trend",
+                "food delivery supply chain technology trend",
                 f"restaurant tech automation {geography}",
             ],
         },
         "saas": {
             "jobs": [
                 f"{search_term} software engineer developer jobs",
-                f"SaaS product manager hiring 2024",
+                "SaaS product manager hiring 2024",
             ],
             "regulatory": [
                 f"{search_term} data privacy GDPR CCPA compliance",
-                f"SaaS software regulation United States",
+                "SaaS software regulation United States",
             ],
             "tech": [
                 f"AI {search_term} automation trend 2024",

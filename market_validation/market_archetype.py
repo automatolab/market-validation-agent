@@ -7,7 +7,6 @@ and validation signals. No network calls, no AI required.
 
 from __future__ import annotations
 
-
 # ---------------------------------------------------------------------------
 # Archetype definitions
 # ---------------------------------------------------------------------------

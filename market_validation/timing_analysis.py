@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
@@ -60,7 +61,6 @@ def analyze_timing(
         Dict with timing_score, timing_verdict, enablers, headwinds,
         adjacent_market_signal, incumbent_posture, regulatory_window, etc.
     """
-    search_term = product or market
     _archetype = archetype.lower()
 
     # ------------------------------------------------------------------

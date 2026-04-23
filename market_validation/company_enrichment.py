@@ -10,12 +10,10 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 import socket
-from functools import lru_cache
+from datetime import UTC
 from pathlib import Path
 from typing import Any
-
 
 _COMMON_EMAIL_PREFIXES = (
     "info", "contact", "sales", "hello", "support", "admin",
@@ -55,7 +53,7 @@ def _is_aggregator_domain(domain: str | None) -> bool:
     """True if *domain* belongs to (or is a subdomain of) a known aggregator/directory."""
     if not domain:
         return False
-    d = domain.lower().lstrip("www.")
+    d = domain.lower().removeprefix("www.")
     if d in _AGGREGATOR_DOMAINS:
         return True
     # e.g. "samsbbqdiner.netwaiter.com" → matches "netwaiter.com"
@@ -182,7 +180,7 @@ def _check_mx(domain: str) -> dict:
             }
         else:
             result = {"has_mx": False, "mx_host": None, "method": "socket_fallback"}
-    except (socket.gaierror, socket.timeout, OSError):
+    except (TimeoutError, socket.gaierror, OSError):
         # Could not resolve at all → try plain A record
         try:
             socket.setdefaulttimeout(5.0)
@@ -238,7 +236,7 @@ def generate_email_patterns(domain: str) -> list[dict[str, Any]]:
     / directory domains — pattern-guessing against yelp.com, netwaiter.com,
     etc. would produce emails for the wrong company.
     """
-    domain = domain.lower().strip().lstrip("www.")
+    domain = domain.lower().strip().removeprefix("www.")
     if not domain or "." not in domain:
         return []
     if _is_aggregator_domain(domain):
@@ -263,13 +261,13 @@ def domain_from_url(url: str | None) -> str | None:
     """Extract bare domain from a URL, stripping scheme and www prefix."""
     if not url:
         return None
-    host = url.split("//")[-1].split("/")[0].lower().lstrip("www.")
+    host = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
     return host if "." in host else None
 
 
 def _iso_now() -> str:
-    from datetime import datetime, timezone
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    from datetime import datetime
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _run_ai_prompt(prompt: str, timeout: int = 120, cwd: str = ".") -> str:
@@ -386,8 +384,8 @@ def enrich_research_companies(
         _ensure_schema(conn)
         conn.row_factory = None
         companies = conn.execute(
-            """SELECT id, company_name, website, phone, location, email 
-               FROM companies 
+            """SELECT id, company_name, website, phone, location, email
+               FROM companies
                WHERE research_id = ? AND status IN ('qualified', 'new')
                ORDER BY priority_score DESC NULLS LAST""",
             (research_id,)
@@ -404,7 +402,7 @@ def enrich_research_companies(
         company_id = company[0]
         company_name = company[1]
         website = company[2]
-        phone = company[3]
+        company[3]
         location = company[4]
         current_email = company[5]
 
@@ -415,7 +413,7 @@ def enrich_research_companies(
 
         if result.get("result") == "ok":
             emails = result.get("emails_found", [])
-            phones = result.get("phones_found", [])
+            result.get("phones_found", [])
 
             if current_email is None and emails:
                 update_company(
@@ -447,18 +445,18 @@ def build_parser() -> Any:
     parser = argparse.ArgumentParser(description="Enrich company data with contacts and emails")
     parser.add_argument("--root", default=".", help="Repository root path")
     parser.add_argument("--db-path", default=None, help="SQLite DB path")
-    
+
     subparsers = parser.add_subparsers(dest="command", required=True)
-    
+
     enrich_parser = subparsers.add_parser("enrich", help="Enrich companies with contact info")
     enrich_parser.add_argument("research_id", help="Research ID")
     enrich_parser.add_argument("--limit", type=int, default=50, help="Max companies to enrich")
-    
+
     single_parser = subparsers.add_parser("single", help="Enrich single company")
     single_parser.add_argument("--company-name", required=True, help="Company name")
     single_parser.add_argument("--website", help="Company website")
     single_parser.add_argument("--location", help="Company location")
-    
+
     return parser
 
 
