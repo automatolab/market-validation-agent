@@ -27,14 +27,31 @@ class ValidationService:
         self.root = root
         self.research_id = research_id
 
+    # Stage names recognized by --skip-stages / --from-stage. Order matches
+    # how a user would naturally think about the pipeline.
+    _STAGE_ORDER: tuple[str, ...] = (
+        "sizing", "demand", "competition", "signals",
+        "unit_economics", "porters", "timing", "customer_segments",
+    )
+
     def run(
         self,
         market: str,
         geography: str,
         product: str | None = None,
         archetype: str | None = None,
+        skip_stages: list[str] | None = None,
+        from_stage: str | None = None,
     ) -> dict[str, Any]:
-        """Run all validation sub-modules and return a combined result dict."""
+        """Run all validation sub-modules and return a combined result dict.
+
+        skip_stages: stage names to skip entirely (load from prior DB record
+                     if available, otherwise use defaults).
+        from_stage:  shorthand for "skip every stage *before* this one".
+                     Useful when an earlier run failed mid-way and the
+                     stages prior to from_stage already have good data
+                     persisted to the validation record.
+        """
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         from market_validation.competitive_landscape import analyze_competition
@@ -44,7 +61,11 @@ class ValidationService:
         from market_validation.market_signals import gather_market_signals
         from market_validation.market_sizing import estimate_market_size
         from market_validation.porters_five_forces import analyze_porters_five_forces
-        from market_validation.research import create_validation, update_validation
+        from market_validation.research import (
+            create_validation,
+            get_validation_by_research,
+            update_validation,
+        )
         from market_validation.timing_analysis import analyze_timing
         from market_validation.unit_economics import estimate_unit_economics
         from market_validation.validation_scorecard import compute_scorecard
@@ -71,6 +92,29 @@ class ValidationService:
 
         run_ai = self.run_ai
 
+        # ── Resolve skip set ─────────────────────────────────────────────
+        skip_set: set[str] = {s.strip() for s in (skip_stages or []) if s.strip()}
+        if from_stage:
+            if from_stage not in self._STAGE_ORDER:
+                raise ValueError(
+                    f"unknown --from-stage {from_stage!r}; valid: {self._STAGE_ORDER}"
+                )
+            cutoff = self._STAGE_ORDER.index(from_stage)
+            for s in self._STAGE_ORDER[:cutoff]:
+                skip_set.add(s)
+        unknown = skip_set - set(self._STAGE_ORDER)
+        if unknown:
+            raise ValueError(f"unknown stages in --skip-stages: {sorted(unknown)}")
+
+        # If we're skipping anything, try to recover prior outputs from the
+        # most recent validation record on this research. Without that,
+        # skipped stages just fall through to their defaults.
+        prior_validation: dict[str, Any] = {}
+        if skip_set and self.research_id:
+            prev = get_validation_by_research(self.research_id, root=self.root)
+            if prev.get("result") == "ok":
+                prior_validation = prev.get("validation") or {}
+
         _defaults: dict[str, Any] = {
             "sizing": {},
             "demand": {"demand_score": 50, "demand_trend": "stable"},
@@ -87,7 +131,7 @@ class ValidationService:
             "competition": (analyze_competition, (market, geography, product), {"run_ai": run_ai}),
             "signals": (gather_market_signals, (market, geography, product), {"run_ai": run_ai}),
             "unit_economics": (estimate_unit_economics, (market, geography, product), {"archetype": archetype_key, "run_ai": run_ai}),
-            "porters": (analyze_porters_five_forces, (market, geography, product), {"run_ai": run_ai}),
+            "porters": (analyze_porters_five_forces, (market, geography, product), {"run_ai": run_ai, "archetype": archetype_key}),
             "timing": (analyze_timing, (market, geography, product), {"archetype": archetype_key, "run_ai": run_ai}),
             "customer_segments": (identify_customer_segments, (market, geography, product), {"archetype": archetype_key, "run_ai": run_ai}),
         }
@@ -102,20 +146,30 @@ class ValidationService:
             "customer_segments": "Identifying customer segments",
         }
         results_map: dict[str, Any] = {}
-        print("[validate]   Running 8 modules in parallel...")
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = {
-                executor.submit(fn, *args, **kwargs): key
-                for key, (fn, args, kwargs) in _tasks.items()
-            }
-            for future in as_completed(futures):
-                key = futures[future]
-                try:
-                    results_map[key] = future.result()
-                    print(f"[validate]   ✓ {_labels[key]}")
-                except Exception as e:
-                    print(f"[validate]   ! {_labels[key]} failed: {e}")
-                    results_map[key] = _defaults[key]
+
+        # Hydrate skipped stages from the prior validation record (or defaults)
+        for skipped in skip_set:
+            recovered = self._recover_stage_from_db(skipped, prior_validation)
+            results_map[skipped] = recovered if recovered is not None else _defaults[skipped]
+            origin = "DB" if recovered is not None else "defaults"
+            print(f"[validate]   ↻ skipping {_labels[skipped]} (loaded from {origin})")
+
+        active_tasks = {k: v for k, v in _tasks.items() if k not in skip_set}
+        if active_tasks:
+            print(f"[validate]   Running {len(active_tasks)} module(s) in parallel...")
+            with ThreadPoolExecutor(max_workers=max(1, len(active_tasks))) as executor:
+                futures = {
+                    executor.submit(fn, *args, **kwargs): key
+                    for key, (fn, args, kwargs) in active_tasks.items()
+                }
+                for future in as_completed(futures):
+                    key = futures[future]
+                    try:
+                        results_map[key] = future.result()
+                        print(f"[validate]   ✓ {_labels[key]}")
+                    except Exception as e:
+                        print(f"[validate]   ! {_labels[key]} failed: {e}")
+                        results_map[key] = _defaults[key]
 
         sizing = results_map["sizing"]
         demand = results_map["demand"]
@@ -133,6 +187,7 @@ class ValidationService:
                     market, geography, product,
                     existing_competition=competition,
                     run_ai=run_ai,
+                    archetype=archetype_key,
                 )
             except Exception as exc:
                 # Keep the first-pass result; log so we can trace why the
@@ -269,3 +324,91 @@ class ValidationService:
             "customer_segments": customer_segments,
             "scorecard": scorecard,
         }
+
+    @staticmethod
+    def _recover_stage_from_db(stage: str, prior: dict[str, Any]) -> dict[str, Any] | None:
+        """Rebuild the in-memory shape a stage would have produced from the
+        flattened DB columns of a prior validation record.
+
+        Returns ``None`` when ``prior`` doesn't contain enough data to
+        reconstruct the stage (caller falls back to defaults).
+        """
+        if not prior:
+            return None
+
+        # Sizing — TAM/SAM/SOM ranges are scalar columns
+        if stage == "sizing":
+            keys = ("tam_low", "tam_high", "tam_confidence", "tam_sources",
+                    "sam_low", "sam_high", "sam_confidence", "sam_sources",
+                    "som_low", "som_high", "som_confidence", "som_sources",
+                    "growth_rate")
+            recovered = {k: prior[k] for k in keys if prior.get(k) is not None}
+            return recovered or None
+
+        if stage == "demand":
+            keys = ("demand_score", "demand_trend", "demand_seasonality",
+                    "demand_pain_points", "demand_sources", "willingness_to_pay")
+            recovered = {k: prior[k] for k in keys if prior.get(k) is not None}
+            return recovered or None
+
+        if stage == "competition":
+            keys = ("competitive_intensity", "competitor_count", "market_concentration",
+                    "direct_competitors", "indirect_competitors", "funding_signals",
+                    "differentiation_opportunities", "barriers_to_entry")
+            recovered = {k: prior[k] for k in keys if prior.get(k) is not None}
+            return recovered or None
+
+        if stage == "signals":
+            keys = ("job_posting_volume", "news_sentiment", "regulatory_risks",
+                    "technology_maturity", "signals_data", "key_trends",
+                    "timing_assessment")
+            recovered = {k: prior[k] for k in keys if prior.get(k) is not None}
+            return recovered or None
+
+        if stage == "unit_economics":
+            payload = prior.get("unit_economics_data")
+            if isinstance(payload, str):
+                import json as _json
+                try:
+                    return _json.loads(payload)
+                except (ValueError, TypeError):
+                    return None
+            if isinstance(payload, dict):
+                return payload
+            return None
+
+        if stage == "porters":
+            payload = prior.get("porters_data")
+            if isinstance(payload, str):
+                import json as _json
+                try:
+                    return _json.loads(payload)
+                except (ValueError, TypeError):
+                    return None
+            if isinstance(payload, dict):
+                return payload
+            return None
+
+        if stage == "timing":
+            keys = ("timing_score", "timing_verdict", "timing_enablers", "timing_headwinds")
+            recovered = {k: prior[k] for k in keys if prior.get(k) is not None}
+            # Fold renamed columns back into the in-memory shape modules expect
+            if "timing_enablers" in recovered:
+                recovered["enablers"] = recovered.pop("timing_enablers")
+            if "timing_headwinds" in recovered:
+                recovered["headwinds"] = recovered.pop("timing_headwinds")
+            return recovered or None
+
+        if stage == "customer_segments":
+            payload = prior.get("customer_segments_data")
+            if isinstance(payload, str):
+                import json as _json
+                try:
+                    return _json.loads(payload)
+                except (ValueError, TypeError):
+                    return None
+            if isinstance(payload, dict):
+                return payload
+            return None
+
+        return None

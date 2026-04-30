@@ -69,41 +69,48 @@ Return ONLY a JSON array — one object per candidate, in the same order. No mar
 
     try:
         raw = run_ai(prompt)
-        text = None
-        if isinstance(raw, dict):
-            companies_val = raw.get("companies")
-            if isinstance(companies_val, list):
-                # _parse_json_from_text wraps JSON arrays as {"companies": [...]}
-                # Check if the items are validation results (have "index"/"keep") or
-                # actual company objects (have "company_name"). Handle both.
-                if companies_val and isinstance(companies_val[0], dict):
-                    if "index" in companies_val[0] or "keep" in companies_val[0]:
-                        import json as _j
-                        text = _j.dumps(companies_val)
-                    else:
-                        # Claude returned companies, not validation results. Fall back.
-                        return candidates
-                elif not companies_val:
-                    return []
-                else:
+        # The prompt asks for a bare JSON array of validation results. _run
+        # now returns arrays as-is (no longer wrapped in {"companies": ...}),
+        # so the happy path is simply: raw is already the parsed list.
+        parsed: list[dict[str, Any]] | None = None
+        if isinstance(raw, list):
+            parsed = raw
+        elif isinstance(raw, dict):
+            # Backwards-compat: a model that ignored the schema and returned
+            # {"companies": [...]} or {"results": [...]} should still work.
+            for key in ("results", "companies", "items", "validations"):
+                val = raw.get(key)
+                if isinstance(val, list):
+                    parsed = val
+                    break
+            if parsed is None:
+                # Last resort: a stray text/content field with raw JSON inside.
+                text = raw.get("text") or raw.get("content")
+                if isinstance(text, str):
                     import json as _j
-                    text = _j.dumps(companies_val)
-            else:
-                text = raw.get("text") or raw.get("content") or None
-                if not text:
-                    import json as _j
-                    text = _j.dumps(raw)
+                    import re as _re
+                    text = _re.sub(r"^```[a-z]*\n?", "", text.strip())
+                    text = _re.sub(r"\n?```$", "", text.strip())
+                    try:
+                        decoded = _j.loads(text)
+                    except _j.JSONDecodeError:
+                        decoded = None
+                    if isinstance(decoded, list):
+                        parsed = decoded
         elif isinstance(raw, str):
-            text = raw
+            import json as _j
+            import re as _re
+            text = _re.sub(r"^```[a-z]*\n?", "", raw.strip())
+            text = _re.sub(r"\n?```$", "", text.strip())
+            try:
+                decoded = _j.loads(text)
+                if isinstance(decoded, list):
+                    parsed = decoded
+            except _j.JSONDecodeError:
+                pass
 
-        if not text:
+        if parsed is None:
             return candidates
-
-        import json as _j
-        import re as _re
-        text = _re.sub(r"^```[a-z]*\n?", "", text.strip())
-        text = _re.sub(r"\n?```$", "", text.strip())
-        parsed = _j.loads(text)
 
         validated: list[dict[str, Any]] = []
         for item in parsed:

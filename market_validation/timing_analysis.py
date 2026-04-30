@@ -15,16 +15,21 @@ AI synthesis (claude/opencode) is required for structured output.
 from __future__ import annotations
 
 import json
-import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from market_validation.log import get_logger
+
+_log = get_logger("timing_analysis")
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
     try:
         from market_validation.multi_search import quick_search
         return quick_search(query, num_results)
-    except Exception:
+    except Exception as exc:
+        _log.debug("multi_search.quick_search failed for %r: %s", query, exc)
         return []
 
 
@@ -32,6 +37,26 @@ def _snippets(query: str, num_results: int = 10) -> list[str]:
     """Search and return non-empty snippets."""
     results = _search(query, num_results)
     return [r.get("snippet", "").strip() for r in results if r.get("snippet", "").strip()]
+
+
+def _parallel_snippets(queries: list[str], num_results: int = 10) -> list[str]:
+    """Run ``_snippets`` for many queries concurrently and concatenate the
+    results in the original order.
+
+    Replaces the old serial pattern of ``for q in queries: snippets.extend(...);
+    time.sleep(1.2)`` which dominated wall-clock time inside this module.
+    Search backends are independent calls so there's no need to space them
+    out — the multi_search rate-limit logic handles backend politeness.
+    """
+    if not queries:
+        return []
+    out: list[str] = []
+    with ThreadPoolExecutor(max_workers=min(8, len(queries))) as pool:
+        # ``pool.map`` preserves input order, which keeps snippet ordering
+        # stable for tests and for prompt construction.
+        for batch in pool.map(lambda q: _snippets(q, num_results), queries):
+            out.extend(batch)
+    return out
 
 
 def analyze_timing(
@@ -62,76 +87,63 @@ def analyze_timing(
         adjacent_market_signal, incumbent_posture, regulatory_window, etc.
     """
     _archetype = archetype.lower()
+    _is_local = any(t in _archetype for t in ("local", "food", "restaurant"))
+    _is_saas = "saas" in _archetype or "software" in _archetype
 
     # ------------------------------------------------------------------
-    # Category 1 — Enablers
+    # Build the per-category query lists, then fetch them all in parallel.
+    # The original code interleaved 15 ``_snippets`` calls with 1.2s sleeps,
+    # serializing what should be independent web-search lookups.
     # ------------------------------------------------------------------
-    enabler_snippets: list[str] = []
+    enabler_queries: list[str] = [
+        f"{market} new platform infrastructure enabling {geography}",
+        f"{market} technology reducing barrier cost",
+    ]
+    if _is_local:
+        enabler_queries += [
+            f"ghost kitchen shared kitchen {geography}",
+            f"food delivery growth {geography}",
+        ]
+    if _is_saas:
+        enabler_queries += [
+            f"API integration ecosystem {market}",
+            f"no-code low-code {market}",
+        ]
 
-    enabler_snippets.extend(_snippets(f"{market} new platform infrastructure enabling {geography}", 10))
-    time.sleep(1.2)
-    enabler_snippets.extend(_snippets(f"{market} technology reducing barrier cost", 10))
-    time.sleep(1.2)
+    incumbent_queries: list[str] = [
+        f"{market} {geography} leader investing expanding",
+        f"{market} innovation slow stagnant incumbents",
+        f"{market} acquisition funding recent 2024 2025",
+    ]
 
-    if "local" in _archetype or "food" in _archetype or "restaurant" in _archetype:
-        enabler_snippets.extend(_snippets(f"ghost kitchen shared kitchen {geography}", 10))
-        time.sleep(1.2)
-        enabler_snippets.extend(_snippets(f"food delivery growth {geography}", 10))
-        time.sleep(1.2)
+    adjacent_queries: list[str] = [
+        f"{market} adjacent market growing trend",
+    ]
+    if _is_local:
+        adjacent_queries += [
+            "food delivery ghost kitchen growth",
+            "meal prep catering growth",
+        ]
+    if _is_saas:
+        adjacent_queries.append(f"digital transformation {market} adoption")
 
-    if "saas" in _archetype or "software" in _archetype:
-        enabler_snippets.extend(_snippets(f"API integration ecosystem {market}", 10))
-        time.sleep(1.2)
-        enabler_snippets.extend(_snippets(f"no-code low-code {market}", 10))
-        time.sleep(1.2)
+    regulatory_queries: list[str] = [
+        f"{market} {geography} new regulation law 2024 2025 opportunity",
+        f"{market} deregulation opening market",
+    ]
 
-    enabler_snippets = enabler_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 2 — Incumbent signals
-    # ------------------------------------------------------------------
-    incumbent_snippets: list[str] = []
-
-    incumbent_snippets.extend(_snippets(f"{market} {geography} leader investing expanding", 10))
-    time.sleep(1.2)
-    incumbent_snippets.extend(_snippets(f"{market} innovation slow stagnant incumbents", 10))
-    time.sleep(1.2)
-    incumbent_snippets.extend(_snippets(f"{market} acquisition funding recent 2024 2025", 10))
-    time.sleep(1.2)
-
-    incumbent_snippets = incumbent_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 3 — Adjacent market pull
-    # ------------------------------------------------------------------
-    adjacent_snippets: list[str] = []
-
-    adjacent_snippets.extend(_snippets(f"{market} adjacent market growing trend", 10))
-    time.sleep(1.2)
-
-    if "food" in _archetype or "local" in _archetype or "restaurant" in _archetype:
-        adjacent_snippets.extend(_snippets("food delivery ghost kitchen growth", 10))
-        time.sleep(1.2)
-        adjacent_snippets.extend(_snippets("meal prep catering growth", 10))
-        time.sleep(1.2)
-
-    if "saas" in _archetype or "software" in _archetype:
-        adjacent_snippets.extend(_snippets(f"digital transformation {market} adoption", 10))
-        time.sleep(1.2)
-
-    adjacent_snippets = adjacent_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 4 — Regulatory window
-    # ------------------------------------------------------------------
-    regulatory_snippets: list[str] = []
-
-    regulatory_snippets.extend(_snippets(f"{market} {geography} new regulation law 2024 2025 opportunity", 10))
-    time.sleep(1.2)
-    regulatory_snippets.extend(_snippets(f"{market} deregulation opening market", 10))
-    time.sleep(1.2)
-
-    regulatory_snippets = regulatory_snippets[:6]
+    # Fetch every category concurrently. Inside each category the per-query
+    # calls are ALSO concurrent (via _parallel_snippets), so total wall-clock
+    # is roughly the slowest individual search rather than the sum.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_enab = pool.submit(_parallel_snippets, enabler_queries)
+        f_incum = pool.submit(_parallel_snippets, incumbent_queries)
+        f_adj = pool.submit(_parallel_snippets, adjacent_queries)
+        f_reg = pool.submit(_parallel_snippets, regulatory_queries)
+        enabler_snippets = f_enab.result()[:6]
+        incumbent_snippets = f_incum.result()[:6]
+        adjacent_snippets = f_adj.result()[:6]
+        regulatory_snippets = f_reg.result()[:6]
 
     # ------------------------------------------------------------------
     # Existing signals context (avoid re-running if caller passed output
@@ -178,8 +190,9 @@ def analyze_timing(
 
     signals_text = ""
     if signals_context:
-        risks_str = ", ".join(signals_context.get("regulatory_risks", [])) or "none noted"
-        trends_str = ", ".join(signals_context.get("key_trends", [])) or "none noted"
+        from market_validation.validation_scorecard import _flatten_strings
+        risks_str = _flatten_strings(signals_context.get("regulatory_risks", [])) or "none noted"
+        trends_str = _flatten_strings(signals_context.get("key_trends", [])) or "none noted"
         signals_text = f"""
 Prior market signals data:
 - News sentiment: {signals_context.get('news_sentiment', 'unknown')}
@@ -203,14 +216,27 @@ Return ONLY this JSON (no markdown fences):
 {{
     "timing_score": <0-100>,
     "timing_verdict": "<good|neutral|early|late|poor>",
-    "enablers": ["<specific enabler 1>", "<specific enabler 2>"],
-    "headwinds": ["<specific headwind 1>", "<specific headwind 2>"],
+    "enablers": [
+      {{"enabler": "specific tech / platform / structural change", "evidence": "1-line snippet", "source_url": "..."}}
+    ],
+    "headwinds": [
+      {{"headwind": "specific market force", "evidence": "1-line snippet", "source_url": "..."}}
+    ],
     "adjacent_market_signal": "<positive|neutral|negative>",
     "adjacent_market_notes": "<1 sentence on adjacent market dynamics>",
     "incumbent_posture": "<investing|complacent|retrenching>",
+    "incumbent_evidence": "1 sentence — recent funding / acquisition / layoff / R&D headline that shows posture",
     "regulatory_window": "<opening|neutral|closing>",
+    "regulatory_evidence": "1 sentence — specific bill / rulemaking / deadline if any (or 'none found')",
     "timing_notes": "<1-2 sentences on overall timing verdict>"
 }}
+
+Citation rules:
+- Every enabler and headwind MUST be backed by an evidence snippet drawn
+  from the search blocks above. Don't list one you can't cite.
+- incumbent_posture and regulatory_window must include their own evidence
+  fields — if you can't cite a specific signal, return "neutral" and
+  explicitly note the absence in timing_notes.
 
 Scoring guide for timing_score:
 - 75+: Multiple clear enablers, incumbents complacent, regulatory tailwind, adjacent market pulling
@@ -248,4 +274,6 @@ Definitions:
             result["ai_raw"] = ai_result
 
     result.update(parsed)
+    from market_validation._helpers.citations import RULES_FOR_TIMING, enforce_citations
+    enforce_citations(result, RULES_FOR_TIMING)
     return result

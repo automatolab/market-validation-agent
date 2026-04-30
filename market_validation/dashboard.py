@@ -39,6 +39,35 @@ _STATE_ABBR: dict[str, str] = {
 }
 
 
+def _summarize_source_health(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Roll up search-pipeline source_health events into a tidy summary.
+
+    Returns counts per stage, plus a list of failed/empty stages for
+    operator visibility. Used by the dashboard to flag degraded runs
+    (e.g. DDG cool-down, Nominatim 503) instead of silently underdelivering.
+    """
+    if not events:
+        return {}
+    by_status: dict[str, int] = {}
+    failed_stages: list[str] = []
+    backend_totals: dict[str, int] = {}
+    for ev in events:
+        status = str(ev.get("status") or "unknown")
+        by_status[status] = by_status.get(status, 0) + 1
+        if status in ("error", "fail", "empty") and ev.get("stage"):
+            stage = str(ev["stage"])
+            if stage not in failed_stages:
+                failed_stages.append(stage)
+        for backend, n in (ev.get("backends") or {}).items():
+            backend_totals[backend] = backend_totals.get(backend, 0) + int(n or 0)
+    return {
+        "events_total": len(events),
+        "by_status": by_status,
+        "failed_or_empty_stages": failed_stages[:8],
+        "backend_totals": backend_totals,
+    }
+
+
 def _geo_key(geo: str) -> str:
     """Normalize a geography string for fuzzy matching (e.g. 'San Jose, CA' ≈ 'San Jose California')."""
     g = geo.lower().strip()
@@ -64,7 +93,8 @@ def _load_data() -> dict[str, Any]:
 
         research_rows = conn.execute(
             """
-            SELECT id, name, market, product, geography, status, created_at
+            SELECT id, name, market, product, geography, status, created_at,
+                   last_source_health
             FROM researches
             ORDER BY created_at DESC
             """
@@ -85,6 +115,18 @@ def _load_data() -> dict[str, Any]:
                 (row[0],),
             ).fetchone()
 
+            # Parse source_health JSON blob into a per-stage summary so the
+            # dashboard can show "DDG rate-limited", "Nominatim failed", etc.
+            sh_summary: dict[str, Any] = {}
+            sh_raw = row[7] if len(row) > 7 else None
+            if sh_raw:
+                try:
+                    sh_data = json.loads(sh_raw) if isinstance(sh_raw, str) else sh_raw
+                    if isinstance(sh_data, list):
+                        sh_summary = _summarize_source_health(sh_data)
+                except (ValueError, TypeError) as exc:
+                    _log.debug("source_health parse failed for %s: %s", row[0], exc)
+
             researches.append(
                 {
                     "id": row[0],
@@ -99,6 +141,7 @@ def _load_data() -> dict[str, Any]:
                     "contacted": stats[2] or 0,
                     "with_email": stats[3] or 0,
                     "with_phone": stats[4] or 0,
+                    "source_health": sh_summary,
                 }
             )
 
@@ -356,6 +399,55 @@ def _make_handler(host: str, port: int):
     from market_validation.gmail_tracker import sync_all as gmail_sync_all
     from market_validation.research import add_company, delete_company, update_company
 
+    # API key for write endpoints. When set, every POST must include a
+    # matching X-API-Key header. Set MV_DASHBOARD_API_KEY in .env to enable.
+    # When unset, the dashboard refuses to bind to non-loopback hosts (so we
+    # don't accidentally expose unprotected mutation endpoints to the LAN).
+    import hmac as _hmac
+    import os as _os
+    import threading as _threading
+    import time as _time
+    _expected_api_key = _os.environ.get("MV_DASHBOARD_API_KEY")
+    if (host != "127.0.0.1" and host != "localhost") and not _expected_api_key:
+        raise RuntimeError(
+            f"Refusing to bind dashboard to {host} without auth. "
+            "Set MV_DASHBOARD_API_KEY in .env to enable network access, "
+            "or bind to 127.0.0.1 (default)."
+        )
+
+    # Per-IP auth-failure rate limit. After 10 failures in 5 min from one
+    # IP, block that IP for 15 min so an attacker can't brute-force the key.
+    _AUTH_FAIL_WINDOW_S = 300
+    _AUTH_FAIL_THRESHOLD = 10
+    _AUTH_BLOCK_DURATION_S = 900
+    _auth_failures: dict[str, list[float]] = {}
+    _auth_blocks: dict[str, float] = {}
+    _auth_lock = _threading.Lock()
+
+    def _record_auth_failure(client_ip: str) -> None:
+        now = _time.time()
+        with _auth_lock:
+            history = _auth_failures.setdefault(client_ip, [])
+            # Drop entries older than the window
+            _auth_failures[client_ip] = [t for t in history if now - t < _AUTH_FAIL_WINDOW_S]
+            _auth_failures[client_ip].append(now)
+            if len(_auth_failures[client_ip]) >= _AUTH_FAIL_THRESHOLD:
+                _auth_blocks[client_ip] = now + _AUTH_BLOCK_DURATION_S
+                _log.warning(
+                    "auth: blocking %s for %ds (%d failures in %ds)",
+                    client_ip, _AUTH_BLOCK_DURATION_S,
+                    len(_auth_failures[client_ip]), _AUTH_FAIL_WINDOW_S,
+                )
+
+    def _is_blocked(client_ip: str) -> bool:
+        with _auth_lock:
+            blocked_until = _auth_blocks.get(client_ip)
+            if blocked_until and _time.time() < blocked_until:
+                return True
+            if blocked_until:
+                _auth_blocks.pop(client_ip, None)
+        return False
+
     class Handler(BaseHTTPRequestHandler):
         def _json(self, payload: dict[str, Any], status: int = 200) -> None:
             body = json.dumps(payload).encode("utf-8")
@@ -364,6 +456,38 @@ def _make_handler(host: str, port: int):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _check_auth(self) -> bool:
+            """Validate X-API-Key header when one is required.
+
+            Returns True when the request is authorized (either no key
+            configured AND request is from loopback, or a matching key was
+            provided). On invalid key, records the failure and rate-limits
+            the client IP after too many bad attempts.
+            """
+            client_ip = self.client_address[0] if self.client_address else ""
+            if _is_blocked(client_ip):
+                self._json(
+                    {"result": "error", "error": "too many failed auth attempts; try later"},
+                    status=429,
+                )
+                return False
+            if not _expected_api_key:
+                # No key configured — only allow localhost.
+                if client_ip in ("127.0.0.1", "::1", "localhost"):
+                    return True
+                self._json(
+                    {"result": "error", "error": "API key required for non-localhost access"},
+                    status=401,
+                )
+                return False
+            provided = self.headers.get("X-API-Key", "")
+            # Constant-time comparison to defeat timing oracles on the key.
+            if not _hmac.compare_digest(provided, _expected_api_key):
+                _record_auth_failure(client_ip)
+                self._json({"result": "error", "error": "invalid X-API-Key"}, status=401)
+                return False
+            return True
 
         def do_GET(self):
             from urllib.parse import urlparse as _up
@@ -395,7 +519,10 @@ def _make_handler(host: str, port: int):
             # Open-tracking pixel
             if path.startswith("/api/email/track/open/"):
                 email_id = path.split("/api/email/track/open/", 1)[1].strip("/")
-                record_open(email_id)
+                # Pass client IP so the tracker can demote Gmail-proxy opens
+                # (image pre-fetch != real recipient open).
+                client_ip = self.client_address[0] if self.client_address else None
+                record_open(email_id, client_ip=client_ip)
                 self.send_response(200)
                 self.send_header("Content-Type", "image/gif")
                 self.send_header("Content-Length", str(len(TRANSPARENT_GIF)))
@@ -434,9 +561,27 @@ def _make_handler(host: str, port: int):
                 result = get_validation_by_research(research_id)
                 return self._json(result)
 
+            if path == "/api/calibration":
+                from market_validation.research import get_calibration_summary
+                return self._json(get_calibration_summary())
+
             return self._json({"result": "error", "error": "not found"}, 404)
 
         def do_POST(self):
+            # All POST endpoints mutate state — require auth.
+            if not self._check_auth():
+                return
+            # Lightweight CSRF defense: require X-Requested-With header.
+            # Browsers add this header for fetch/XHR requests but NOT for
+            # cross-origin form posts, which is what CSRF attacks rely on.
+            # Cheaper than full token-double-submit and adequate for a
+            # same-origin internal tool.
+            if self.headers.get("X-Requested-With") != "MarketValidationDashboard":
+                self._json(
+                    {"result": "error", "error": "missing X-Requested-With header (CSRF)"},
+                    status=403,
+                )
+                return
             path = urlparse(self.path).path
             length = int(self.headers.get("Content-Length", "0"))
             raw = self.rfile.read(length).decode("utf-8") if length else ""
@@ -518,6 +663,16 @@ def _make_handler(host: str, port: int):
 
                 if path == "/api/email/reject-all":
                     return self._json(reject_all_emails())
+
+                if path == "/api/validation/outcome":
+                    from market_validation.research import record_validation_outcome
+                    return self._json(record_validation_outcome(
+                        validation_id=data["validation_id"],
+                        actual_outcome=data["outcome"],
+                        notes=data.get("notes"),
+                        revenue_actual=data.get("revenue"),
+                        recorded_by=data.get("recorded_by"),
+                    ))
 
             except Exception as exc:
                 return self._json({"result": "error", "error": str(exc)}, 400)

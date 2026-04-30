@@ -28,6 +28,9 @@ _AGGREGATOR_DOMAINS = frozenset({
     "yelp.com", "tripadvisor.com", "yellowpages.com", "superpages.com",
     "bbb.org", "manta.com", "opentable.com", "thumbtack.com", "angi.com",
     "angieslist.com", "zomato.com", "foursquare.com", "mapquest.com",
+    "bizapedia.com", "localeze.com", "cylex.us.com", "expertise.com",
+    "homeadvisor.com", "porch.com", "houzz.com", "yellowbook.com",
+    "merchantcircle.com", "city-data.com", "buzzfile.com",
     # Ordering / reservation / table-management
     "netwaiter.com", "toasttab.com", "toast.com", "resy.com", "seated.com",
     "doordash.com", "grubhub.com", "ubereats.com", "chownow.com",
@@ -37,15 +40,57 @@ _AGGREGATOR_DOMAINS = frozenset({
     "eventective.com", "theknot.com", "weddingwire.com", "eventbrite.com",
     "sagemenu.com", "foodtruckavenue.com", "res-menu.net", "wholesaleseeker.com",
     "einnews.com", "sumferkitchens.com",
+    # SaaS / B2B directories
+    "g2.com", "capterra.com", "producthunt.com", "softwareadvice.com",
+    "trustradius.com", "getapp.com", "saashub.com", "sourceforge.net",
+    "alternativeto.net", "crozdesk.com",
+    # Crunchbase / data / news aggregators
+    "crunchbase.com", "dnb.com", "zoominfo.com", "rocketreach.co",
+    "leadiq.com", "apollo.io", "lusha.com", "hunter.io", "snov.io",
+    "owler.com", "pitchbook.com", "growjo.com",
     # Social / content hosts
     "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
-    "tiktok.com", "youtube.com", "pinterest.com",
+    "tiktok.com", "youtube.com", "pinterest.com", "reddit.com", "quora.com",
+    "medium.com", "substack.com",
     # Generic website builders / hosts (sometimes surface as "website")
     "wixsite.com", "squarespace.com", "weebly.com", "godaddysites.com",
-    "myshopify.com", "blogspot.com", "wordpress.com", "medium.com",
+    "myshopify.com", "blogspot.com", "wordpress.com",
+    "carrd.co", "webflow.io", "site123.me",
     # Search / map / news properties
     "google.com", "maps.google.com", "bing.com", "apple.com",
     "wikipedia.org", "wikimedia.org",
+    # General news / content publishers — emails on these are journalists
+    # writing ABOUT a company, not the company itself.
+    "nytimes.com", "wsj.com", "ft.com", "bloomberg.com", "reuters.com",
+    "apnews.com", "ap.org", "npr.org", "bbc.com", "bbc.co.uk", "cnn.com",
+    "theguardian.com", "washingtonpost.com", "latimes.com",
+    "sfchronicle.com", "sfgate.com", "mercurynews.com",
+    "nbcnews.com", "abcnews.go.com", "cbsnews.com", "foxnews.com",
+    "businessinsider.com", "fortune.com", "forbes.com", "inc.com",
+    "fastcompany.com", "axios.com", "voanews.com", "voa.gov",
+    "techcrunch.com", "theinformation.com", "theverge.com", "wired.com",
+    "vice.com", "buzzfeed.com", "huffpost.com",
+    # Trade/agritech press — same rationale, came up in CA hydroponics run
+    "globalaginvesting.com", "agriinvestor.com", "agfundernews.com",
+    "modernfarmer.com", "agritecture.com", "urbanvine.co",
+    "growertalks.com", "hortidaily.com", "freshplaza.com",
+    "produceblue book.com", "thepacker.com", "agdaily.com",
+    "optimistdaily.com", "smartcitiesdive.com", "fooddive.com",
+    "supermarketnews.com", "winsightgrocerybusiness.com",
+    "bizjournals.com", "patch.com",
+    # Press release wire services
+    "prnewswire.com", "businesswire.com", "globenewswire.com",
+    "marketwire.com", "einpresswire.com", "accesswire.com",
+    "newswire.com", "openpr.com",
+    # Logistics / shipping (came up as cross-domain pickup — XPO Logistics
+    # email surfaced for a hydroponic farm because of a freight-quote widget)
+    "xpo.com", "fedex.com", "ups.com", "usps.com", "dhl.com",
+    "shipstation.com", "easypost.com",
+    # Stock photo / template hosts (emails on demo pages)
+    "shutterstock.com", "istockphoto.com", "gettyimages.com",
+    "unsplash.com", "pixabay.com", "pexels.com",
+    # Misc cross-pollination domains we've seen in enrichment
+    "thegrowcer.ca",  # Canadian container farm — kept appearing for unrelated US growers
 })
 
 
@@ -72,9 +117,12 @@ _VALID_TLD_WHITELIST = frozenset({
 def is_plausible_email(email: str | None) -> bool:
     """Return True if *email* looks like a real, writable email address.
 
-    Rejects strings with embedded commentary ("x@y.com (inferred)"), unknown
-    long TLDs (`.loc`, `.corp`), aggregator domains (`@yelp.com`,
-    `@netwaiter.com`), and obvious placeholders. Allows normal 2-letter ccTLDs.
+    Rejects:
+      - strings with embedded commentary ("x@y.com (inferred)")
+      - unknown long TLDs (`.loc`, `.corp`)
+      - aggregator / news / PR domains (`@yelp.com`, `@sfchronicle.com`)
+      - placeholder local-parts (`example@`, `first@`, `yourname@`)
+    Allows normal 2-letter ccTLDs.
     """
     if not email:
         return False
@@ -85,6 +133,7 @@ def is_plausible_email(email: str | None) -> bool:
     m = re.fullmatch(r"([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+)\.([A-Za-z]{2,})", e)
     if not m:
         return False
+    local = m.group(1).lower()
     domain = (m.group(2) + "." + m.group(3)).lower()
     tld = m.group(3).lower()
     # TLD check — accept all 2-letter ccTLDs, else must be a known public TLD
@@ -92,6 +141,14 @@ def is_plausible_email(email: str | None) -> bool:
         return False
     if _is_aggregator_domain(domain):
         return False
+    # Placeholder local-part check (example@gmail.com, first@plenty.ag, etc.)
+    try:
+        from market_validation.web_scraper import _PLACEHOLDER_LOCAL_PARTS
+        normalized = local.replace(".", "").replace("-", "").replace("_", "")
+        if normalized in _PLACEHOLDER_LOCAL_PARTS:
+            return False
+    except ImportError:
+        pass
     return True
 
 # ---------------------------------------------------------------------------

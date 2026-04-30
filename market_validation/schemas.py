@@ -15,7 +15,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-CompanyStatus = Literal["new", "qualified", "uncertain", "not_interested", "contacted", "interested"]
+# Canonical company status values — must mirror research.CompanyStatus.ALL.
+# "not_relevant" is the qualifier's reject verdict (wrong market fit).
+# "not_interested" is the post-outreach state (recipient said no).
+# Keeping them distinct matters for funnel analytics.
+CompanyStatus = Literal[
+    "new", "qualified", "not_relevant",
+    "contacted", "replied", "interested", "not_interested", "skipped",
+]
 PriorityTier = Literal["high", "medium", "low"]
 ResearchStatus = Literal["active", "archived", "completed"]
 
@@ -121,10 +128,21 @@ class CompanyCandidate(_StrictModel):
 
 
 class QualificationResult(_StrictModel):
-    """One company's AI qualification verdict."""
+    """One company's AI qualification verdict.
+
+    Status values mirror what the qualifier prompt asks for and what
+    ``normalize_qualification_status`` returns:
+      qualified    — clear market fit, ready to enrich/contact
+      not_relevant — wrong market fit, do not pursue
+      new          — uncertain / needs more data (default)
+
+    Post-outreach states (contacted, replied, interested, not_interested,
+    skipped) live in the broader CompanyStatus enum but never come back
+    from the qualifier.
+    """
 
     company_id: str
-    status: Literal["qualified", "uncertain", "not_interested", "new"] = "new"
+    status: Literal["qualified", "not_relevant", "new"] = "new"
     score: int = Field(ge=0, le=100)
     priority: PriorityTier = "low"
     volume_estimate: float | None = None

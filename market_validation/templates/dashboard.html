@@ -135,6 +135,19 @@
         <div id='validationWrap'></div>
       </div>
     </section>
+    <section class='panel' id='sourceHealthPanel' style='display:none'>
+      <div class='panel-head'>
+        <h2>Search Source Health</h2>
+        <span id='sourceHealthBadge' class='count-pill'></span>
+      </div>
+      <div class='panel-body'>
+        <p class='muted' style='margin:0 0 12px;font-size:13px;line-height:1.5'>
+          Per-stage outcomes from the most recent <code>find()</code> run on this project.
+          Failed or empty stages mean the discovery pipeline degraded — usually a rate-limited backend.
+        </p>
+        <div id='sourceHealthWrap'></div>
+      </div>
+    </section>
     <section class='panel'>
       <div class='panel-head'><h2 id='companiesTitle'>Companies</h2></div>
       <div class='panel-body'>

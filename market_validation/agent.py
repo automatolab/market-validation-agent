@@ -109,8 +109,14 @@ class Agent:
         return "none"
 
     @staticmethod
-    def _parse_json_from_text(text: str) -> dict[str, Any] | None:
-        """Extract the first valid JSON object or array from arbitrary text."""
+    def _parse_json_from_text(text: str) -> dict[str, Any] | list[Any] | None:
+        """Extract the first valid JSON object or array from arbitrary text.
+
+        Returns a dict for object responses, a list for array responses, or
+        None when nothing parses. Callers should ``isinstance``-check before
+        treating the result as either shape — every existing caller already
+        does, so the changed return type is compatible.
+        """
         if "```json" in text:
             text = text.split("```json", 1)[1].split("```", 1)[0]
         elif "```" in text:
@@ -136,12 +142,16 @@ class Agent:
             end = text.rfind("]")
             if end > start:
                 try:
-                    return {"companies": json.loads(text[start : end + 1])}
+                    # Return the array directly. Older code wrapped it as
+                    # {"companies": [...]} which corrupted non-find callers
+                    # (qualification, ai_validate_companies, enrichment) that
+                    # expected the array shape verbatim.
+                    return json.loads(text[start : end + 1])
                 except json.JSONDecodeError:
                     pass
         return None
 
-    def _run_claude(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+    def _run_claude(self, prompt: str, timeout: int = 180) -> dict[str, Any] | list[Any]:
         """Run via Claude Code CLI (`claude -p`)."""
         try:
             result = subprocess.run(
@@ -154,9 +164,11 @@ class Agent:
         if result.returncode != 0:
             return {"result": "error", "error": result.stderr or "claude failed"}
         parsed = self._parse_json_from_text(result.stdout.strip())
-        return parsed if parsed else {"result": "error", "error": "No JSON (claude)"}
+        if parsed is None:
+            return {"result": "error", "error": "No JSON (claude)"}
+        return parsed
 
-    def _run_opencode(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+    def _run_opencode(self, prompt: str, timeout: int = 180) -> dict[str, Any] | list[Any]:
         """Run via opencode CLI."""
         try:
             result = subprocess.run(
@@ -168,9 +180,11 @@ class Agent:
         if result.returncode != 0:
             return {"result": "error", "error": result.stderr or "opencode failed"}
         parsed = self._parse_json_from_text(result.stdout.strip())
-        return parsed if parsed else {"result": "error", "error": "No JSON (opencode)"}
+        if parsed is None:
+            return {"result": "error", "error": "No JSON (opencode)"}
+        return parsed
 
-    def _run(self, prompt: str, timeout: int = 180) -> dict[str, Any]:
+    def _run(self, prompt: str, timeout: int = 180) -> dict[str, Any] | list[Any]:
         """
         Run a prompt via the best available AI agent.
 
@@ -202,9 +216,18 @@ class Agent:
         geography: str,
         product: str | None = None,
         archetype: str | None = None,
+        skip_stages: list[str] | None = None,
+        from_stage: str | None = None,
     ) -> dict[str, Any]:
-        """STEP 0: Validate the market before company discovery."""
-        return self._get_validation_service().run(market, geography, product, archetype)
+        """STEP 0: Validate the market before company discovery.
+
+        skip_stages: stage names to skip (load from DB / defaults).
+        from_stage:  skip everything before this stage (resume mid-pipeline).
+        """
+        return self._get_validation_service().run(
+            market, geography, product, archetype,
+            skip_stages=skip_stages, from_stage=from_stage,
+        )
 
     def find(self, market: str, geography: str, product: str | None = None) -> dict[str, Any]:
         """STEP 1: Find companies in a market via multi-backend + AI search."""
@@ -235,6 +258,8 @@ class Agent:
         validate: bool = False,
         archetype: str | None = None,
         draft_emails: bool = False,
+        from_stage: str | None = None,
+        resume: bool = False,
     ) -> dict[str, Any]:
         """
         Full pipeline: [validate →] find → qualify → enrich_all [→ draft_emails].
@@ -248,46 +273,103 @@ class Agent:
             draft_emails:    If True, AI-draft a cold outreach email for every qualified
                              lead with an email on file and queue as pending. Runs in
                              parallel (4 workers) after enrichment, before returning.
+            from_stage:      Skip every stage before this one. Useful when an earlier
+                             run failed mid-pipeline. Valid: validate|find|qualify|enrich|drafts.
+            resume:          When True (and ``from_stage`` is None), auto-resume from
+                             the stage AFTER the last completed one (per
+                             researches.last_completed_stage).
         """
+        from market_validation.research import (
+            PIPELINE_STAGES,
+            get_last_completed_stage,
+            mark_stage_completed,
+        )
+
         if enrich_statuses is None:
             enrich_statuses = ["qualified", "new"]
+
+        # Resolve checkpoint: explicit --from-stage wins; otherwise auto-resume
+        # from after the last completed stage; otherwise run everything.
+        skip_set: set[str] = set()
+        if from_stage:
+            if from_stage not in PIPELINE_STAGES:
+                raise ValueError(
+                    f"unknown from_stage {from_stage!r}; valid: {PIPELINE_STAGES}"
+                )
+            cutoff = PIPELINE_STAGES.index(from_stage)
+            skip_set = set(PIPELINE_STAGES[:cutoff])
+            print(f"[research] from_stage={from_stage} → skipping {sorted(skip_set)}")
+        elif resume and self.research_id:
+            last = get_last_completed_stage(self.research_id, root=self.root)
+            if last and last in PIPELINE_STAGES:
+                cutoff = PIPELINE_STAGES.index(last) + 1
+                skip_set = set(PIPELINE_STAGES[:cutoff])
+                print(f"[research] resume from after {last!r} → skipping {sorted(skip_set)}")
+            elif last:
+                print(f"[research] resume: unrecognized last stage {last!r} — running full pipeline")
 
         total_steps = 3 + (1 if validate else 0) + (1 if draft_emails else 0)
         step = 0
 
+        def _checkpoint(stage: str) -> None:
+            if self.research_id:
+                try:
+                    mark_stage_completed(self.research_id, stage, root=self.root)
+                except Exception as exc:
+                    print(f"[research] WARN: checkpoint {stage} failed: {exc}")
+
         validate_result = None
-        if validate:
+        if validate and "validate" not in skip_set:
             step += 1
             print(f"[research] Step {step}/{total_steps}: validate — {product or market} in {geography}")
             validate_result = self.validate(market, geography, product, archetype=archetype)
             verdict = validate_result.get("scorecard", {}).get("verdict", "unknown")
             overall = validate_result.get("scorecard", {}).get("overall_score", 0)
             print(f"[research] → verdict: {verdict} ({overall}/100)")
+            _checkpoint("validate")
+        elif validate:
+            print("[research] ↻ skipping validate (resumed past it)")
 
-        step += 1
-        print(f"[research] Step {step}/{total_steps}: find — {product or market} in {geography}")
-        find_result = self.find(market, geography, product)
-        companies_found = len(find_result.get("companies", []))
-        print(f"[research] → {companies_found} companies found via {find_result.get('method')}")
+        find_result: dict[str, Any] = {}
+        companies_found = 0
+        if "find" not in skip_set:
+            step += 1
+            print(f"[research] Step {step}/{total_steps}: find — {product or market} in {geography}")
+            find_result = self.find(market, geography, product)
+            companies_found = len(find_result.get("companies", []))
+            print(f"[research] → {companies_found} companies found via {find_result.get('method')}")
+            _checkpoint("find")
+        else:
+            print("[research] ↻ skipping find (resumed past it)")
 
-        step += 1
-        print(f"[research] Step {step}/{total_steps}: qualify")
-        qualify_result = self.qualify()
-        print(
-            f"[research] → {qualify_result.get('qualified')}/{qualify_result.get('assessed')} "
-            f"qualified via {qualify_result.get('method')}"
-        )
+        qualify_result: dict[str, Any] = {}
+        if "qualify" not in skip_set:
+            step += 1
+            print(f"[research] Step {step}/{total_steps}: qualify")
+            qualify_result = self.qualify()
+            print(
+                f"[research] → {qualify_result.get('qualified')}/{qualify_result.get('assessed')} "
+                f"qualified via {qualify_result.get('method')}"
+            )
+            _checkpoint("qualify")
+        else:
+            print("[research] ↻ skipping qualify (resumed past it)")
 
-        step += 1
-        print(f"[research] Step {step}/{total_steps}: enrich_all (statuses={enrich_statuses})")
-        enrich_result = self.enrich_all(statuses=enrich_statuses)
-        print(
-            f"[research] → enriched={enrich_result.get('enriched')}/{enrich_result.get('total_companies')}"
-            f" | phones={enrich_result.get('phones_found')} emails={enrich_result.get('emails_found')}"
-        )
+        enrich_result: dict[str, Any] = {}
+        if "enrich" not in skip_set:
+            step += 1
+            print(f"[research] Step {step}/{total_steps}: enrich_all (statuses={enrich_statuses})")
+            enrich_result = self.enrich_all(statuses=enrich_statuses)
+            print(
+                f"[research] → enriched={enrich_result.get('enriched')}/{enrich_result.get('total_companies')}"
+                f" | phones={enrich_result.get('phones_found')} emails={enrich_result.get('emails_found')}"
+            )
+            _checkpoint("enrich")
+        else:
+            print("[research] ↻ skipping enrich (resumed past it)")
 
         draft_result = None
-        if draft_emails and self.research_id:
+        if draft_emails and self.research_id and "drafts" not in skip_set:
             step += 1
             print(f"[research] Step {step}/{total_steps}: draft_emails (qualified leads with email)")
             from market_validation.email_sender import draft_emails_for_research
@@ -301,6 +383,7 @@ class Agent:
                 f"skipped={draft_result.get('skipped')} failed={draft_result.get('failed')} "
                 f"candidates={draft_result.get('candidates')}"
             )
+            _checkpoint("drafts")
 
         result: dict[str, Any] = {
             "result": "ok",
@@ -308,6 +391,7 @@ class Agent:
             "find": find_result,
             "qualify": qualify_result,
             "enrich": enrich_result,
+            "skipped_stages": sorted(skip_set),
             "summary": {
                 "companies_found": companies_found,
                 "qualified": qualify_result.get("qualified", 0),
@@ -337,10 +421,38 @@ def main() -> None:
     parser.add_argument("--company", help="Company name for single enrich")
     parser.add_argument("--validate", action="store_true", help="Run market validation before research pipeline")
     parser.add_argument(
+        "--research-from-stage",
+        help=(
+            "Resume the research() pipeline from this stage. "
+            "Valid: validate|find|qualify|enrich|drafts."
+        ),
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Auto-resume from the last completed pipeline stage of this research_id.",
+    )
+    parser.add_argument(
         "--archetype",
         help=(
             "Override archetype detection (e.g. local-service, b2b-saas, b2b-industrial, "
             "consumer-cpg, marketplace, healthcare, services-agency)"
+        ),
+    )
+    parser.add_argument(
+        "--skip-stages",
+        help=(
+            "Comma-separated list of validation stages to skip (e.g. 'sizing,competition'). "
+            "Skipped stages load values from the prior DB record when available. "
+            "Stages: sizing, demand, competition, signals, unit_economics, porters, "
+            "timing, customer_segments."
+        ),
+    )
+    parser.add_argument(
+        "--from-stage",
+        help=(
+            "Resume validation from this stage — every earlier stage is loaded from "
+            "the prior DB record. Useful when an earlier run failed mid-way."
         ),
     )
 
@@ -361,6 +473,8 @@ def main() -> None:
         result = agent.research(
             args.market, args.geography, args.product,
             validate=args.validate, archetype=args.archetype,
+            from_stage=args.research_from_stage,
+            resume=args.resume,
         )
     elif args.command == "validate":
         if not args.market or not args.geography:
@@ -397,7 +511,13 @@ def main() -> None:
                     geography=args.geography,
                 )["research_id"]
                 agent.research_id = rid
-        result = agent.validate(args.market, args.geography, args.product, archetype=args.archetype)
+        skip = [s.strip() for s in (args.skip_stages or "").split(",") if s.strip()]
+        result = agent.validate(
+            args.market, args.geography, args.product,
+            archetype=args.archetype,
+            skip_stages=skip or None,
+            from_stage=args.from_stage,
+        )
     elif args.command == "find":
         result = agent.find(args.market, args.geography, args.product)
     elif args.command == "qualify":

@@ -47,20 +47,10 @@ def run_market_research(
         max_sources=8,
     )
 
-    demand_data = None
-    try:
-        from market_validation.market_trends import get_market_demand_report
-        demand_result = get_market_demand_report(
-            target_product=product or market,
-            geography=geography,
-        )
-        if demand_result.get("result") == "ok" and not demand_result.get("skipped"):
-            demand_data = demand_result
-    except Exception as exc:
-        # Trend data is a nice-to-have; its absence doesn't affect the
-        # main research pipeline. Debug-level so it doesn't spam normal runs.
-        _log.debug("market trends fetch failed for %r: %s", product or market, exc)
-
+    # Trend data lives in the validation pipeline now (Wikipedia pageviews,
+    # GDELT, OpenAlex, GitHub repo growth, HackerNews story volume). The
+    # legacy pytrends call was removed because Google blocks data-center
+    # IPs with HTTP 429 on every request.
     return {
         "result": "ok",
         "research_id": research_id,
@@ -68,7 +58,6 @@ def run_market_research(
         "market": market,
         "geography": geography,
         "sources_discovered": len(sources),
-        "demand_data": demand_data,
     }
 
 

@@ -41,11 +41,20 @@ def try_multi_search(query: str, num_results: int = 10, geography: str | None = 
         return []
 
 
-def try_supplementary_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
-    """Run slow scraped backends (BBB, Manta, etc.) once for a single query."""
+def try_supplementary_search(
+    query: str,
+    num_results: int = 10,
+    geography: str | None = None,
+) -> list[dict[str, str]]:
+    """Run slow scraped backends (BBB, Manta, etc.), routed by geography.
+
+    BBB / Manta are US-only and get skipped automatically when *geography*
+    indicates a non-US country, saving 5-10 seconds per call on
+    international markets.
+    """
     try:
         from market_validation.multi_search import supplementary_search
-        return supplementary_search(query, num_results)
+        return supplementary_search(query, num_results, geography=geography)
     except Exception as exc:
         _log.debug("supplementary_search failed for %r: %s", query, exc)
         return []
@@ -198,6 +207,38 @@ def broaden_product_to_business_types(product: str | None, market: str, category
         "drone": ["drone manufacturer", "UAV company", "drone service"],
         "solar panel": ["solar panel manufacturer", "solar company", "renewable energy"],
         "battery": ["battery manufacturer", "energy storage company", "battery supplier"],
+        # Agritech / commercial growers — buyers of automation hardware
+        "hydroponic": ["commercial hydroponic farm", "hydroponic grower",
+                       "vertical farm", "indoor farm", "greenhouse operation"],
+        "vertical farm": ["vertical farm", "indoor vertical farm",
+                          "controlled environment agriculture", "indoor agriculture"],
+        "greenhouse": ["commercial greenhouse", "greenhouse grower",
+                       "greenhouse operation", "greenhouse nursery"],
+        "indoor farm": ["indoor farm", "vertical farm", "indoor agriculture",
+                        "controlled environment agriculture"],
+        "controlled environment": ["controlled environment agriculture",
+                                   "indoor farm", "vertical farm",
+                                   "commercial greenhouse"],
+        "cannabis cultivation": ["cannabis cultivator", "licensed cannabis grower",
+                                 "cannabis greenhouse", "indoor cannabis farm"],
+        "irrigation": ["commercial irrigation company", "irrigation contractor",
+                       "fertigation systems integrator", "agricultural irrigation"],
+        "fertigation": ["fertigation systems integrator", "commercial greenhouse",
+                        "controlled environment agriculture"],
+        "grow light": ["commercial greenhouse", "indoor farm",
+                       "controlled environment agriculture", "horticultural lighting dealer"],
+        # Industrial automation / control systems — both buyers and integrators
+        "automation system": ["industrial automation integrator",
+                              "control systems integrator", "automation contractor",
+                              "manufacturing facility", "processing plant"],
+        "control system": ["control systems integrator", "SCADA integrator",
+                           "industrial automation company", "PLC integrator"],
+        "iot platform": ["industrial IoT integrator", "IIoT systems company",
+                         "automation systems integrator"],
+        "scada": ["SCADA integrator", "industrial control systems company",
+                  "automation contractor"],
+        "plc": ["PLC integrator", "industrial automation company",
+                "control systems integrator"],
     }
 
     _services_map: dict[str, list[str]] = {

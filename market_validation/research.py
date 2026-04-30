@@ -15,6 +15,66 @@ DEFAULT_DB_PATH = "output/market-research.sqlite3"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+# ── Canonical status values (used everywhere) ──────────────────────────────
+# Defined here so dashboard, qualification service, exports, and call sheets
+# all agree on what counts as "qualified" vs. "contacted" vs. "rejected".
+
+class CompanyStatus:
+    """Canonical company.status values. Treat as a closed enum.
+
+    Lifecycle:
+        new           — discovered, awaiting qualification
+        qualified     — passed qualification, ready to enrich/contact
+        not_relevant  — qualifier rejected (wrong market / not a real biz)
+        contacted     — outreach sent (email queued + sent)
+        replied       — recipient replied
+        interested    — replied with interest
+        not_interested— replied no / unsubscribed / bounce
+        skipped       — manually deferred
+    """
+    NEW = "new"
+    QUALIFIED = "qualified"
+    NOT_RELEVANT = "not_relevant"
+    CONTACTED = "contacted"
+    REPLIED = "replied"
+    INTERESTED = "interested"
+    NOT_INTERESTED = "not_interested"
+    SKIPPED = "skipped"
+
+    ALL: tuple[str, ...] = (
+        "new", "qualified", "not_relevant", "contacted",
+        "replied", "interested", "not_interested", "skipped",
+    )
+
+
+_VALID_COMPANY_STATUSES: frozenset[str] = frozenset(CompanyStatus.ALL)
+
+
+def normalize_company_status(value: str | None) -> str:
+    """Return a canonical company status. Maps deprecated values to current ones."""
+    if not value:
+        return CompanyStatus.NEW
+    v = str(value).strip().lower()
+    # Legacy / qualifier-output mappings
+    _LEGACY_MAP = {
+        "uncertain": CompanyStatus.NEW,
+        "unknown": CompanyStatus.NEW,
+        "rejected": CompanyStatus.NOT_RELEVANT,
+        "irrelevant": CompanyStatus.NOT_RELEVANT,
+        "lead": CompanyStatus.QUALIFIED,
+        "call_ready": CompanyStatus.QUALIFIED,
+        "validated": CompanyStatus.QUALIFIED,
+        "replied_interested": CompanyStatus.INTERESTED,
+        "replied_not_interested": CompanyStatus.NOT_INTERESTED,
+        "no_reply": CompanyStatus.CONTACTED,
+    }
+    if v in _LEGACY_MAP:
+        return _LEGACY_MAP[v]
+    if v in _VALID_COMPANY_STATUSES:
+        return v
+    return CompanyStatus.NEW
+
+
 def _iso_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -49,6 +109,17 @@ def _add_columns_if_missing(conn: Any) -> None:
     needing an explicit ``stamp + upgrade`` step.
     """
     new_columns = [
+        # Outcome feedback (set 3-12 months after the verdict)
+        ("outcome_recorded_at", "TEXT"),
+        ("actual_outcome", "TEXT"),         # success | partial | failure | abandoned | pending
+        ("outcome_notes", "TEXT"),
+        ("outcome_revenue_actual", "REAL"),
+        ("outcome_recorded_by", "TEXT"),
+        # Pipeline checkpoint — last completed stage of Agent.research()
+        # so partial/failed runs can resume mid-pipeline. Allowed values:
+        # validate | find | qualify | enrich | drafts.
+        # NOTE: this column lives on `researches`, not `market_validations`,
+        # so the schema add below targets the right table separately.
         # Archetype
         ("archetype", "TEXT"),
         ("archetype_confidence", "INTEGER"),
@@ -171,6 +242,9 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_companies_market ON companies(market);
         CREATE INDEX IF NOT EXISTS idx_companies_status ON companies(status);
         CREATE INDEX IF NOT EXISTS idx_companies_priority ON companies(priority_score DESC);
+        CREATE INDEX IF NOT EXISTS idx_companies_email_status ON companies(email, status);
+        CREATE INDEX IF NOT EXISTS idx_companies_phone_status ON companies(phone, status);
+        CREATE INDEX IF NOT EXISTS idx_companies_research_status ON companies(research_id, status);
         CREATE INDEX IF NOT EXISTS idx_call_notes_company ON call_notes(company_id);
 
         CREATE TABLE IF NOT EXISTS market_validations (
@@ -211,10 +285,14 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         cols = [r[1] for r in conn.execute("PRAGMA table_info(researches)").fetchall()]
         if "last_source_health" not in cols:
             conn.execute("ALTER TABLE researches ADD COLUMN last_source_health TEXT")
+        if "last_completed_stage" not in cols:
+            conn.execute("ALTER TABLE researches ADD COLUMN last_completed_stage TEXT")
+        if "last_stage_at" not in cols:
+            conn.execute("ALTER TABLE researches ADD COLUMN last_stage_at TEXT")
     except sqlite3.OperationalError as exc:
         # Be permissive: if PRAGMA or ALTER fails, continue without breaking —
         # but log so a genuine schema problem is visible in the logs.
-        _log.warning("last_source_health column migration failed: %s", exc)
+        _log.warning("researches column migration failed: %s", exc)
     _add_columns_if_missing(conn)
 
 
@@ -366,13 +444,32 @@ def add_company(
     company_id = str(uuid.uuid4())[:8]
     now = _iso_now()
 
+    # Normalize phone to E.164 with geography-derived country hint, so
+    # different formats of the same number ("(555) 123-4567" vs.
+    # "555.123.4567" vs. "+15551234567") collapse to one.
+    if phone:
+        try:
+            from market_validation._helpers.contacts import detect_country, normalize_phone
+            country_hint = detect_country(location)
+            normalized_phone = normalize_phone(phone, country_hint=country_hint)
+            if normalized_phone:
+                phone = normalized_phone
+        except Exception:
+            # Keep original on any error — don't lose data over a normalization bug.
+            pass
+
     root_path = Path(root).resolve()
     db_file = resolve_db_path(root_path, db_path)
 
     with _connect(db_file) as conn:
         _ensure_schema(conn)
 
-        normalized_name = " ".join(company_name.strip().lower().split())
+        # NFKD-fold so 'Café' and 'Cafe' dedupe correctly across writes.
+        try:
+            from market_validation._helpers.contacts import normalize_name_key
+            normalized_name = normalize_name_key(company_name)
+        except Exception:
+            normalized_name = " ".join(company_name.strip().lower().split())
 
         existing = conn.execute(
             """SELECT id, company_name FROM companies
@@ -487,12 +584,34 @@ def update_company(
         "source_records", "claims",
     }
 
+    # Normalize status to a canonical value before writing — keeps qualifier
+    # output ("uncertain") and dashboard filters ("call_ready") in sync.
+    if "status" in fields and fields["status"]:
+        fields = dict(fields)  # don't mutate caller's dict
+        fields["status"] = normalize_company_status(fields["status"])
+
+    # Normalize phone to E.164 if a phone is being written.
+    if "phone" in fields and fields["phone"]:
+        try:
+            from market_validation._helpers.contacts import detect_country, normalize_phone
+            hint = detect_country(fields.get("location"))
+            normalized = normalize_phone(str(fields["phone"]), country_hint=hint)
+            if normalized:
+                fields = dict(fields)
+                fields["phone"] = normalized
+        except Exception:
+            pass
+
     updates = []
     values = []
     for key, value in fields.items():
         if key in valid_fields:
             if key == "company_name":
-                normalized = " ".join(str(value).strip().lower().split()) if value else None
+                try:
+                    from market_validation._helpers.contacts import normalize_name_key
+                    normalized = normalize_name_key(str(value)) if value else None
+                except Exception:
+                    normalized = " ".join(str(value).strip().lower().split()) if value else None
                 updates.append("company_name = ?")
                 values.append(value)
                 updates.append("company_name_normalized = ?")
@@ -734,6 +853,9 @@ def update_validation(
         "customer_segments_data", "icp_clarity", "primary_segment",
         # Actionable output
         "next_steps", "key_risks", "key_success_factors", "archetype_red_flags",
+        # Outcome feedback (recorded 3-12 months after verdict)
+        "outcome_recorded_at", "actual_outcome", "outcome_notes",
+        "outcome_revenue_actual", "outcome_recorded_by",
     }
 
     json_fields = {
@@ -791,6 +913,179 @@ def update_validation(
         "result": "ok",
         "validation_id": validation_id,
         "updated": cursor.rowcount > 0,
+    }
+
+
+# ── Pipeline checkpoint helpers ─────────────────────────────────────────────
+# Used by Agent.research() to support --from-stage / --resume so a failed
+# run picks up where it left off instead of redoing every stage.
+
+PIPELINE_STAGES: tuple[str, ...] = ("validate", "find", "qualify", "enrich", "drafts")
+
+
+def mark_stage_completed(
+    research_id: str,
+    stage: str,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> None:
+    """Update `researches.last_completed_stage` after a successful stage.
+
+    Silent no-op when the research_id is unknown — keeps the pipeline robust
+    to missing rows in test scenarios.
+    """
+    if stage not in PIPELINE_STAGES:
+        raise ValueError(f"unknown stage {stage!r}; valid: {PIPELINE_STAGES}")
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        try:
+            conn.execute(
+                "UPDATE researches SET last_completed_stage = ?, last_stage_at = ? WHERE id = ?",
+                (stage, _iso_now(), research_id),
+            )
+        except sqlite3.Error as exc:
+            _log.warning("mark_stage_completed failed for %s/%s: %s", research_id, stage, exc)
+
+
+def get_last_completed_stage(
+    research_id: str,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> str | None:
+    """Return the most recently completed pipeline stage for a research, or None."""
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        try:
+            row = conn.execute(
+                "SELECT last_completed_stage FROM researches WHERE id = ?",
+                (research_id,),
+            ).fetchone()
+        except sqlite3.Error:
+            return None
+    if row and row[0]:
+        return str(row[0])
+    return None
+
+
+# ── Outcome feedback loop ──────────────────────────────────────────────────
+# Records the actual market outcome 3-12 months after a verdict, so a
+# calibration helper can answer: "are our 'go' verdicts predictive?"
+
+VALID_OUTCOMES: frozenset[str] = frozenset({
+    "success",      # entered, hit revenue/PMF target
+    "partial",      # entered, mixed result
+    "failure",      # entered, did not work
+    "abandoned",    # never entered (no_go was correct, or pivoted)
+    "pending",      # not yet measurable (default)
+})
+
+
+def record_validation_outcome(
+    validation_id: str,
+    actual_outcome: str,
+    notes: str | None = None,
+    revenue_actual: float | None = None,
+    recorded_by: str | None = None,
+    root: str | Path = ".",
+    db_path: str | None = None,
+) -> dict[str, Any]:
+    """Record the actual outcome of a validation 3-12 months after the verdict.
+
+    Use ``actual_outcome`` ∈ {success, partial, failure, abandoned, pending}.
+    Calling this updates the existing market_validations row in place; pass
+    ``actual_outcome="pending"`` to clear a previous outcome (rare).
+    """
+    if actual_outcome not in VALID_OUTCOMES:
+        return {
+            "result": "error",
+            "error": f"actual_outcome must be one of {sorted(VALID_OUTCOMES)}",
+        }
+    return update_validation(
+        validation_id,
+        {
+            "outcome_recorded_at": _iso_now(),
+            "actual_outcome": actual_outcome,
+            "outcome_notes": notes,
+            "outcome_revenue_actual": revenue_actual,
+            "outcome_recorded_by": recorded_by,
+        },
+        root=root,
+        db_path=db_path,
+    )
+
+
+def get_calibration_summary(
+    root: str | Path = ".",
+    db_path: str | None = None,
+    min_outcomes: int = 3,
+) -> dict[str, Any]:
+    """Summarize how well past verdicts have correlated with actual outcomes.
+
+    Bucket validations by verdict and report:
+      - count of records in each bucket with a recorded outcome
+      - hit rate: proportion that ended in success/partial (for go/strong_go)
+                  or abandoned/failure (for no_go/cautious)
+      - mean overall_score in each bucket
+
+    Returns ``{"insufficient_data": True}`` when fewer than ``min_outcomes``
+    rows have outcomes recorded — too few to draw conclusions from.
+    """
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root_path, db_path)
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        rows = conn.execute(
+            """SELECT verdict, overall_score, actual_outcome,
+                      outcome_revenue_actual, outcome_recorded_at
+               FROM market_validations
+               WHERE actual_outcome IS NOT NULL AND actual_outcome != 'pending'"""
+        ).fetchall()
+
+    if not rows or len(rows) < min_outcomes:
+        return {
+            "result": "ok",
+            "insufficient_data": True,
+            "outcomes_recorded": len(rows),
+            "min_required": min_outcomes,
+        }
+
+    by_verdict: dict[str, dict[str, Any]] = {}
+    for verdict, score, outcome, _rev, _at in rows:
+        v = verdict or "unknown"
+        bucket = by_verdict.setdefault(
+            v, {"count": 0, "scores": [], "outcomes": {}, "hits": 0}
+        )
+        bucket["count"] += 1
+        bucket["scores"].append(score or 0)
+        bucket["outcomes"][outcome] = bucket["outcomes"].get(outcome, 0) + 1
+        # "hit" = the verdict was directionally correct.
+        # go/strong_go expect positive outcomes; no_go/cautious expect negative.
+        positive_outcome = outcome in ("success", "partial")
+        negative_outcome = outcome in ("failure", "abandoned")
+        if v in ("go", "strong_go") and positive_outcome:
+            bucket["hits"] += 1
+        elif v in ("no_go", "cautious") and negative_outcome:
+            bucket["hits"] += 1
+
+    summary: dict[str, dict[str, Any]] = {}
+    for v, b in by_verdict.items():
+        scores = b["scores"]
+        summary[v] = {
+            "count": b["count"],
+            "mean_score": round(sum(scores) / len(scores), 1) if scores else 0,
+            "hit_rate": round(b["hits"] / b["count"], 3) if b["count"] else 0.0,
+            "outcomes": b["outcomes"],
+        }
+
+    return {
+        "result": "ok",
+        "insufficient_data": False,
+        "outcomes_recorded": len(rows),
+        "by_verdict": summary,
     }
 
 
@@ -887,6 +1182,24 @@ def build_parser() -> Any:
     export_parser.add_argument("research_id")
     export_parser.add_argument("--output")
 
+    outcome_parser = subparsers.add_parser(
+        "record-outcome",
+        help="Record actual market outcome 3-12 months after a verdict",
+    )
+    outcome_parser.add_argument("validation_id")
+    outcome_parser.add_argument(
+        "--outcome", required=True,
+        choices=sorted(VALID_OUTCOMES),
+        help="Actual outcome of entering (or not entering) this market",
+    )
+    outcome_parser.add_argument("--notes")
+    outcome_parser.add_argument("--revenue", type=float, help="Actual revenue ($) if known")
+    outcome_parser.add_argument("--by", help="Person/team recording the outcome")
+
+    subparsers.add_parser(
+        "calibration", help="Show how past verdicts have correlated with outcomes"
+    )
+
     return parser
 
 
@@ -936,6 +1249,22 @@ def main() -> None:
                 print(f"Exported to {args.output}")
             else:
                 print(md)
+
+        elif args.command == "record-outcome":
+            result = record_validation_outcome(
+                validation_id=args.validation_id,
+                actual_outcome=args.outcome,
+                notes=args.notes,
+                revenue_actual=args.revenue,
+                recorded_by=args.by,
+                root=args.root,
+                db_path=args.db_path,
+            )
+            print(json.dumps(result, ensure_ascii=True))
+
+        elif args.command == "calibration":
+            result = get_calibration_summary(root=args.root, db_path=args.db_path)
+            print(json.dumps(result, ensure_ascii=True, indent=2))
 
     except Exception as exc:
         print(json.dumps({"result": "failed", "error": str(exc)}, ensure_ascii=True))

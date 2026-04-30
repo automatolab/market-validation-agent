@@ -17,16 +17,21 @@ AI synthesis (claude/opencode) is required for structured output.
 from __future__ import annotations
 
 import json
-import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from market_validation.log import get_logger
+
+_log = get_logger("customer_segments")
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
     try:
         from market_validation.multi_search import quick_search
         return quick_search(query, num_results)
-    except Exception:
+    except Exception as exc:
+        _log.debug("multi_search.quick_search failed for %r: %s", query, exc)
         return []
 
 
@@ -34,6 +39,22 @@ def _snippets(query: str, num_results: int = 10) -> list[str]:
     """Search and return non-empty snippets."""
     results = _search(query, num_results)
     return [r.get("snippet", "").strip() for r in results if r.get("snippet", "").strip()]
+
+
+def _parallel_snippets(queries: list[str], num_results: int = 10) -> list[str]:
+    """Run ``_snippets`` for many queries concurrently, preserving order.
+
+    The serial pattern was 11 × ``time.sleep(1.2)`` (≈13s) inside this
+    module; switching to a thread pool drops total wait to roughly the
+    slowest individual search.
+    """
+    if not queries:
+        return []
+    out: list[str] = []
+    with ThreadPoolExecutor(max_workers=min(8, len(queries))) as pool:
+        for batch in pool.map(lambda q: _snippets(q, num_results), queries):
+            out.extend(batch)
+    return out
 
 
 def identify_customer_segments(
@@ -61,59 +82,37 @@ def identify_customer_segments(
     """
     search_term = product or market
 
-    # ------------------------------------------------------------------
-    # Category 1 — Buyer persona
-    # ------------------------------------------------------------------
-    persona_snippets: list[str] = []
+    persona_queries = [
+        f"who buys {search_term} customer type",
+        f"{market} target customer small business enterprise consumer",
+        f"site:linkedin.com {market} buyer manager director purchasing",
+    ]
+    budget_queries = [
+        f"{market} budget annual spend {geography}",
+        f"{search_term} price enterprise SMB startup cost",
+        f"how much do companies spend on {search_term}",
+    ]
+    process_queries = [
+        f"how to sell {search_term} sales process",
+        f"{market} procurement decision buying committee",
+        f"{market} sales cycle length close time",
+    ]
+    job_queries = [
+        f"site:indeed.com {market} manager director {geography}",
+        f"{market} operations manager job description budget",
+    ]
 
-    persona_snippets.extend(_snippets(f"who buys {search_term} customer type", 10))
-    time.sleep(1.2)
-    persona_snippets.extend(_snippets(f"{market} target customer small business enterprise consumer", 10))
-    time.sleep(1.2)
-    persona_snippets.extend(_snippets(f"site:linkedin.com {market} buyer manager director purchasing", 10))
-    time.sleep(1.2)
-
-    persona_snippets = persona_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 2 — Budget signals
-    # ------------------------------------------------------------------
-    budget_snippets: list[str] = []
-
-    budget_snippets.extend(_snippets(f"{market} budget annual spend {geography}", 10))
-    time.sleep(1.2)
-    budget_snippets.extend(_snippets(f"{search_term} price enterprise SMB startup cost", 10))
-    time.sleep(1.2)
-    budget_snippets.extend(_snippets(f"how much do companies spend on {search_term}", 10))
-    time.sleep(1.2)
-
-    budget_snippets = budget_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 3 — Buying process
-    # ------------------------------------------------------------------
-    process_snippets: list[str] = []
-
-    process_snippets.extend(_snippets(f"how to sell {search_term} sales process", 10))
-    time.sleep(1.2)
-    process_snippets.extend(_snippets(f"{market} procurement decision buying committee", 10))
-    time.sleep(1.2)
-    process_snippets.extend(_snippets(f"{market} sales cycle length close time", 10))
-    time.sleep(1.2)
-
-    process_snippets = process_snippets[:6]
-
-    # ------------------------------------------------------------------
-    # Category 4 — Job posting proxy
-    # ------------------------------------------------------------------
-    job_snippets: list[str] = []
-
-    job_snippets.extend(_snippets(f"site:indeed.com {market} manager director {geography}", 10))
-    time.sleep(1.2)
-    job_snippets.extend(_snippets(f"{market} operations manager job description budget", 10))
-    time.sleep(1.2)
-
-    job_snippets = job_snippets[:6]
+    # All four categories are independent — fetch each list in parallel,
+    # and within each list the per-query searches also fan out concurrently.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_pers = pool.submit(_parallel_snippets, persona_queries)
+        f_budg = pool.submit(_parallel_snippets, budget_queries)
+        f_proc = pool.submit(_parallel_snippets, process_queries)
+        f_jobs = pool.submit(_parallel_snippets, job_queries)
+        persona_snippets = f_pers.result()[:6]
+        budget_snippets = f_budg.result()[:6]
+        process_snippets = f_proc.result()[:6]
+        job_snippets = f_jobs.result()[:6]
 
     # ------------------------------------------------------------------
     # Reddit signals — subreddit distribution as customer segment proxy
@@ -135,7 +134,8 @@ def identify_customer_segments(
                 f"r/{sr} ({cnt})" for sr, cnt in sorted(subreddits.items(), key=lambda x: -x[1])
             )
             reddit_context = f"Reddit subreddit distribution (who's asking): {sr_summary}"
-    except Exception:
+    except Exception as exc:
+        _log.debug("customer_segments reddit signal failed: %s", exc)
         reddit_posts = []
 
     # ------------------------------------------------------------------
@@ -184,21 +184,30 @@ Return ONLY this JSON (no markdown fences):
 {{
     "primary_segment": {{
         "name": "<descriptive segment name>",
+        "buyer_persona": "<title + role of the human who actually decides, e.g. 'VP Operations at multi-site QSR'>",
         "size_estimate": "<estimated count in target geography>",
+        "size_evidence": "<source_url or snippet that supports the count>",
         "annual_budget": "<range or typical annual spend on this category>",
+        "budget_evidence": "<source_url or snippet>",
         "buying_trigger": "<what event or pain makes them buy>",
         "buying_process": "<how they evaluate and decide, e.g. rep relationship, RFP, self-serve>",
         "pain_points": ["<pain 1>", "<pain 2>"]
     }},
     "secondary_segment": {{
         "name": "<descriptive segment name>",
-        "size_estimate": "<estimated count in target geography>",
-        "annual_budget": "<range or typical annual spend>",
+        "buyer_persona": "<title + role>",
+        "size_estimate": "<estimated count>",
+        "size_evidence": "<source_url or snippet>",
+        "annual_budget": "<range>",
+        "budget_evidence": "<source_url or snippet>",
         "buying_trigger": "<what triggers purchase>",
         "buying_process": "<how they evaluate and decide>",
         "pain_points": ["<pain 1>", "<pain 2>"]
     }},
-    "icp_clarity": <0-100>,
+    "persona_clarity": <0-100 — how confidently can we name the buyer's role and title>,
+    "budget_clarity": <0-100 — how well do we know the annual spend bracket>,
+    "trigger_clarity": <0-100 — how clear is the event that drives purchase>,
+    "icp_clarity": <0-100 — average of the three above; do not exceed the lowest sub-score by more than 15>,
     "total_reachable_buyers": "<estimated total addressable buyers in geography>",
     "avg_deal_size": "<typical annual contract or transaction value>",
     "sales_motion": "<direct|channel|product-led|self-serve>",
@@ -206,16 +215,18 @@ Return ONLY this JSON (no markdown fences):
 }}
 
 ICP clarity scoring guide:
-- 75+: Clear identifiable buyer, known budget, defined trigger — you know exactly who to call
-- 50-74: Buyer identified but budget or trigger unclear — needs further discovery
-- 25-49: Multiple possible buyers, unclear who actually decides — go-to-market is uncertain
-- <25: No clear buyer identified — market definition too broad or too early
+- 75+: Clear identifiable buyer (named title + role), known budget bracket, defined trigger.
+- 50-74: Buyer titled but budget or trigger unclear — needs further discovery.
+- 25-49: Multiple possible buyers, unclear who actually decides.
+- <25: No clear buyer identified — market definition too broad or too early.
 
-Sales motion definitions:
-- direct: field/inside sales rep sells to buyer one-to-one
-- channel: distributor, reseller, or partner sells on your behalf
-- product-led: product drives acquisition, usage triggers conversion (PLG)
-- self-serve: buyer finds and buys without a sales rep
+Required: buyer_persona must include a specific title (e.g. "VP Operations",
+"Head of IT") not a generic phrase like "decision-maker". If you can't name
+the title, set persona_clarity < 30 honestly.
+
+Each numeric size or budget estimate must include an `_evidence` field — a
+source URL or quoted snippet. Estimates without evidence reduce the
+corresponding clarity sub-score.
 
 Be specific with size estimates and budgets. If evidence is thin, use ranges and note the uncertainty in notes."""
 

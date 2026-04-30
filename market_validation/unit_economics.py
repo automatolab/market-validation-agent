@@ -13,16 +13,21 @@ gathered data is returned for inspection.
 from __future__ import annotations
 
 import json
-import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from market_validation.log import get_logger
+
+_log = get_logger("unit_economics")
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
     try:
         from market_validation.multi_search import quick_search
         return quick_search(query, num_results)
-    except Exception:
+    except Exception as exc:
+        _log.debug("multi_search.quick_search failed for %r: %s", query, exc)
         return []
 
 
@@ -65,61 +70,40 @@ def estimate_unit_economics(
 
     archetype_config = get_archetype_config(archetype)
     search_term = product or market
-    all_snippets: list[str] = []
 
-    # ------------------------------------------------------------------
-    # 1. Pricing signals
-    # ------------------------------------------------------------------
-    pricing_results = _search(
-        f'"{search_term}" pricing price per unit',
-        num_results=8,
-    )
-    all_snippets.extend(_collect_snippets(pricing_results))
-    time.sleep(1.2)
+    # All five web searches plus BLS lookup are independent — fire them
+    # concurrently. Was 5 × time.sleep(1.2) ≈ 6s of pure wait time.
+    pricing_q = f'"{search_term}" pricing price per unit'
+    cost_q = f"how much does {search_term} cost"
+    margin_q = f"{market} gross margin profit margin industry"
+    cac_q = f"cost to acquire customer {market}"
+    marketing_q = f"marketing spend {market} customer acquisition"
 
-    cost_results = _search(
-        f"how much does {search_term} cost",
-        num_results=8,
-    )
-    all_snippets.extend(_collect_snippets(cost_results))
-    time.sleep(1.2)
-
-    # ------------------------------------------------------------------
-    # 2. Margin benchmarks
-    # ------------------------------------------------------------------
-    margin_results = _search(
-        f"{market} gross margin profit margin industry",
-        num_results=8,
-    )
-    all_snippets.extend(_collect_snippets(margin_results))
-    time.sleep(1.2)
-
-    # ------------------------------------------------------------------
-    # 3. CAC signals
-    # ------------------------------------------------------------------
-    cac_results = _search(
-        f"cost to acquire customer {market}",
-        num_results=8,
-    )
-    all_snippets.extend(_collect_snippets(cac_results))
-    time.sleep(1.2)
-
-    marketing_results = _search(
-        f"marketing spend {market} customer acquisition",
-        num_results=8,
-    )
-    all_snippets.extend(_collect_snippets(marketing_results))
-    time.sleep(1.2)
-
-    # ------------------------------------------------------------------
-    # 4. BLS labor cost baseline
-    # ------------------------------------------------------------------
     labor: dict[str, Any] = {}
-    try:
-        from market_validation.free_data_sources import bls_wages_data
-        labor = bls_wages_data(archetype)
-    except Exception:
-        labor = {}
+
+    def _fetch_labor() -> dict[str, Any]:
+        try:
+            from market_validation.free_data_sources import bls_wages_data
+            return bls_wages_data(archetype) or {}
+        except Exception as exc:
+            _log.debug("bls_wages_data failed: %s", exc)
+            return {}
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        f_price = pool.submit(_search, pricing_q, 8)
+        f_cost = pool.submit(_search, cost_q, 8)
+        f_margin = pool.submit(_search, margin_q, 8)
+        f_cac = pool.submit(_search, cac_q, 8)
+        f_mkt = pool.submit(_search, marketing_q, 8)
+        f_lab = pool.submit(_fetch_labor)
+
+        all_snippets: list[str] = []
+        all_snippets.extend(_collect_snippets(f_price.result()))
+        all_snippets.extend(_collect_snippets(f_cost.result()))
+        all_snippets.extend(_collect_snippets(f_margin.result()))
+        all_snippets.extend(_collect_snippets(f_cac.result()))
+        all_snippets.extend(_collect_snippets(f_mkt.result()))
+        labor = f_lab.result()
 
     # ------------------------------------------------------------------
     # Deduplicate snippets
@@ -187,13 +171,19 @@ Return ONLY this JSON (no markdown fences):
     "gross_margin_low": <lower bound gross margin as decimal e.g. 0.55>,
     "gross_margin_high": <upper bound gross margin as decimal e.g. 0.72>,
     "gross_margin_confidence": <0-100 confidence in this estimate>,
+    "gross_margin_source": {{"source_url": "...", "source_authority": "primary_government|paid_research_or_academic|trade_press_or_business_news|encyclopedic_or_community|general_web|ai_inference_no_source", "evidence": "1 sentence cited from above"}},
     "cac_estimate_low": <lower bound CAC in dollars>,
     "cac_estimate_high": <upper bound CAC in dollars>,
+    "cac_source": {{"source_url": "...", "source_authority": "...", "evidence": "..."}},
     "ltv_estimate_low": <lower bound LTV in dollars>,
     "ltv_estimate_high": <upper bound LTV in dollars>,
+    "ltv_assumption_churn_years": <years assumed for LTV calculation>,
+    "ltv_assumption_monthly_churn": <decimal e.g. 0.03 for 3% monthly churn>,
     "payback_months": <estimated months to recoup CAC at midpoint margin>,
     "unit_economics_score": <0-100 composite score>,
-    "pricing_signals": ["specific pricing observation 1", "specific pricing observation 2"],
+    "pricing_signals": [
+      {{"signal": "wholesale brisket $4.50-6.00/lb", "source_url": "...", "evidence": "..."}}
+    ],
     "margin_driver": "<primary driver of margin structure e.g. 'labor and food costs dominate'>",
     "notes": "1-2 sentences on the unit economics picture and data quality"
 }}
@@ -204,10 +194,18 @@ Scoring guide for unit_economics_score:
 - 25-49: gross margin 20-40%, LTV/CAC 2-3x, payback 18-36 months
 - <25: gross margin <20% or LTV/CAC <2x
 
-Rules:
-- Anchor estimates to web evidence where available; fall back to archetype benchmarks.
-- Pricing signals must be concrete (e.g. "wholesale brisket $4.50-6.00/lb", "SaaS seat $25-80/mo") not vague.
-- gross_margin_confidence: 70+ if multiple snippets confirm; 40-69 if extrapolated; <40 if inferred from benchmarks only."""
+Citation rules:
+- Each estimate (gross_margin, cac, ltv) MUST have an attached *_source object.
+- Pricing signals must be concrete (e.g. "wholesale brisket $4.50-6.00/lb") AND
+  cite the URL or snippet they came from. No vague claims like "moderate margins".
+- LTV must show its churn assumption explicitly — otherwise an analyst can't
+  audit the math.
+- Confidence calibration:
+  - 75+ ONLY when a Tier-1/2 source (10-K filings, BLS, paid research) corroborates.
+  - 50-74 when 2+ Tier-3 sources (trade press) agree or archetype benchmarks
+    align with one citable source.
+  - 25-49 when extrapolating from a single weak source.
+  - <25 when inferred from archetype benchmarks alone."""
 
     ai_result = run_ai(prompt)
 
@@ -227,4 +225,9 @@ Rules:
             result["ai_raw"] = ai_result
 
     result.update(parsed)
+    from market_validation._helpers.citations import (
+        RULES_FOR_UNIT_ECONOMICS,
+        enforce_citations,
+    )
+    enforce_citations(result, RULES_FOR_UNIT_ECONOMICS)
     return result

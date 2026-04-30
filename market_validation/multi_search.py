@@ -26,8 +26,12 @@ OPENCORPORATES_SEARCH_URL = "https://opencorporates.com/companies"
 # Cache geocoded bounding boxes so we don't re-geocode the same geography
 _GEO_BBOX_CACHE: dict[str, tuple[float, float, float, float] | None] = {}
 
-# Circuit breaker: skip DDGS for the session once it's rate-limited
-_DDGS_DISABLED = False
+# Circuit breaker for DDGS: skip while we're cooling off from a rate-limit,
+# but auto-recover after _DDGS_COOLOFF_SECONDS so a single 429 doesn't kill
+# the source for the entire process lifetime (bad for any long-running
+# server / batch use).
+_DDGS_DISABLED_UNTIL: float = 0.0
+_DDGS_COOLOFF_SECONDS = 300  # 5 minutes
 
 # Track last Nominatim request time (usage policy: max 1 req/sec)
 _LAST_NOMINATIM_TIME: float = 0.0
@@ -89,10 +93,44 @@ def _nominatim_throttle() -> None:
     _LAST_NOMINATIM_TIME = time.time()
 
 
+def _geography_scale(geography: str) -> str:
+    """Classify a geography string as city / state / country / region.
+
+    Used to scale Nominatim bbox padding sensibly. Without this, "California"
+    gets the same 50% pad as "San Jose" — for a state, that would extend
+    hundreds of miles into neighboring states (false positives).
+    """
+    g = geography.strip().lower()
+    # Cheap heuristics — fast, no extra API call.
+    parts = [p.strip() for p in g.split(",") if p.strip()]
+    if len(parts) >= 3:  # "Mountain View, CA, USA"
+        return "city"
+    if len(parts) == 2 and len(parts[1]) <= 3:  # "San Jose, CA"
+        return "city"
+    # Single-token geos: try to detect country/state.
+    country_words = {
+        "usa", "us", "united states", "america", "uk", "united kingdom",
+        "canada", "france", "germany", "japan", "china", "india", "australia",
+        "brazil", "spain", "italy", "netherlands",
+    }
+    if g in country_words or any(w in g for w in country_words):
+        return "country"
+    state_words = {
+        "california", "texas", "new york", "florida", "illinois", "ontario",
+        "quebec", "bavaria", "england", "scotland", "wales",
+    }
+    if g in state_words or any(w in g for w in state_words):
+        return "state"
+    return "city"  # safest default — assume narrow scope
+
+
 def _geocode_bbox(geography: str) -> tuple[float, float, float, float] | None:
     """Geocode a geography string to a bounding box (lon1, lat1, lon2, lat2).
 
-    Returns None if geocoding fails.  Results are cached in _GEO_BBOX_CACHE.
+    Returns None if geocoding fails. Results are cached in _GEO_BBOX_CACHE.
+    Padding is scaled by geography type (city / state / country) so a
+    "California" search doesn't bleed into Nevada and a "London" search
+    stays inside the M25 instead of swallowing southern England.
     """
     key = geography.strip().lower()
     if key in _GEO_BBOX_CACHE:
@@ -126,9 +164,15 @@ def _geocode_bbox(geography: str) -> tuple[float, float, float, float] | None:
     if bbox and len(bbox) == 4:
         try:
             south, north, west, east = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
-            # Expand bbox by ~50% to include wider metro / surrounding area
-            lat_pad = (north - south) * 0.5
-            lon_pad = (east - west) * 0.5
+            scale = _geography_scale(geography)
+            pad_factor = {
+                "city": 0.5,      # +50% — wider metro
+                "state": 0.05,    # +5% — barely expand state borders
+                "country": 0.0,   # don't expand — already huge
+                "region": 0.1,
+            }.get(scale, 0.5)
+            lat_pad = (north - south) * pad_factor
+            lon_pad = (east - west) * pad_factor
             result = (west - lon_pad, south - lat_pad, east + lon_pad, north + lat_pad)
             _GEO_BBOX_CACHE[key] = result
             return result
@@ -291,8 +335,8 @@ def _from_nominatim(query: str, num_results: int = 10, geography: str | None = N
 
 
 def _from_ddgs(query: str, num_results: int = 10, region: str | None = None) -> list[SearchResult]:
-    global _DDGS_DISABLED
-    if _DDGS_DISABLED:
+    global _DDGS_DISABLED_UNTIL
+    if time.time() < _DDGS_DISABLED_UNTIL:
         return []
 
     DDGS = None
@@ -327,8 +371,10 @@ def _from_ddgs(query: str, num_results: int = 10, region: str | None = None) -> 
                 if attempt < max_attempts - 1:
                     time.sleep(3)
                     continue
-                # Rate-limited twice — disable DDGS for the rest of this session
-                _DDGS_DISABLED = True
+                # Rate-limited twice — cool off for 5 minutes, then auto-recover.
+                # A persistent rate-limit will just re-trip on the next call,
+                # which is the right behavior.
+                _DDGS_DISABLED_UNTIL = time.time() + _DDGS_COOLOFF_SECONDS
             return []
     return []
 
@@ -577,13 +623,46 @@ def _geography_to_ddgs_region(geography: str | None) -> str | None:
     return None
 
 
-def supplementary_search(query: str, num_results: int = 10) -> list[dict[str, str]]:
-    """Run slow scraped backends (BBB, OpenCorporates, Manta, Wikipedia).
+def _supplementary_backends_for_country(country_iso2: str | None) -> list:
+    """Pick scraped supplementary backends appropriate for the geography.
 
-    Meant to be called once for the best query, not per-query.
+    BBB and Manta are US-specific — running them on a UK or France search
+    burns time for zero useful results. OpenCorporates and Wikipedia are
+    international, so they stay in the lineup everywhere.
+
+    For non-US: just keep OpenCorporates + Wikipedia. Country-specific
+    business registries (CompaniesHouse for UK, SIREN for France) would be
+    added here as separate scrapers when implemented.
     """
+    iso = (country_iso2 or "US").upper()
+    # OpenCorporates and Wikipedia are universal.
+    backends: list = [_from_wikipedia, _from_opencorporates]
+    if iso in ("US", "CA"):
+        backends.extend([_from_bbb, _from_manta])
+    return backends
+
+
+def supplementary_search(
+    query: str,
+    num_results: int = 10,
+    geography: str | None = None,
+) -> list[dict[str, str]]:
+    """Run slow scraped backends, filtered by geography.
+
+    BBB / Manta are skipped outside the US (they have no useful content for
+    international markets). OpenCorporates + Wikipedia stay everywhere.
+    """
+    country_iso2 = None
+    if geography:
+        try:
+            from market_validation._helpers.contacts import detect_country
+            country_iso2 = detect_country(geography)
+        except Exception:
+            country_iso2 = None
+
+    backends = _supplementary_backends_for_country(country_iso2)
     batches: list[list[SearchResult]] = []
-    for backend in [_from_wikipedia, _from_bbb, _from_opencorporates, _from_manta]:
+    for backend in backends:
         try:
             batch = backend(query, max(4, num_results // 2))
             if batch:
@@ -628,7 +707,16 @@ def quick_search(query: str, num_results: int = 10, geography: str | None = None
     # quick_search() call would survive a DDG rate-limit.
     total_fast = sum(len(b) for b in batches)
     if total_fast < max(6, num_results // 2):
-        for backend in (_from_wikipedia, _from_bbb, _from_opencorporates, _from_manta):
+        # Geo-aware backend selection: skip BBB/Manta outside the US.
+        country_iso2 = None
+        if geography:
+            try:
+                from market_validation._helpers.contacts import detect_country
+                country_iso2 = detect_country(geography)
+            except Exception:
+                country_iso2 = None
+        backends_in_order = _supplementary_backends_for_country(country_iso2)
+        for backend in backends_in_order:
             try:
                 batch = backend(query, max(3, num_results // 2))
                 if batch:

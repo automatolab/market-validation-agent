@@ -157,9 +157,10 @@ class SearchService:
                         "source": r.get("source", "config"),
                     })
 
-        # Supplementary backends (BBB, Manta, etc.)
+        # Supplementary backends (BBB, Manta, etc.) — geo-aware so non-US
+        # markets skip US-only directories entirely.
         supp_query = f"{market} {geography}"
-        supp_results = try_supplementary_search(supp_query, 10)
+        supp_results = try_supplementary_search(supp_query, 10, geography=geography)
         source_health.append({
             "stage": "supplementary_search",
             "query": supp_query,
@@ -177,7 +178,9 @@ class SearchService:
         if ai_strategy and ai_strategy.get("business_type"):
             _ai_real += ai_strategy["business_type"].lower().split()
 
-        unique_companies = dedupe_companies(normalize_companies(all_companies))
+        unique_companies = dedupe_companies(
+            normalize_companies(all_companies), archetype=_archetype_key,
+        )
         unique_companies = filter_relevant_companies(
             unique_companies, market=market, product=product,
             extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
@@ -211,7 +214,8 @@ class SearchService:
             if retry_companies:
                 sources_used.append("quality_gate_retry")
                 unique_companies = dedupe_companies(
-                    normalize_companies(unique_companies + retry_companies)
+                    normalize_companies(unique_companies + retry_companies),
+                    archetype=_archetype_key,
                 )
                 unique_companies = filter_relevant_companies(unique_companies, market=market, product=product)
 
@@ -252,7 +256,8 @@ class SearchService:
 
                     if adj_companies:
                         merged = dedupe_companies(
-                            normalize_companies(unique_companies + adj_companies)
+                            normalize_companies(unique_companies + adj_companies),
+                            archetype=_archetype_key,
                         )
                         merged = filter_relevant_companies(merged, market=market, product=product)
                         adj_passed, adj_info = passes_quality_gate(merged, market=market, product=product)
@@ -298,7 +303,10 @@ class SearchService:
 
             if contact_rows:
                 updated_companies, updates = apply_contact_retry_rows(unique_companies, contact_rows)
-                unique_companies = dedupe_companies(normalize_companies(updated_companies))
+                unique_companies = dedupe_companies(
+                    normalize_companies(updated_companies),
+                    archetype=_archetype_key,
+                )
                 unique_companies = filter_relevant_companies(unique_companies, market=market, product=product)
                 if updates > 0:
                     sources_used.append("contactability_retry")
@@ -360,6 +368,13 @@ Return JSON:
             ai_agent = self.detect_agent()
             prompt += "\n\nIMPORTANT: Only include real operating businesses with a physical presence or active website. Do NOT include directories, aggregators, review sites, social media pages, or unrelated companies."
             ai_result = self.run_ai(prompt, timeout=180)
+
+            # AI may return either {"companies": [...]} (matches our prompt
+            # schema) or a bare [...] array. Normalize to a dict here so the
+            # rest of this branch sees a consistent shape.
+            if isinstance(ai_result, list):
+                ai_result = {"companies": ai_result}
+
             source_health.append({
                 "stage": "ai_fallback" if not unique_companies else "ai_supplement",
                 "agent": ai_agent,
@@ -372,7 +387,8 @@ Return JSON:
                 sources_used.append(ai_label)
                 if unique_companies:
                     merged = dedupe_companies(
-                        normalize_companies(unique_companies + ai_result["companies"])
+                        normalize_companies(unique_companies + ai_result["companies"]),
+                        archetype=_archetype_key,
                     )
                     unique_companies = filter_relevant_companies(merged, market=market, product=product)
                     result = {
@@ -409,7 +425,7 @@ Return JSON:
             return result
 
         companies = normalize_companies(result.get("companies", []))
-        companies = dedupe_companies(companies)
+        companies = dedupe_companies(companies, archetype=_archetype_key)
         companies = filter_relevant_companies(
             companies, market=market, product=product,
             extra_junk_signals=_ai_junk, extra_real_signals=_ai_real,
@@ -438,8 +454,11 @@ Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}""
 
             _iter_ai_result = self.run_ai(_iter_prompt, timeout=60)
             _iter_queries: list[str] = []
+            # Accept either {"queries": [...]} (per prompt) or a bare array.
             if isinstance(_iter_ai_result, dict) and _iter_ai_result.get("queries"):
                 _iter_queries = [q for q in _iter_ai_result["queries"] if isinstance(q, str)]
+            elif isinstance(_iter_ai_result, list):
+                _iter_queries = [q for q in _iter_ai_result if isinstance(q, str)]
 
             if not _iter_queries:
                 source_health.append({
@@ -465,7 +484,8 @@ Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}""
             if _iter_companies:
                 sources_used.append(f"iterative_discovery_{_iter_round + 1}")
                 companies = dedupe_companies(
-                    normalize_companies(companies + _iter_companies)
+                    normalize_companies(companies + _iter_companies),
+                    archetype=_archetype_key,
                 )
                 companies = filter_relevant_companies(
                     companies, market=market, product=product,
@@ -543,19 +563,31 @@ Return JSON: {{"queries": ["query1", "query2", "query3", "query4", "query5"]}}""
 
         scrape_results: dict[int, dict[str, Any]] = {}
         batch_size = 4
+        per_batch_timeout = 25  # seconds — be generous, slow sites are common
         for batch_start in range(0, len(companies_to_scrape), batch_size):
             batch = companies_to_scrape[batch_start : batch_start + batch_size]
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = {executor.submit(_safe_scrape, c): c for c in batch}
-                for future in as_completed(futures, timeout=10):
-                    try:
-                        comp, data = future.result(timeout=10)
-                        if data and not data.get("error"):
-                            scrape_results[id(comp)] = data
-                    except Exception as exc:
-                        # Future timed out or scraper raised after _safe_scrape
-                        # already returned — log and move on.
-                        _log.debug("pre-scrape future failed: %s", exc)
+                try:
+                    for future in as_completed(futures, timeout=per_batch_timeout):
+                        try:
+                            comp, data = future.result(timeout=2)
+                            if data and not data.get("error"):
+                                scrape_results[id(comp)] = data
+                        except Exception as exc:
+                            _log.debug("pre-scrape future failed: %s", exc)
+                except TimeoutError:
+                    # as_completed timed out waiting on the slowest futures.
+                    # Pre-scrape is best-effort — keep what we got and move on
+                    # rather than killing the whole find() pipeline.
+                    unfinished = sum(1 for f in futures if not f.done())
+                    _log.debug(
+                        "pre-scrape batch timeout after %ss, %d/%d futures unfinished",
+                        per_batch_timeout, unfinished, len(futures),
+                    )
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
             if batch_start + batch_size < len(companies_to_scrape):
                 _time.sleep(1)
 

@@ -135,6 +135,89 @@ def _thread_has_reply(service, thread_id: str, sent_message_id: str) -> dict[str
     return None
 
 
+def _decode_mime_body(payload: dict[str, Any]) -> str:
+    """Walk a Gmail message payload and pull the first text/plain part body.
+
+    Falls back to the snippet if no plaintext part is decodable. Avoids the
+    ``snippet`` field's quoted-original problem on multipart replies because
+    Gmail returns text/plain ahead of text/html, and many clients put their
+    reply at the top of the plaintext part.
+    """
+    import base64 as _b64
+
+    def _walk(parts: list[dict[str, Any]]) -> str | None:
+        for p in parts:
+            mime_type = p.get("mimeType", "")
+            if mime_type == "text/plain":
+                data = (p.get("body") or {}).get("data") or ""
+                if data:
+                    try:
+                        return _b64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+                    except Exception:
+                        return None
+            sub = p.get("parts") or []
+            if sub:
+                found = _walk(sub)
+                if found:
+                    return found
+        return None
+
+    parts = payload.get("parts") or []
+    if parts:
+        text = _walk(parts)
+        if text:
+            return text
+    # Single-part message
+    body = (payload.get("body") or {}).get("data") or ""
+    if body:
+        try:
+            return _b64.urlsafe_b64decode(body).decode("utf-8", errors="replace")
+        except Exception:
+            pass
+    return ""
+
+
+def _strip_quoted_reply(text: str) -> str:
+    """Remove the quoted original from a plaintext reply body.
+
+    The previous implementation used a single regex that broke on non-English
+    Gmail clients ("Em qua, ...", "Le mer., ...", etc.). This version handles
+    several common attribution formats and the universal ``> `` line-prefix
+    quoting used by RFC 2822 mail clients.
+    """
+    if not text:
+        return ""
+    import re as _re
+    lines = text.splitlines()
+    cut: int | None = None
+    # Common attribution patterns across locales
+    attribution_patterns = [
+        r"^On\s+\w+,?\s+.*wrote:",                  # English
+        r"^On\s+\w{3,}\s+\d+,?\s+\d{4}.*wrote:",    # English long-form
+        r"^Em\s+\w+,?\s+.*escreveu:",               # Portuguese
+        r"^Le\s+\w+,?\s+.*écrit\s*:",               # French
+        r"^Am\s+\w+,?\s+.*schrieb\s*:",             # German
+        r"^El\s+\w+,?\s+.*escribió\s*:",            # Spanish
+        r"^Il\s+\w+,?\s+.*ha scritto\s*:",          # Italian
+        r"^-+\s*Original Message\s*-+",
+        r"^-+\s*Forwarded message\s*-+",
+        r"^From\s*:\s*",                            # Outlook quoting
+    ]
+    attribution_re = _re.compile("|".join(attribution_patterns), _re.IGNORECASE)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if attribution_re.match(stripped):
+            cut = i
+            break
+        # Lines starting with '>' are the canonical RFC quoted original.
+        if stripped.startswith(">"):
+            cut = i
+            break
+    if cut is not None:
+        lines = lines[:cut]
+    return "\n".join(lines).strip()
+
+
 def check_replies(service) -> list[str]:
     """
     For each sent email, search all mail (not just inbox) for a reply from the recipient.
@@ -162,30 +245,38 @@ def check_replies(service) -> list[str]:
             if not messages:
                 continue
 
-            # Fetch the reply message to get snippet + headers
+            # Fetch full message so we can parse the MIME body and avoid the
+            # snippet's quoted-original problem.
             msg = service.users().messages().get(
                 userId="me",
                 id=messages[0]["id"],
-                format="metadata",
-                metadataHeaders=["From", "Date", "Subject"],
+                format="full",
             ).execute()
             headers = {
                 h["name"].lower(): h["value"]
                 for h in msg.get("payload", {}).get("headers", [])
             }
-            snippet = msg.get("snippet", "")
 
             email_data["replied_at"] = email_data.get("replied_at") or _iso_now()
             email_data["status"] = "replied"
             email_data["reply_from"] = headers.get("from", "")
             email_data["reply_subject"] = headers.get("subject", "")
-            # Gmail snippets contain HTML entities — decode them
-            import html as _html
-            clean = _html.unescape(snippet)
-            # Strip quoted original (attribution line + body)
-            import re as _re
-            clean = _re.split(r'\s+On\s+\w{3},\s+\w{3}|\s+wrote:', clean)[0].strip()
-            email_data["reply_snippet"] = clean[:300]
+
+            # Prefer MIME body extraction over the snippet field. Snippets
+            # often include the quoted original because Gmail extracts naive
+            # plaintext; the MIME body of a well-formed reply is just the
+            # new content (or has clear attribution / `> ` quoting we can strip).
+            payload = msg.get("payload") or {}
+            body_text = _decode_mime_body(payload)
+            if body_text:
+                clean = _strip_quoted_reply(body_text)
+            else:
+                # Fall back to snippet — same approach as before, but with
+                # i18n-aware attribution stripping.
+                import html as _html
+                snippet = msg.get("snippet", "")
+                clean = _strip_quoted_reply(_html.unescape(snippet))
+            email_data["reply_snippet"] = clean[:500]
             _save_email(email_data)
             replied_ids.append(email_data["id"])
         except Exception:

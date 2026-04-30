@@ -141,14 +141,33 @@ All actions update the page via JSON endpoint (`/api/data`) — no full page rel
 Copy `.env.example` to `.env` for email features:
 
 ```
+# SMTP (cold-email send)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=you@gmail.com
 SMTP_PASSWORD=your-app-password
 FROM_EMAIL=you@gmail.com
+REPLY_TO_EMAIL=replies@yourdomain.com   # optional — defaults to FROM_EMAIL
+
+# CAN-SPAM compliance footer (recommended for cold outreach)
+EMAIL_FOOTER_SENDER="Your Name / Company"
+EMAIL_FOOTER_ADDRESS="123 Main St, San Jose, CA 95110"
+EMAIL_UNSUBSCRIBE_URL=https://yoursite.com/unsubscribe
+
+# Send rate (anti-spam): seconds between sends. 0 disables.
+EMAIL_SEND_INTERVAL_SECONDS=1.0
+
+# Dashboard auth (required when binding to a non-loopback host)
+MV_DASHBOARD_API_KEY=long-random-string
+
+# Validation cache controls
+MV_TREND_CACHE_TTL=1800           # default 30min, can override per-source via MV_TREND_TTL_<NAME>
+MV_TREND_FORCE_REFRESH=1          # bypass cache for one run
 ```
 
 For Gmail reply / bounce tracking, place OAuth credentials at `config/gmail_credentials.json` and install the gmail extra: `pip install -e '.[gmail]'`.
+
+For accurate international phone normalization, install the `[intl]` extra: `pip install -e '.[intl]'` (adds `phonenumbers`). Without it, the regex fallback handles US/CA/UK/major-EU but misses edge cases.
 
 No API keys are needed for search, enrichment, or validation. AI features (pre-save validation, Tier 3 enrichment, email drafting) require either the `claude` CLI (Claude Code) or `opencode` CLI on PATH.
 
@@ -164,6 +183,10 @@ agent.qualify()                                         # step 3 only
 agent.enrich('Company Name', 'Location')                # enrich one company
 agent.enrich_all(statuses=['qualified', 'new'])         # enrich a whole research
 
+# Resume a partial pipeline run
+agent.research(market, geography, product, resume=True)         # auto from last checkpoint
+agent.research(market, geography, product, from_stage='enrich') # explicit
+
 # Email queue programmatic access
 from market_validation.email_sender import (
     draft_email_for_company, draft_emails_for_research,
@@ -174,9 +197,55 @@ from market_validation.email_sender import (
 )
 
 # Export a markdown call sheet
-from market_validation.dashboard_export import export_markdown_call_sheet
+from market_validation.dashboard_export import export_markdown_call_sheet, export_crm_csv
 print(export_markdown_call_sheet(status_filter='qualified'))
+
+# CRM-mapped CSV export (HubSpot / Salesforce / Pipedrive)
+csv_text = export_crm_csv('hubspot', research_id=rid)
+csv_text = export_crm_csv('salesforce')
+csv_text = export_crm_csv('pipedrive')
+
+# Outcome feedback loop — record actual market outcome 3-12 months later
+from market_validation.research import record_validation_outcome, get_calibration_summary
+record_validation_outcome(validation_id, 'success',
+                          notes='hit $120K ARR in 6 months',
+                          revenue_actual=120000)
+print(get_calibration_summary())   # hit-rate per verdict bucket
 ```
+
+CLI equivalents:
+
+```bash
+# Pipeline with resume support
+python -m market_validation.agent research --market "..." --geography "..." --resume
+python -m market_validation.agent research --market "..." --geography "..." \
+    --research-from-stage enrich
+
+# Outcome + calibration
+market-research record-outcome <validation_id> --outcome success --notes "..." --revenue 120000
+market-research calibration
+
+# CRM exports
+market-dashboard crm-export --crm hubspot --output hubspot.csv
+market-dashboard crm-export --crm salesforce --research-id <rid> --output sf.csv
+```
+
+## Citation enforcement
+
+Every numeric claim that comes back from an AI module is post-validated:
+
+- Source entries without a `source_url` are dropped.
+- Stated `*_confidence` is capped by the strongest cited source's tier:
+  - Tier-1 (BLS / SEC / Census / .gov) → ceiling 90.
+  - Tier-2 (paid research / academic) → ceiling 80.
+  - Tier-3 (trade press) → ceiling 65.
+  - Tier-4 (Wikipedia / community) → ceiling 50.
+  - Tier-5 (general web) → ceiling 40.
+  - Uncited → ceiling 20.
+- `_citation_warnings` is appended to the result so you can see which fields had thin evidence.
+- The scorecard's `completeness_score` downgrades any verdict by one tier (`strong_go → go → cautious → no_go`) when fewer than 50% of stages returned useful data.
+
+Source authority is detected from the URL host (see `market_validation/_helpers/citations.py`). Adjust `_TIER_*` lists there to add domains.
 
 ## Project structure
 

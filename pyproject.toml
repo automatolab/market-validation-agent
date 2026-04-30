@@ -10,7 +10,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "python-dotenv>=1.0.0,<2.0.0",
-  "pytrends>=4.9.0,<5.0.0",
   "ddgs>=9.0.0",
   "beautifulsoup4>=4.12.0,<5.0.0",
   "requests>=2.31.0,<3.0.0",
@@ -28,6 +27,13 @@ gmail = [
   "google-auth-oauthlib>=1.0.0",
   "google-auth-httplib2>=0.2.0",
   "google-api-python-client>=2.0.0",
+]
+# International phone validation. Without this extra, normalize_phone falls
+# back to a country-code/length regex that handles US/CA/UK/major-EU but
+# misses edge cases (mobile prefixes, dial codes within a country, etc.).
+# Install with: pip install -e '.[intl]'
+intl = [
+  "phonenumbers>=8.13.0,<9.0.0",
 ]
 dev = [
   "pytest>=8.3.0,<9.0.0",

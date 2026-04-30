@@ -187,6 +187,13 @@ class QualificationService:
 
     def _build_market_context(self) -> str:
         """Pull market-validation context from DB to sharpen qualification scoring."""
+        def _pain_point_summary(items: list) -> str:
+            """Render pain_points (which may be dicts post-citation-rollout) as a string."""
+            try:
+                from market_validation.validation_scorecard import _flatten_strings
+                return _flatten_strings(items)
+            except Exception:
+                return ", ".join(str(x) for x in (items or []))
         try:
             from market_validation.research import get_validation_by_research
             val_result = get_validation_by_research(self.research_id, root=self.root)
@@ -205,7 +212,7 @@ Market Validation Context (pre-computed):
 - Demand trend: {demand_trend}
 - Competitive intensity: {competitive_intensity}/100
 - Willingness to pay: {wtp}
-- Identified customer pain points: {", ".join(pain_points[:3]) if pain_points else "none identified"}
+- Identified customer pain points: {_pain_point_summary(pain_points[:3]) if pain_points else "none identified"}
 
 Use this context to calibrate scores — companies in a {verdict.replace("_", " ")} market should reflect that reality.
 """
@@ -231,7 +238,8 @@ For each company, assess:
    - Pain points: do they have a problem your product could solve?
    - Buying signals: are they spending in this category? Active customers?
    - Urgency: seasonal demand, recent news suggesting immediate need
-3. Volume estimate: approximate revenue/size/usage with unit (e.g., "$500K/year", "800/week", "1000/monthly customers", "small/medium/large")
+3. Volume estimate: approximate revenue/size/usage with unit (e.g., "$500K/year", "800/week", "1000/monthly customers", "small/medium/large").
+   You MUST briefly justify the estimate (team size, location count, observed transactions, reviews) in `volume_basis`.
 4. Priority tier: high (strong signals), medium (some signals), low (weak signals)
 5. Status: qualified (clear fit), uncertain (maybe), not_relevant (no fit)
 
@@ -245,14 +253,21 @@ Return JSON:
       "company_id": "id from list",
       "status": "qualified|uncertain|not_relevant",
       "score": 0-100,
+      "score_evidence": "1 sentence citing the specific data point that supports the score",
       "priority": "high|medium|low",
       "volume_estimate": "numeric value or null",
       "volume_unit": "unit like $/year, /week, /month, customers, or small/medium/large",
-      "market_signals": ["list of positive signals found"],
+      "volume_basis": "1 sentence on what observable signal led to this estimate (e.g. '3 visible locations × ~150 covers/day from Yelp reviews')",
+      "market_signals": ["concrete signal with evidence — e.g. 'Hiring 5 sales reps (snippet from notes)'"],
       "pain_points": ["specific problems that make them a good prospect"],
       "notes": "concise assessment with key reasons"
     }}
   ]
-}}"""
+}}
+
+Grounding rules — do NOT invent claims:
+- Only cite signals that appear in the company's notes / website / location fields above.
+- If a company has empty notes, set status='uncertain', score≤45, and note 'no notes available'.
+- volume_basis must reference an observable cue — never just a number with no justification."""
         r = self.run_ai(prompt, timeout=200)
         return r.get("results") if isinstance(r, dict) and r.get("results") else []

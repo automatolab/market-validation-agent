@@ -47,6 +47,45 @@ def _get_smtp_connection() -> smtplib.SMTP:
     return server
 
 
+def _append_compliance_footer(body: str, html_body: str | None) -> tuple[str, str | None]:
+    """Append a CAN-SPAM-style footer (sender info + unsubscribe).
+
+    Required for legitimate cold outreach: receivers expect a way to opt out,
+    and the absence of one is a strong spam signal. Operators configure the
+    sender details once via .env.
+    """
+    sender_name = os.getenv("EMAIL_FOOTER_SENDER", "")
+    sender_addr = os.getenv("EMAIL_FOOTER_ADDRESS", "")
+    unsubscribe_url = os.getenv("EMAIL_UNSUBSCRIBE_URL", "")
+    plain_lines = []
+    if sender_name:
+        plain_lines.append(sender_name)
+    if sender_addr:
+        plain_lines.append(sender_addr)
+    if unsubscribe_url:
+        plain_lines.append(f"Unsubscribe: {unsubscribe_url}")
+    if not plain_lines:
+        # No footer configured — return body unchanged. Operators are warned
+        # at send time when this leaves us open to spam-trap problems.
+        return body, html_body
+    footer_plain = "\n\n--\n" + "\n".join(plain_lines)
+    new_body = body + footer_plain
+    new_html = html_body
+    if html_body:
+        footer_html = (
+            '<hr style="margin-top:24px;border:none;border-top:1px solid #eee">'
+            '<div style="color:#888;font-size:12px;line-height:1.5;margin-top:8px;font-family:sans-serif">'
+            + "<br>".join(line for line in plain_lines if line)
+            + "</div>"
+        )
+        # Insert before the closing </body> if present, else append.
+        if "</body>" in html_body:
+            new_html = html_body.replace("</body>", footer_html + "</body>")
+        else:
+            new_html = html_body + footer_html
+    return new_body, new_html
+
+
 def send_email(
     *,
     to_email: str,
@@ -59,6 +98,8 @@ def send_email(
     if not from_email:
         raise ValueError("FROM_EMAIL environment variable is required")
 
+    body, html_body = _append_compliance_footer(body, html_body)
+
     try:
         message_id = email.utils.make_msgid()
         if html_body:
@@ -67,6 +108,18 @@ def send_email(
             msg["To"] = to_email
             msg["Subject"] = subject
             msg["Message-ID"] = message_id
+            # Return-Path matches the FROM address — receivers see proper
+            # bounce routing, and DMARC doesn't get spooked.
+            msg["Return-Path"] = from_email
+            msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL", from_email)
+            # List-Unsubscribe header gives Gmail/Outlook the one-click opt-out
+            # button. Falls back to mailto:from_email when no URL is set.
+            unsub = os.getenv("EMAIL_UNSUBSCRIBE_URL")
+            if unsub:
+                msg["List-Unsubscribe"] = f"<{unsub}>"
+                msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+            else:
+                msg["List-Unsubscribe"] = f"<mailto:{from_email}?subject=unsubscribe>"
             msg.attach(MIMEText(body, "plain"))
             msg.attach(MIMEText(html_body, "html"))
         else:
@@ -75,6 +128,12 @@ def send_email(
             msg["To"] = to_email
             msg["Subject"] = subject
             msg["Message-ID"] = message_id
+            msg["Return-Path"] = from_email
+            msg["Reply-To"] = os.getenv("REPLY_TO_EMAIL", from_email)
+            unsub = os.getenv("EMAIL_UNSUBSCRIBE_URL")
+            msg["List-Unsubscribe"] = (
+                f"<{unsub}>" if unsub else f"<mailto:{from_email}?subject=unsubscribe>"
+            )
 
         server = _get_smtp_connection()
         server.sendmail(from_email, [to_email], msg.as_string())
@@ -273,7 +332,15 @@ def prep_email(
     research_id: str | None = None,
     company_id: str | None = None,
 ) -> dict[str, Any]:
-    """Prep an email for review - saves to queue instead of sending."""
+    """Prep an email for review — saves to queue (DB + JSON file).
+
+    Atomic to the extent SQLite + filesystem allow: writes the DB row first,
+    then writes the JSON queue file via temp + rename. If the DB insert
+    fails, no queue file is created. If the rename fails after the DB
+    insert, the DB row is rolled back so the queue stays consistent.
+    Eliminates orphan-JSON / orphan-DB-row states from the previous
+    write-JSON-then-sync pattern.
+    """
     EMAIL_QUEUE_DIR.mkdir(parents=True, exist_ok=True)
 
     email_id = base64.urlsafe_b64encode(os.urandom(6)).decode()[:8]
@@ -298,8 +365,36 @@ def prep_email(
     }
 
     queue_file = EMAIL_QUEUE_DIR / f"{email_id}.json"
-    queue_file.write_text(json.dumps(email_data, indent=2))
-    _sync_email_to_db(email_data)
+    tmp_file = EMAIL_QUEUE_DIR / f".{email_id}.json.tmp"
+
+    # 1. Write the DB row first — single transaction.
+    try:
+        _sync_email_to_db(email_data)
+    except sqlite3.Error as exc:
+        _log.warning("prep_email: DB write failed for %s: %s", email_id, exc)
+        return {"result": "error", "error": f"DB write failed: {exc}"}
+
+    # 2. Write JSON to a temp file, then atomically rename. If anything in
+    # this block fails, roll back the DB row so we don't leak orphans.
+    try:
+        tmp_file.write_text(json.dumps(email_data, indent=2))
+        os.replace(tmp_file, queue_file)
+    except OSError as exc:
+        _log.warning("prep_email: queue file write failed for %s: %s", email_id, exc)
+        # Best-effort rollback of the DB row we just wrote.
+        try:
+            db_path = resolve_db_path(PROJECT_ROOT)
+            with _connect(db_path) as conn:
+                conn.execute("DELETE FROM emails WHERE id = ?", (email_id,))
+        except sqlite3.Error as cleanup_exc:
+            _log.warning("prep_email: DB rollback failed for %s: %s", email_id, cleanup_exc)
+        # Clean up the temp file if it still exists.
+        try:
+            if tmp_file.exists():
+                tmp_file.unlink()
+        except OSError:
+            pass
+        return {"result": "error", "error": f"queue file write failed: {exc}"}
 
     return {
         "result": "ok",
@@ -364,18 +459,32 @@ def approve_email(email_id: str) -> dict[str, Any]:
 
 
 def approve_all_emails() -> dict[str, Any]:
-    """Approve and send all pending emails."""
+    """Approve and send all pending emails with a configurable send rate.
+
+    Defaults to 1 email per second (3600/hr) — well below Gmail's 500/day
+    free-tier rate limit while still completing a 50-email batch in under
+    a minute. Set EMAIL_SEND_INTERVAL_SECONDS=0 to disable the delay (only
+    safe for tiny batches you fully trust).
+    """
+    import time as _time
+
     queue = get_email_queue(status="pending")
-    results = []
-    for queued in queue.get("emails", []):
+    pending = queue.get("emails", [])
+    interval = float(os.getenv("EMAIL_SEND_INTERVAL_SECONDS", "1.0"))
+    results: list[dict[str, Any]] = []
+    for i, queued in enumerate(pending):
         result = approve_email(queued["id"])
         results.append(result)
+        # Sleep between sends — but not after the last one.
+        if interval > 0 and i < len(pending) - 1:
+            _time.sleep(interval)
 
     sent = sum(1 for r in results if r.get("result") == "ok")
     return {
         "result": "ok",
         "sent": sent,
         "failed": len(results) - sent,
+        "send_interval_seconds": interval,
         "details": results,
     }
 

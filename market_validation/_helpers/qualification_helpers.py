@@ -60,11 +60,21 @@ def heuristic_qualification(
 
 
 def normalize_qualification_status(status: Any) -> str:
+    """Map AI/qualifier output to a canonical CompanyStatus value.
+
+    "uncertain" maps to ``new`` (still needs work). "not_relevant" stays as
+    ``not_relevant`` (rejected by qualifier — distinct from a recipient who
+    said "not_interested" after we contacted them).
+    """
     raw = str(status or "").strip().lower().replace("-", "_").replace(" ", "_")
-    if raw in {"qualified", "contacted", "interested", "not_interested", "new"}:
+    canonical = {
+        "new", "qualified", "not_relevant", "contacted",
+        "replied", "interested", "not_interested", "skipped",
+    }
+    if raw in canonical:
         return raw
-    if raw in {"not_relevant", "irrelevant", "disqualified", "reject", "rejected"}:
-        return "not_interested"
+    if raw in {"irrelevant", "disqualified", "reject", "rejected"}:
+        return "not_relevant"
     if raw in {"uncertain", "unknown", "maybe", "review", "needs_review"}:
         return "new"
     return "new"

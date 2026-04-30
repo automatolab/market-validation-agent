@@ -33,6 +33,59 @@ def _normalize(value: float, lo: float, hi: float) -> float:
     return _clamp(ratio * 100)
 
 
+def _competitor_names(items: list) -> str:
+    """Render a competitor list for the verdict-reasoning prompt.
+
+    The competitive_landscape prompt now returns competitors as
+    ``[{"name": "...", "url": "..."}, ...]`` (citation-enforced shape) but
+    legacy data may be plain strings. Handle both so the scorecard doesn't
+    crash on partial migrations.
+    """
+    out: list[str] = []
+    for item in items or []:
+        if isinstance(item, dict):
+            name = item.get("name") or item.get("company") or ""
+            if name:
+                out.append(str(name))
+        elif isinstance(item, str):
+            out.append(item)
+    return ", ".join(out)
+
+
+def _flatten_strings(items: list, primary_keys: tuple[str, ...] = ("trend", "pain_point", "risk", "enabler", "headwind", "name", "event", "signal")) -> str:
+    """Flatten a citation-shaped list into a comma-joined string of labels.
+
+    AI prompts now return many lists as ``[{"<label-key>": "...", "evidence": "...", "source_url": "..."}]``.
+    The scorecard's verdict-reasoning prompt only needs the human label, not
+    the citation metadata, so we extract the first matching primary key per
+    entry. Falls through to the dict's first string value if no primary key
+    matches, and accepts plain strings for backward compatibility.
+    """
+    out: list[str] = []
+    for item in items or []:
+        if isinstance(item, str):
+            if item.strip():
+                out.append(item.strip())
+        elif isinstance(item, dict):
+            label: str | None = None
+            for k in primary_keys:
+                v = item.get(k)
+                if isinstance(v, str) and v.strip():
+                    label = v.strip()
+                    break
+            if label is None:
+                # Fall back to the first non-URL string value.
+                for k, v in item.items():
+                    if k in ("source_url", "url", "evidence", "date"):
+                        continue
+                    if isinstance(v, str) and v.strip():
+                        label = v.strip()
+                        break
+            if label:
+                out.append(label)
+    return ", ".join(out)
+
+
 def score_market_attractiveness(sizing: dict[str, Any], demand: dict[str, Any]) -> float:
     """0-100 composite: bigger market + rising demand + higher growth = higher."""
     # TAM component — midpoint of range, normalized against $10B ceiling
@@ -46,17 +99,29 @@ def score_market_attractiveness(sizing: dict[str, Any], demand: dict[str, Any]) 
     # 20%+ CAGR = great (100), 10% = solid (60), 0% = flat (30), negative = bad (0)
     growth_score = _clamp(growth_rate * 300 + 30)  # 0% → 30, 10% → 60, 23%+ → 100
 
-    # Trend component from demand
+    # Trend component from demand. "unknown" gets the same neutral score as
+    # "stable" — when the trend source (pytrends / Wikipedia pageviews) is
+    # unavailable, missing evidence must not count as negative evidence.
     trend = demand.get("demand_trend", "stable")
-    trend_map = {"rising": 85, "stable": 50, "falling": 15}
+    trend_map = {"rising": 85, "stable": 50, "falling": 15, "unknown": 50}
     trend_score = trend_map.get(trend, 50)
 
     # Demand confidence component
     demand_score = _safe_float(demand.get("demand_score"), 50)
 
-    # Seasonality penalty: purely seasonal markets are harder to scale
+    # Seasonality penalty: amplitude-based when available, fall back to a flat
+    # 10pt penalty for any seasonality mention. A 30% peak-to-trough swing
+    # docks ~6 pts; a 70% swing docks ~14 pts. Markets with `amplitude` field
+    # missing get the conservative legacy behavior.
     seasonality = str(demand.get("demand_seasonality", "none detected")).lower()
-    seasonal_penalty = 10.0 if ("seasonal" in seasonality and "none" not in seasonality) else 0.0
+    amplitude = _safe_float(demand.get("demand_seasonality_amplitude"), -1.0)
+    if amplitude >= 0.0:
+        # Cap at 50% amplitude → 20 pts penalty. Below 5% is essentially flat.
+        seasonal_penalty = _clamp(amplitude * 40, 0.0, 20.0)
+    elif "seasonal" in seasonality and "none" not in seasonality:
+        seasonal_penalty = 10.0
+    else:
+        seasonal_penalty = 0.0
 
     return _clamp(
         0.30 * tam_score
@@ -208,6 +273,24 @@ def compute_scorecard(
         icp_adj = (icp_score - 50) / 10  # ±5 pts swing
         overall = _clamp(overall + icp_adj)
 
+    # Compute completeness — % of validation stages that returned useful data.
+    # Overall verdict is downgraded one notch when completeness < 50% so a
+    # high score from thin evidence doesn't read as a confident go.
+    try:
+        from market_validation._helpers.citations import completeness_score
+        completeness = completeness_score({
+            "sizing": sizing or {},
+            "demand": demand or {},
+            "competition": competition or {},
+            "signals": signals or {},
+            "unit_economics": unit_economics or {},
+            "porters": porters or {},
+            "timing": timing or {},
+            "customer_segments": customer_segments or {},
+        })
+    except Exception:
+        completeness = 100  # don't fail scoring on a helper import error
+
     if overall >= 75:
         verdict = "strong_go"
     elif overall >= 55:
@@ -217,12 +300,19 @@ def compute_scorecard(
     else:
         verdict = "no_go"
 
+    # Downgrade verdict when evidence is thin — scoring the same number off
+    # 30%-complete data isn't the same as off 90%-complete data.
+    if completeness < 50:
+        downgrade = {"strong_go": "go", "go": "cautious", "cautious": "no_go", "no_go": "no_go"}
+        verdict = downgrade.get(verdict, verdict)
+
     result: dict[str, Any] = {
         "market_attractiveness": round(attractiveness, 1),
         "competitive_score": round(competitive, 1),
         "demand_validation": round(demand_val, 1),
         "risk_score": round(risk, 1),
         "overall_score": round(overall, 1),
+        "completeness_score": int(completeness),
         "verdict": verdict,
     }
 
@@ -305,15 +395,15 @@ Key facts:
 - Willingness to pay: {wtp}
 - Market concentration: {competition.get("market_concentration", "unknown")}
 - Competitor count: {competition.get("competitor_count", "unknown")}
-- Direct competitors: {", ".join(direct_competitors[:3]) or "none identified"}
+- Direct competitors: {_competitor_names(direct_competitors[:3]) or "none identified"}
 - Technology maturity: {signals.get("technology_maturity", "unknown")}
 - Job posting volume: {job_volume}
 - Timing assessment: {timing_assessment}
-- Key market trends: {", ".join(key_trends[:2]) or "none identified"}
-- Customer pain points: {", ".join(pain_points[:3]) or "none identified"}
-- Barriers to entry: {", ".join(barriers[:2]) or "none identified"}
-- Regulatory risks: {", ".join(reg_risks[:2]) or "none identified"}
-- Funding signals: {", ".join(funding_signals[:2]) or "none identified"}
+- Key market trends: {_flatten_strings(key_trends[:2]) or "none identified"}
+- Customer pain points: {_flatten_strings(pain_points[:3]) or "none identified"}
+- Barriers to entry: {_flatten_strings(barriers[:2]) or "none identified"}
+- Regulatory risks: {_flatten_strings(reg_risks[:2]) or "none identified"}
+- Funding signals: {_flatten_strings(funding_signals[:2]) or "none identified"}
 {extra_facts}
 
 Return ONLY this JSON (no markdown fences):

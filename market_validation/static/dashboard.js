@@ -546,6 +546,69 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
       document.getElementById('researchSelect').value = selectedResearchId;
     }
 
+    function renderSourceHealth() {
+      const panel = document.getElementById('sourceHealthPanel');
+      const wrap = document.getElementById('sourceHealthWrap');
+      const badge = document.getElementById('sourceHealthBadge');
+      if (!panel || !wrap || !badge) return;
+
+      const ref = selectedResearch();
+      const sh = ref && ref.source_health;
+      if (!sh || !sh.events_total) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = '';
+
+      const byStatus = sh.by_status || {};
+      const okCount = byStatus.ok || byStatus.pass || 0;
+      const failCount = (byStatus.fail || 0) + (byStatus.error || 0) + (byStatus.empty || 0);
+      const total = sh.events_total;
+      const failed = sh.failed_or_empty_stages || [];
+      const backendTotals = sh.backend_totals || {};
+
+      // Badge: green/yellow/red based on fail ratio
+      let badgeColor = '#22c55e'; // green
+      let badgeText = 'Healthy';
+      if (failCount > 0 && failCount / total > 0.4) {
+        badgeColor = '#ef4444'; // red
+        badgeText = `Degraded — ${failCount}/${total} stages failed`;
+      } else if (failCount > 0) {
+        badgeColor = '#f59e0b'; // amber
+        badgeText = `Partial — ${failCount}/${total} stages failed`;
+      } else {
+        badgeText = `${okCount}/${total} stages OK`;
+      }
+      badge.textContent = badgeText;
+      badge.style.background = badgeColor;
+      badge.style.color = '#fff';
+
+      // Per-status breakdown chips
+      const statusChips = Object.entries(byStatus)
+        .map(([s, n]) => `<span class="count-pill" style="margin-right:6px">${esc(s)}: ${n}</span>`)
+        .join('');
+
+      // Failed/empty stages list
+      const failedList = failed.length
+        ? `<div style="margin-top:12px"><strong>Failed or empty:</strong> ${failed.map(s => `<code>${esc(s)}</code>`).join(', ')}</div>`
+        : '';
+
+      // Backend usage table (which search backends produced results)
+      const backendRows = Object.entries(backendTotals)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, n]) => `<tr><td><code>${esc(name)}</code></td><td style="text-align:right">${n}</td></tr>`)
+        .join('');
+      const backendsTable = backendRows
+        ? `<div style="margin-top:12px"><strong>Backend usage:</strong><table style="margin-top:6px;border-collapse:collapse"><thead><tr><th style="text-align:left;padding-right:24px">Backend</th><th>Results</th></tr></thead><tbody>${backendRows}</tbody></table></div>`
+        : '';
+
+      wrap.innerHTML = `
+        <div>${statusChips}</div>
+        ${failedList}
+        ${backendsTable}
+      `;
+    }
+
     function renderCompanies() {
       const allRows = filteredCompanies();
       const current = selectedResearch();
@@ -752,9 +815,20 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
     }
 
     async function apiPost(path, payload) {
+      // X-Requested-With is the lightweight CSRF defense the server checks.
+      // X-API-Key is read from a localStorage value the operator pastes in
+      // when binding to a non-loopback host; localhost requests don't need it.
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'MarketValidationDashboard',
+      };
+      try {
+        const apiKey = window.localStorage && window.localStorage.getItem('mvDashboardApiKey');
+        if (apiKey) headers['X-API-Key'] = apiKey;
+      } catch (e) { /* localStorage may be unavailable in private mode */ }
       const res = await fetch(path, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload || {}),
       });
       return res.json();
@@ -796,6 +870,7 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
       renderCompanies();
       renderEmails();
       renderValidation();
+      renderSourceHealth();
     }
 
     function runCommandPrompt(cmd) {
@@ -822,6 +897,7 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
           renderCompanies();
           renderEmails();
           renderValidation();
+          renderSourceHealth();
           return;
         }
       } catch (e) {
@@ -1103,6 +1179,7 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
       setResearchLabel();
       renderKpis();
       renderValidation();
+      renderSourceHealth();
       renderCompanies();
       renderEmails();
     }

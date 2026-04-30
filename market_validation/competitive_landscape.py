@@ -12,16 +12,21 @@ Can also incorporate companies already discovered by the find() step.
 from __future__ import annotations
 
 import json
-import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
+
+from market_validation.log import get_logger
+
+_log = get_logger("competitive_landscape")
 
 
 def _search(query: str, num_results: int = 10) -> list[dict[str, str]]:
     try:
         from market_validation.multi_search import quick_search
         return quick_search(query, num_results)
-    except Exception:
+    except Exception as exc:
+        _log.debug("multi_search.quick_search failed for %r: %s", query, exc)
         return []
 
 
@@ -102,34 +107,43 @@ def analyze_competition(
             f"site:crunchbase.com {market}",
         ]
 
-    for query in competitor_queries:
-        results = _search(query, num_results=10)
+    extra_queries = [
+        f"site:github.com {search_term} open source",
+        f"site:producthunt.com {search_term}",
+        f"site:g2.com {search_term} alternatives",
+        f"{market} market share dominant player",
+    ]
+
+    # Run all three query lists concurrently. competitor_queries returns
+    # candidate dicts, funding_queries and extra_queries return snippet
+    # strings — same SerpAPI-style backend, just different post-processing.
+    # Replaces ~13s of serial time.sleep with a single round-trip wait.
+    competitor_results: list[list[dict[str, str]]] = []
+    funding_results: list[list[dict[str, str]]] = []
+    extra_results: list[list[dict[str, str]]] = []
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        comp_futs = [pool.submit(_search, q, 10) for q in competitor_queries]
+        fund_futs = [pool.submit(_search, q, 8) for q in funding_queries]
+        extra_futs = [pool.submit(_search, q, 5) for q in extra_queries]
+        competitor_results = [f.result() for f in comp_futs]
+        funding_results = [f.result() for f in fund_futs]
+        extra_results = [f.result() for f in extra_futs]
+
+    for results in competitor_results:
         all_candidates.extend(_gather_raw_candidates(results))
-        time.sleep(1.2)
-    for query in funding_queries:
-        for r in _search(query, num_results=8):
+    for results in funding_results:
+        for r in results:
             s = r.get("snippet", "").strip()
             if s:
                 funding_snippets.append(s)
-        time.sleep(1.2)
 
-    # Additional depth: GitHub (open-source competition), ProductHunt (tech market velocity)
     extra_snippets: list[str] = []
-    try:
-        for extra_q in [
-            f"site:github.com {search_term} open source",
-            f"site:producthunt.com {search_term}",
-            f"site:g2.com {search_term} alternatives",
-            f"{market} market share dominant player",
-        ]:
-            for r in _search(extra_q, num_results=5):
-                s = r.get("snippet", "").strip()
-                t = r.get("title", "").strip()
-                if s:
-                    extra_snippets.append(f"[{t}]: {s[:200]}")
-            time.sleep(1.0)
-    except Exception:
-        pass
+    for results in extra_results:
+        for r in results:
+            s = r.get("snippet", "").strip()
+            t = r.get("title", "").strip()
+            if s:
+                extra_snippets.append(f"[{t}]: {s[:200]}")
 
     # Deduplicate by domain
     seen_domains: set[str] = set()
@@ -236,17 +250,34 @@ Your job:
 Return ONLY this JSON (no markdown fences):
 {{
     "competitive_intensity": <0-100, where 100 = extremely competitive for a new entrant>,
+    "competitive_intensity_source": {{"evidence": "1 sentence of corroborating evidence", "source_url": "..."}},
     "competitor_count": <count of real competitors only>,
     "market_concentration": "<fragmented|moderate|consolidated|monopolistic>",
-    "direct_competitors": ["company name 1", "company name 2", ...],
-    "indirect_competitors": ["company name 1", ...],
-    "substitutes": ["substitute 1", ...],
-    "funding_signals": ["specific funding event or signal", ...],
-    "dominant_players": ["top 2-3 market leaders by name"],
+    "direct_competitors": [
+      {{"name": "Company X", "url": "https://companyx.com", "evidence": "1-line summary or citation"}},
+      {{"name": "Company Y", "url": "https://...", "evidence": "..."}}
+    ],
+    "indirect_competitors": [
+      {{"name": "Company A", "url": "...", "evidence": "..."}}
+    ],
+    "substitutes": ["substitute 1", "substitute 2"],
+    "funding_signals": [
+      {{"event": "Series B $25M", "company": "X", "date": "2025-03", "source_url": "https://..."}}
+    ],
+    "dominant_players": [
+      {{"name": "Top Player", "url": "https://...", "evidence": "market-share or ranking note"}}
+    ],
     "barriers_to_entry": ["specific barrier 1 (e.g. capital requirements, licensing, network effects)", "specific barrier 2"],
     "differentiation_opportunities": ["gap 1 incumbents miss", "gap 2"],
     "notes": "2-3 sentences on competitive dynamics, dominant players, and what this means for a new entrant"
 }}
+
+Citation rules (do NOT skip):
+- Every direct/indirect competitor MUST include a working URL — if you can't
+  cite a source, do not include them in the list.
+- Every funding signal MUST include a source_url and a date.
+- competitive_intensity_source must contain a 1-sentence evidence snippet
+  drawn from the actual results above, not a vague generalization.
 
 Scoring guide for competitive_intensity:
 - 80-100: Many well-funded players, strong brand loyalty, high switching costs
@@ -271,4 +302,6 @@ Scoring guide for competitive_intensity:
             result["ai_raw"] = ai_result
 
     result.update(parsed)
+    from market_validation._helpers.citations import RULES_FOR_COMPETITION, enforce_citations
+    enforce_citations(result, RULES_FOR_COMPETITION)
     return result

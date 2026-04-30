@@ -16,13 +16,54 @@ def archetype_search_context(
     search_term = product or market
 
     if archetype_key == "b2b-industrial":
+        text = f"{market} {product or ''}".lower()
+        agritech_tokens = (
+            "hydroponic", "hydroponics", "aquaponic", "aeroponic", "greenhouse",
+            "vertical farm", "vertical farming", "indoor farm", "indoor farming",
+            "controlled environment", "agritech", "ag-tech", "agtech",
+            "agriculture", "agricultural", "horticulture", "irrigation",
+            "fertigation", "grower", "growers", "nursery", "cannabis",
+        )
+        food_tokens = (
+            "brisket", "beef", "pork", "chicken", "meat", "bbq", "produce",
+            "vegetable", "vegetables", "fruit", "dairy", "seafood", "fish",
+            "grain", "flour", "sugar", "coffee bean", "tea leaves",
+        )
+        is_agritech = any(t in text for t in agritech_tokens)
+        is_food = any(t in text for t in food_tokens)
+
+        if is_agritech:
+            return (
+                f"We sell {search_term} to commercial growers in {geography}.\n"
+                f"Find BUYERS first: commercial hydroponic growers, vertical/indoor farms, "
+                f"greenhouse operations, controlled-environment agriculture (CEA) facilities, "
+                f"cannabis cultivators, ag-research facilities, university ag programs, "
+                f"and any horticulture business operating at scale.\n"
+                f"Also include: ag-tech distributors, irrigation/greenhouse equipment dealers, "
+                f"grower co-ops, and CEA system integrators in {geography}.\n"
+                f"Skip: home gardeners, hobby farms, retail garden centers selling to consumers, "
+                f"and listicles/'top 10' content."
+            )
+        if is_food:
+            return (
+                f"We are researching the B2B supply chain for {search_term} in {geography}.\n"
+                f"Find BOTH sides: (1) businesses that BUY/CONSUME {search_term} (restaurants, caterers, "
+                f"food service, manufacturers, fabricators) AND (2) businesses that SELL/DISTRIBUTE "
+                f"{search_term} (wholesalers, distributors, suppliers, importers, specialty markets).\n"
+                f"Also look for: butcher shops, commissary kitchens, food trucks, catering companies, "
+                f"industrial buyers, contract manufacturers, and any business that purchases "
+                f"{search_term} in bulk."
+            )
+        # Generic industrial / hardware / B2B equipment
         return (
-            f"We are researching the B2B supply chain for {search_term} in {geography}.\n"
-            f"Find BOTH sides: (1) businesses that BUY/CONSUME {search_term} (restaurants, caterers, "
-            f"food service, manufacturers, fabricators) AND (2) businesses that SELL/DISTRIBUTE "
-            f"{search_term} (wholesalers, distributors, suppliers, importers, specialty markets).\n"
-            f"Also look for: butcher shops, commissary kitchens, food trucks, catering companies, "
-            f"industrial buyers, contract manufacturers, and any business that purchases {search_term} in bulk."
+            f"We sell {search_term} to industrial buyers in {geography}.\n"
+            f"Find BUYERS first: manufacturers, factories, processing plants, OEMs, and any "
+            f"facility that would deploy {search_term} at scale. Then find COMPETITORS / "
+            f"SYSTEM INTEGRATORS / DISTRIBUTORS that resell or integrate {search_term} for those buyers.\n"
+            f"Look for: industrial automation integrators, control-system installers, "
+            f"trade-association members, RFP issuers, plants posting maintenance/automation roles.\n"
+            f"Skip: consumer/retail listings, pure software companies with no hardware, "
+            f"directories, and 'top N' listicles."
         )
 
     if archetype_key == "b2b-saas":
@@ -102,18 +143,75 @@ def archetype_qualify_context(
     search_term = product or market
 
     if archetype_key == "b2b-industrial":
+        text = f"{market} {product or ''}".lower()
+        agritech_tokens = (
+            "hydroponic", "hydroponics", "aquaponic", "aeroponic", "greenhouse",
+            "vertical farm", "vertical farming", "indoor farm", "indoor farming",
+            "controlled environment", "agritech", "ag-tech", "agtech",
+            "agriculture", "agricultural", "horticulture", "irrigation",
+            "fertigation", "grower", "growers", "nursery", "cannabis",
+        )
+        food_tokens = (
+            "brisket", "beef", "pork", "chicken", "meat", "bbq", "produce",
+            "vegetable", "vegetables", "fruit", "dairy", "seafood", "fish",
+            "grain", "flour", "sugar", "coffee bean", "tea leaves",
+        )
+        is_agritech = any(t in text for t in agritech_tokens)
+        is_food = any(t in text for t in food_tokens)
+
+        if is_agritech:
+            return (
+                f"We sell {search_term} to commercial growers. Evaluate each company as a "
+                f"POTENTIAL BUYER.\n"
+                f"A qualified lead is a commercial hydroponic / vertical / greenhouse / indoor "
+                f"farming operation that:\n"
+                f"- Operates at commercial scale (multi-thousand sq ft, multiple zones, "
+                f"  full-time staff — not a hobby farm)\n"
+                f"- Already invested in growing infrastructure (lights, climate control, "
+                f"  fertigation) and would extend it with {search_term}\n"
+                f"- Shows growth signals (expansion, hiring growers/agronomists/operations, "
+                f"  new facility builds, fundraising)\n"
+                f"- Has explicit pain around yield, labor cost, energy, water, or consistency "
+                f"  that {search_term} addresses\n\n"
+                f"Score higher: well-funded CEA / vertical-farm operators, multi-site "
+                f"greenhouse companies, cannabis cultivators with compliance pressure, "
+                f"institutional / research growers with capex budgets.\n"
+                f"Score lower: home gardeners, hobby farms, retail garden centers, dormant "
+                f"operations, and competitors selling the same automation systems."
+            )
+        if is_food:
+            return (
+                f"We are a {search_term} wholesale distributor / supplier. "
+                f"Evaluate each company as a POTENTIAL BUYER of {search_term}.\n"
+                f"A qualified lead is a restaurant, caterer, manufacturer, or food service "
+                f"business that:\n"
+                f"- Uses {search_term} in significant volume (high-volume restaurant > small cafe)\n"
+                f"- Has multiple locations or high foot traffic (more volume = better customer)\n"
+                f"- Does catering or bulk orders\n"
+                f"- Shows growth signals (expanding, hiring, new locations)\n\n"
+                f"Score higher: established high-volume buyers, chain locations, large caterers, "
+                f"businesses with clear bulk purchasing needs.\n"
+                f"Score lower: small cafes with minimal {search_term} usage, businesses unlikely "
+                f"to buy wholesale, competitors who are also distributors (mark as 'competitor' "
+                f"not 'qualified')."
+            )
+        # Generic industrial / hardware / B2B equipment
         return (
-            f"We are a {search_term} wholesale distributor / supplier. "
-            f"Evaluate each company as a POTENTIAL BUYER of {search_term}.\n"
-            f"A qualified lead is a restaurant, caterer, manufacturer, or food service business that:\n"
-            f"- Uses {search_term} in significant volume (high-volume restaurant > small cafe)\n"
-            f"- Has multiple locations or high foot traffic (more volume = better customer)\n"
-            f"- Does catering or bulk orders\n"
-            f"- Shows growth signals (expanding, hiring, new locations)\n\n"
-            f"Score higher: established high-volume buyers, chain locations, large caterers, "
-            f"businesses with clear bulk purchasing needs.\n"
-            f"Score lower: small cafes with minimal {search_term} usage, businesses unlikely to buy wholesale, "
-            f"competitors who are also distributors (mark as 'competitor' not 'qualified')."
+            f"We sell {search_term} to industrial buyers. Evaluate each company as a "
+            f"POTENTIAL BUYER (or, if they sell similar hardware, as a competitor).\n"
+            f"A qualified lead is a manufacturer, processing facility, or industrial operator "
+            f"that:\n"
+            f"- Operates plants/lines where {search_term} would deploy at scale\n"
+            f"- Has CapEx authority (plant manager / VP Operations / VP Engineering) and a "
+            f"  modernization or efficiency mandate\n"
+            f"- Shows growth signals (capacity expansion, hiring controls/automation engineers, "
+            f"  recent funding, new facility builds)\n"
+            f"- Has explicit pain around uptime, throughput, quality, energy, or labor that "
+            f"  {search_term} addresses\n\n"
+            f"Score higher: mid/large multi-site operators, recently funded scaleups, plants "
+            f"posting controls/automation roles, facilities mentioning modernization.\n"
+            f"Score lower: very small shops, consumer/retail businesses, pure software vendors, "
+            f"and competitors selling the same hardware (mark 'competitor' not 'qualified')."
         )
 
     if archetype_key == "b2b-saas":

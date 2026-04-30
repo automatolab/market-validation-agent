@@ -228,19 +228,35 @@ Return ONLY this JSON (numbers in USD, no markdown fences):
     "som_low": <serviceable obtainable market low for a new entrant>,
     "som_high": <serviceable obtainable market high for a new entrant>,
     "som_confidence": <0-100>,
-    "tam_sources": ["cite snippet or source 1", "cite snippet or source 2"],
-    "sam_sources": ["cite snippet or source"],
-    "som_sources": ["cite snippet or source"],
+    "tam_sources": [
+      {{"value": "$X", "source_url": "https://bls.gov/...", "source_authority": "primary_government", "evidence": "BLS Q3 2025 release: total food-services revenue ..."}},
+      {{"value": "$Y", "source_url": "https://...", "source_authority": "trade_press_or_business_news", "evidence": "..."}}
+    ],
+    "sam_sources": [
+      {{"value": "$X", "source_url": "...", "source_authority": "...", "evidence": "..."}}
+    ],
+    "som_sources": [
+      {{"value": "$X", "source_url": "...", "source_authority": "...", "evidence": "..."}}
+    ],
     "growth_rate": <annual growth rate as decimal e.g. 0.08 for 8%>,
+    "growth_rate_source": {{"source_url": "...", "source_authority": "...", "evidence": "..."}},
     "notes": "1-2 sentences explaining what this market is and how you sized it"
 }}
 
 Rules:
 - SAM must be a geographic subset of TAM. SOM is 1-5% of SAM for a new entrant.
-- BLS employment data is authoritative — use it to anchor TAM estimates when available.
+- Every numeric estimate must include at least one entry in *_sources with an actual URL.
+- source_authority must be one of: primary_government, paid_research_or_academic,
+  trade_press_or_business_news, encyclopedic_or_community, general_web, ai_inference_no_source.
+- Confidence calibration (do NOT inflate):
+  - 80+ ONLY when a Tier-1 (BLS/SEC/Census/government) source corroborates.
+  - 60-79 when 2+ Tier-2/3 sources (industry reports, trade press) agree.
+  - 40-59 for a single Tier-3/4 source or strong AI inference with reasoning.
+  - <40 when extrapolating without a citable source.
+- BLS employment data is Tier-1 authoritative — use it to anchor TAM when available.
 - Yelp business count × avg revenue per location is a strong SAM anchor for local markets.
-- Confidence: 75+ if BLS/EDGAR/Yelp data corroborates, 50-74 if 3+ web snippets agree, <50 if extrapolated or guessed.
-- If no relevant snippets, estimate from your training knowledge — but set confidence < 40."""
+- If no relevant snippets and no authoritative sources, set confidence < 40 and
+  note the gap explicitly in the `notes` field."""
 
     ai_result = run_ai(prompt)
 
@@ -260,4 +276,8 @@ Rules:
             result["ai_raw"] = ai_result
 
     result.update(parsed)
+    # Enforce citation rules — drops uncited source entries and caps stated
+    # confidence by the strongest source tier actually present.
+    from market_validation._helpers.citations import RULES_FOR_SIZING, enforce_citations
+    enforce_citations(result, RULES_FOR_SIZING)
     return result

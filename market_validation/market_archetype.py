@@ -21,6 +21,16 @@ ARCHETYPES: dict[str, dict] = {
             "attractiveness": 0.20,
             "risk": 0.15,
         },
+        # Porter's 5 Forces weights: local-service businesses worry mostly
+        # about rivalry (everyone competes on the same block) and buyer
+        # power (customers compare on Yelp). Suppliers are usually fungible.
+        "porter_weights": {
+            "supplier_power": 0.10,
+            "buyer_power": 0.25,
+            "substitute_threat": 0.20,
+            "entry_barriers": 0.15,
+            "rivalry_intensity": 0.30,
+        },
         "typical_gross_margins": {"low": 0.30, "mid": 0.55, "high": 0.70},
         "cac_range": {"low": 5, "high": 100},
         "ltv_cac_ratio": {"low": 2.0, "high": 8.0},
@@ -53,6 +63,16 @@ ARCHETYPES: dict[str, dict] = {
             "demand": 0.30,
             "competitive": 0.20,
             "risk": 0.15,
+        },
+        # B2B SaaS: rivalry from incumbents + substitutes (build-vs-buy,
+        # spreadsheets) dominate. Entry barriers matter (network effects,
+        # data moats) but suppliers/buyers individually have less leverage.
+        "porter_weights": {
+            "supplier_power": 0.05,
+            "buyer_power": 0.20,
+            "substitute_threat": 0.25,
+            "entry_barriers": 0.20,
+            "rivalry_intensity": 0.30,
         },
         "typical_gross_margins": {"low": 0.60, "mid": 0.75, "high": 0.88},
         "cac_range": {"low": 500, "high": 15000},
@@ -87,6 +107,16 @@ ARCHETYPES: dict[str, dict] = {
             "competitive": 0.20,
             "risk": 0.15,
         },
+        # B2C apps: consumer attention is scarce, so substitute threat
+        # (other apps, social media, just doing nothing) dominates. App-store
+        # platforms = buyer power gatekeeper.
+        "porter_weights": {
+            "supplier_power": 0.05,
+            "buyer_power": 0.25,
+            "substitute_threat": 0.30,
+            "entry_barriers": 0.15,
+            "rivalry_intensity": 0.25,
+        },
         "typical_gross_margins": {"low": 0.55, "mid": 0.70, "high": 0.85},
         "cac_range": {"low": 5, "high": 300},
         "ltv_cac_ratio": {"low": 2.0, "high": 6.0},
@@ -119,6 +149,16 @@ ARCHETYPES: dict[str, dict] = {
             "attractiveness": 0.25,
             "demand": 0.25,
             "risk": 0.20,
+        },
+        # Industrial: supplier power and buyer power both matter (commodity
+        # inputs + concentrated buyers with leverage), and entry barriers
+        # are real (capital, certifications). Substitutes typically weaker.
+        "porter_weights": {
+            "supplier_power": 0.25,
+            "buyer_power": 0.25,
+            "substitute_threat": 0.10,
+            "entry_barriers": 0.25,
+            "rivalry_intensity": 0.15,
         },
         "typical_gross_margins": {"low": 0.10, "mid": 0.22, "high": 0.40},
         "cac_range": {"low": 200, "high": 3000},
@@ -153,6 +193,16 @@ ARCHETYPES: dict[str, dict] = {
             "risk": 0.20,
             "competitive": 0.15,
         },
+        # CPG: retailer = the buyer that holds all the leverage (slotting
+        # fees, chargebacks, shelf space). Co-mans = supplier power. Brand
+        # builds entry barriers — but rivalry on shelf is brutal.
+        "porter_weights": {
+            "supplier_power": 0.20,
+            "buyer_power": 0.30,
+            "substitute_threat": 0.15,
+            "entry_barriers": 0.10,
+            "rivalry_intensity": 0.25,
+        },
         "typical_gross_margins": {"low": 0.35, "mid": 0.50, "high": 0.65},
         "cac_range": {"low": 10, "high": 200},
         "ltv_cac_ratio": {"low": 2.0, "high": 5.0},
@@ -185,6 +235,16 @@ ARCHETYPES: dict[str, dict] = {
             "demand": 0.30,
             "risk": 0.15,
             "competitive": 0.15,
+        },
+        # Marketplace: entry barriers (cold-start liquidity) are everything,
+        # then rivalry from incumbents who already cracked the cold start.
+        # Substitutes = direct buyer-seller contact, disintermediation risk.
+        "porter_weights": {
+            "supplier_power": 0.10,
+            "buyer_power": 0.10,
+            "substitute_threat": 0.25,
+            "entry_barriers": 0.30,
+            "rivalry_intensity": 0.25,
         },
         "typical_gross_margins": {"low": 0.55, "mid": 0.70, "high": 0.85},
         "cac_range": {"low": 20, "high": 500},
@@ -219,6 +279,16 @@ ARCHETYPES: dict[str, dict] = {
             "demand": 0.25,
             "competitive": 0.20,
         },
+        # Healthcare: regulatory/clinical-evidence/reimbursement entry
+        # barriers dominate. Buyer power (payors / health systems) is high.
+        # Suppliers are big-pharma / device-makers — significant leverage.
+        "porter_weights": {
+            "supplier_power": 0.20,
+            "buyer_power": 0.25,
+            "substitute_threat": 0.10,
+            "entry_barriers": 0.30,
+            "rivalry_intensity": 0.15,
+        },
         "typical_gross_margins": {"low": 0.40, "mid": 0.60, "high": 0.80},
         "cac_range": {"low": 50, "high": 5000},
         "ltv_cac_ratio": {"low": 2.5, "high": 8.0},
@@ -251,6 +321,16 @@ ARCHETYPES: dict[str, dict] = {
             "competitive": 0.25,
             "attractiveness": 0.25,
             "risk": 0.20,
+        },
+        # Services: client (buyer) power is high — easy to switch firms;
+        # rivalry is brutal among generalists. Talent (supplier) leverage.
+        # Substitutes = doing the work in-house or with offshore providers.
+        "porter_weights": {
+            "supplier_power": 0.25,
+            "buyer_power": 0.25,
+            "substitute_threat": 0.20,
+            "entry_barriers": 0.05,
+            "rivalry_intensity": 0.25,
         },
         "typical_gross_margins": {"low": 0.35, "mid": 0.55, "high": 0.70},
         "cac_range": {"low": 500, "high": 10000},
@@ -293,7 +373,7 @@ _ARCHETYPE_KEYWORDS: dict[str, list[str]] = {
                         "buyer and seller", "supply and demand"],
     "b2b-saas":        ["saas", "software", "api", "platform", "enterprise",
                         "b2b", "company", "team", "management", "dashboard",
-                        "analytics", "crm", "erp", "workflow", "automation"],
+                        "analytics", "crm", "erp", "workflow"],
     "b2c-saas":        ["consumer app", "mobile app", "game", "subscription box",
                         "app store", "freemium", "social app", "ios app",
                         "android app", "user engagement"],
@@ -306,7 +386,23 @@ _ARCHETYPE_KEYWORDS: dict[str, list[str]] = {
                         "supplier", "industrial", "logistics", "raw material",
                         "produce supply", "ingredient supply", "supply chain",
                         "warehouse", "freight", "procurement", "bulk",
-                        "import", "export", "commodity"],
+                        "import", "export", "commodity",
+                        # Industrial automation / IoT / hardware
+                        "industrial automation", "automation system",
+                        "automation systems", "control system", "control systems",
+                        "iot", "industrial iot", "sensor", "sensors", "controller",
+                        "controllers", "actuator", "actuators", "plc", "scada",
+                        "embedded system", "robotics", "robot", "drone",
+                        "hardware", "machinery", "equipment", "instrumentation",
+                        # Agritech / controlled environment agriculture
+                        "agritech", "ag-tech", "agtech", "agriculture",
+                        "agricultural", "farming", "precision agriculture",
+                        "hydroponic", "hydroponics", "aquaponic", "aquaponics",
+                        "aeroponic", "aeroponics", "greenhouse", "vertical farm",
+                        "vertical farming", "indoor farming", "controlled environment",
+                        "irrigation", "fertigation", "horticulture",
+                        "horticultural", "grower", "growers", "nursery",
+                        "cannabis cultivation"],
     "consumer-cpg":    ["consumer product", "cpg", "packaged", "retail brand",
                         "beverage", "food product", "grocery", "shelf space",
                         "dtc", "direct to consumer", "d2c", "fmcg",
@@ -318,8 +414,11 @@ _ARCHETYPE_KEYWORDS: dict[str, list[str]] = {
 }
 
 # b2b-saas requires BOTH a software signal AND a B2B signal to score fully.
+# "automation" is intentionally NOT here — alone it's ambiguous (industrial
+# automation, marketing automation, build automation…). Only the explicit
+# "marketing automation" / "workflow automation" reach b2b-saas via keywords.
 _B2B_SAAS_SOFTWARE_SIGNALS = {"saas", "software", "api", "platform", "dashboard",
-                              "analytics", "crm", "erp", "automation"}
+                              "analytics", "crm", "erp"}
 _B2B_SAAS_BUSINESS_SIGNALS = {"enterprise", "business", "b2b", "company", "team",
                               "management", "workflow", "productivity"}
 
@@ -337,6 +436,16 @@ _PRODUCT_TERMS = {
     "fruit", "dairy", "eggs", "soy", "hemp", "wool", "silicon", "lithium",
     "cobalt", "nickel", "zinc", "iron", "pcb", "solar panel", "solar panels",
     "battery", "batteries", "semiconductor", "chip", "chips",
+    # Hardware / IoT / industrial automation hardware
+    "sensor", "sensors", "controller", "controllers", "actuator", "actuators",
+    "plc", "scada", "valve", "valves", "pump", "pumps", "robot", "robots",
+    "drone", "drones", "embedded device", "iot device", "iot devices",
+    "control system", "control systems", "automation system", "automation systems",
+    "industrial automation", "machinery", "equipment", "instrumentation",
+    # Agritech / controlled-environment agriculture hardware
+    "hydroponic system", "hydroponic systems", "greenhouse", "greenhouses",
+    "fertigation", "irrigation system", "irrigation systems", "grow light",
+    "grow lights", "vertical farm", "vertical farms",
 }
 
 # Service verbs / expertise → lean Services Agency or Local Service
@@ -349,11 +458,15 @@ _SERVICE_TERMS = {
     "counseling", "mentoring", "teaching",
 }
 
-# Software / digital products → lean B2B SaaS or B2C SaaS
+# Software / digital products → lean B2B SaaS or B2C SaaS.
+# "automation" is excluded here — pure software automation is captured by
+# "workflow automation" / "marketing automation" via keyword bonuses, while
+# the bare word "automation" is too often industrial (factory, ag, robotics).
 _SOFTWARE_TERMS = {
-    "crm", "erp", "analytics", "platform", "saas", "software", "app",
-    "dashboard", "api", "automation", "ai tool", "chatbot", "plugin",
+    "crm", "erp", "analytics", "saas", "software",
+    "dashboard", "api", "ai tool", "chatbot", "plugin",
     "extension", "browser extension", "mobile app", "web app",
+    "marketing automation", "workflow automation", "build automation",
 }
 
 # Venue / physical place → lean Local Service
@@ -372,6 +485,20 @@ _B2B_INDUSTRIAL_CONTEXT = {
     "sell to", "b2b", "bulk", "freight", "procurement", "warehouse",
     "supply chain", "import", "export", "contract", "net terms",
     "fulfillment", "pallet", "ton", "tons", "truckload",
+    # Hardware / IoT / industrial-automation context (the seller is
+    # building hardware or hardware+software for industrial buyers)
+    "industrial", "factory", "plant", "facility", "facilities", "oem",
+    "iot", "industrial iot", "iiot", "automation", "automated",
+    "control system", "control systems", "monitoring system", "telemetry",
+    "embedded", "firmware", "actuation", "instrumentation", "scada",
+    # Agritech / commercial growers as buyers
+    "commercial grower", "commercial growers", "growers", "greenhouse",
+    "greenhouses", "vertical farm", "vertical farms", "vertical farming",
+    "indoor farm", "indoor farms", "indoor farming", "indoor agriculture",
+    "controlled environment", "hydroponic", "hydroponics", "aquaponic",
+    "aquaponics", "aeroponic", "aeroponics", "agritech", "agriculture",
+    "agricultural", "horticulture", "horticultural", "nursery",
+    "irrigation", "fertigation", "precision agriculture",
 }
 
 _LOCAL_SERVICE_CONTEXT = {

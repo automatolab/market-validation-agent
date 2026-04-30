@@ -6,9 +6,20 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from market_validation.research import _connect, _ensure_schema, resolve_db_path
+from market_validation.research import (
+    CompanyStatus,
+    _connect,
+    _ensure_schema,
+    resolve_db_path,
+)
 
-CALL_SHEET_EXPORT_STATUSES = ("call_ready", "replied_interested", "qualified")
+# Statuses that indicate a company is ready for outbound or has expressed
+# interest. These are the canonical CompanyStatus values — keep in sync.
+CALL_SHEET_EXPORT_STATUSES = (
+    CompanyStatus.QUALIFIED,
+    CompanyStatus.INTERESTED,
+    CompanyStatus.CONTACTED,
+)
 
 
 def _iso_now() -> str:
@@ -200,6 +211,140 @@ def export_markdown_call_sheet(
     return "\n".join(lines)
 
 
+# ── CRM-mapped CSV exports ─────────────────────────────────────────────────
+# Each CRM expects different field names for the same underlying data.
+# Manual copy-paste from a generic CSV is high-friction at any scale, so we
+# emit per-CRM exports with the right headers up-front.
+
+# Map of canonical company field → CRM-specific column header.
+_CRM_FIELD_MAPS: dict[str, dict[str, str]] = {
+    "hubspot": {
+        # HubSpot Contact import schema (Companies + Contact merged into a
+        # single row — HubSpot dedupes on Email).
+        "company_name":     "Company name",
+        "website":          "Company domain name",
+        "phone":            "Phone Number",
+        "email":            "Email",
+        "location":         "Address",
+        "notes":            "Notes",
+        "priority_tier":    "Lead Status",
+        "research_name":    "Lifecycle Stage",
+        "volume_estimate":  "Annual Revenue",
+    },
+    "salesforce": {
+        # Salesforce Lead import. Salesforce splits Company / FirstName / LastName,
+        # but for cold lists we treat company_name as "Company".
+        "company_name":     "Company",
+        "website":          "Website",
+        "phone":            "Phone",
+        "email":            "Email",
+        "location":         "Address",
+        "notes":            "Description",
+        "priority_tier":    "Rating",
+        "research_name":    "Lead Source",
+        "volume_estimate":  "AnnualRevenue",
+    },
+    "pipedrive": {
+        # Pipedrive Person + Organization combined — closest to HubSpot's shape.
+        "company_name":     "Organization name",
+        "website":          "Organization - Website",
+        "phone":            "Phone",
+        "email":            "Email",
+        "location":         "Organization - Address",
+        "notes":            "Note",
+        "priority_tier":    "Label",
+        "research_name":    "Source",
+        "volume_estimate":  "Organization - Annual revenue",
+    },
+}
+
+
+def export_crm_csv(
+    crm: str,
+    *,
+    research_id: str | None = None,
+    status_filter: str | None = None,
+    root: str | Path = ".",
+    db_path: str | None = None,
+    limit: int = 1000,
+) -> str:
+    """Export companies as CSV with column headers matching the target CRM.
+
+    crm:      'hubspot' | 'salesforce' | 'pipedrive'
+    research: optional research_id to scope export. Default: all researches.
+
+    Only writes companies that have at least one of {email, phone} so the
+    output isn't full of placeholder rows.
+    """
+    import csv as _csv
+    import io as _io
+
+    crm_key = crm.lower().strip()
+    if crm_key not in _CRM_FIELD_MAPS:
+        raise ValueError(
+            f"unknown CRM {crm!r}; supported: {sorted(_CRM_FIELD_MAPS)}"
+        )
+    field_map = _CRM_FIELD_MAPS[crm_key]
+
+    root_path = Path(root).resolve()
+    db_file = resolve_db_path(root=root_path, db_path=db_path)
+
+    with _connect(db_file) as conn:
+        _ensure_schema(conn)
+        conn.row_factory = sqlite3.Row
+
+        query = """
+            SELECT c.company_name, c.website, c.phone, c.email,
+                   c.location, c.notes, c.priority_tier,
+                   c.volume_estimate, c.volume_unit,
+                   r.name AS research_name
+            FROM companies c
+            LEFT JOIN researches r ON r.id = c.research_id
+            WHERE (c.email IS NOT NULL AND TRIM(c.email) != '')
+               OR (c.phone IS NOT NULL AND TRIM(c.phone) != '')
+        """
+        params: list[Any] = []
+        if research_id:
+            query += " AND c.research_id = ?"
+            params.append(research_id)
+        if status_filter:
+            query += " AND c.status = ?"
+            params.append(status_filter)
+        else:
+            placeholders = ",".join(["?" for _ in CALL_SHEET_EXPORT_STATUSES])
+            query += f" AND c.status IN ({placeholders})"
+            params.extend(list(CALL_SHEET_EXPORT_STATUSES))
+        query += " ORDER BY c.priority_score DESC NULLS LAST LIMIT ?"
+        params.append(limit)
+
+        rows = conn.execute(query, params).fetchall()
+
+    headers = [field_map[k] for k in field_map]
+    buffer = _io.StringIO()
+    writer = _csv.writer(buffer)
+    writer.writerow(headers)
+    for row in rows:
+        record = dict(row)
+        # Combine volume_estimate + volume_unit into a single $-string for
+        # CRMs whose AnnualRevenue field expects numeric — write the volume
+        # as a dollar amount when available, else blank.
+        vol = record.get("volume_estimate")
+        if vol is not None and vol != "":
+            try:
+                record["volume_estimate"] = f"{int(float(vol)):d}"
+            except (ValueError, TypeError):
+                record["volume_estimate"] = str(vol)
+        out_row = []
+        for canonical_key in field_map:
+            value = record.get(canonical_key) or ""
+            # Strip null bytes; CSV writers don't enjoy them.
+            if isinstance(value, str):
+                value = value.replace("\x00", "").replace("\r\n", " ").replace("\n", " ")
+            out_row.append(value)
+        writer.writerow(out_row)
+    return buffer.getvalue()
+
+
 def export_markdown_dashboard(
     *,
     root: str | Path = ".",
@@ -214,7 +359,7 @@ def export_markdown_dashboard(
         "# Dashboard Summary",
         "",
         f"Generated: {now}",
-        f"Total leads: {data['total_leads']}",
+        f"Total companies: {data.get('total_companies', 0)}",
         "",
         "## Status Counts",
         "",
@@ -222,8 +367,11 @@ def export_markdown_dashboard(
         "|--------|-------|",
     ]
 
-    status_order = ["new", "qualified", "emailed", "replied_interested", "replied_not_now", "call_ready", "scanning", "validated", "interviewing", "test_ready", "monitor", "rejected", "archived"]
-    for status in status_order:
+    # Use canonical CompanyStatus values — matches what add_company / update_company
+    # actually write. Legacy statuses ("call_ready", "replied_interested",
+    # "scanning", "test_ready", "validated") are mapped onto canonical values
+    # by normalize_company_status before they hit the DB.
+    for status in CompanyStatus.ALL:
         count = data["status_counts"].get(status, 0)
         if count > 0:
             lines.append(f"| {status} | {count} |")
@@ -265,6 +413,20 @@ def build_parser() -> Any:
     notes_parser = subparsers.add_parser("company", help="Export full company data with notes")
     notes_parser.add_argument("--company-id", required=True, help="Company ID")
 
+    crm_parser = subparsers.add_parser(
+        "crm-export",
+        help="Export companies as CSV with CRM-specific column headers",
+    )
+    crm_parser.add_argument(
+        "--crm", required=True,
+        choices=sorted(_CRM_FIELD_MAPS.keys()),
+        help="Target CRM",
+    )
+    crm_parser.add_argument("--research-id", help="Scope to one research")
+    crm_parser.add_argument("--status", dest="status_filter", help="Filter by status")
+    crm_parser.add_argument("--limit", type=int, default=1000)
+    crm_parser.add_argument("--output", help="Write CSV to file instead of stdout")
+
     return parser
 
 
@@ -302,6 +464,21 @@ def main() -> None:
                 print(json.dumps(result, ensure_ascii=True))
             else:
                 print(json.dumps(result, ensure_ascii=True, indent=2))
+
+        elif args.command == "crm-export":
+            csv_text = export_crm_csv(
+                args.crm,
+                research_id=args.research_id,
+                status_filter=args.status_filter,
+                root=root,
+                db_path=args.db_path,
+                limit=args.limit,
+            )
+            if args.output:
+                Path(args.output).write_text(csv_text)
+                print(f"Wrote {args.output}")
+            else:
+                print(csv_text)
 
     except Exception as exc:
         print(json.dumps({"result": "failed", "error": str(exc)}, ensure_ascii=True))

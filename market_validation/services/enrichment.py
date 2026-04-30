@@ -324,11 +324,16 @@ class EnrichmentService:
                 update_company(str(cid), self.research_id, updates, root=self.root)
                 enriched += 1
 
-        # ── Phase 2: Sequential AI tier for remaining companies ───────────
+        # ── Phase 2: Parallel AI tier for remaining companies ─────────────
+        # Was sequential with 150s timeouts → 4hr blocking on 100 companies.
+        # Now runs 4 workers in parallel; each worker does the AI probe +
+        # adaptive fallback for one company. DB writes happen on the main
+        # thread after the worker returns to keep SQLite single-writer-safe.
         if need_ai:
-            _log.info("  [enrich] Phase 2: AI enrichment for %d companies (sequential)", len(need_ai))
+            _log.info("  [enrich] Phase 2: AI enrichment for %d companies (parallel, max_workers=4)", len(need_ai))
 
-        for company, updates in need_ai:
+        def _ai_enrich_one(company_tuple_and_updates: tuple) -> tuple:
+            company, updates = company_tuple_and_updates
             cid, company_name, website, location, current_phone, current_email, current_notes = company
 
             website_hint = f"Their website is {website}." if website else f'Search for "{company_name}" official website first.'
@@ -357,25 +362,27 @@ Return JSON only:
   "notes": "brief summary of what was found"
 }}"""
 
-            result = self.run_ai(prompt, timeout=150)
-            ai_calls += 1
+            try:
+                result = self.run_ai(prompt, timeout=150)
+            except Exception as exc:
+                _log.debug("AI Phase 2 probe failed for %r: %s", company_name, exc)
+                result = {"result": "error", "error": str(exc)}
+            local_emails_found = 0
+            local_phones_found = 0
+            local_adaptive_hits = 0
 
-            if result.get("result") != "error":
+            if isinstance(result, dict) and result.get("result") != "error":
                 from market_validation.company_enrichment import is_plausible_email
                 if result.get("phone") and not current_phone and "phone" not in updates:
                     updates["phone"] = str(result["phone"])
-                    phones_found += 1
-                # AI sometimes returns emails with embedded commentary like
-                # "x@y.com (inferred from pattern)" — reject anything that
-                # isn't a clean, plausible address.
+                    local_phones_found += 1
                 ai_email = str(result.get("email") or "").strip()
                 ai_email_ok = is_plausible_email(ai_email)
                 if ai_email_ok and not current_email and "email" not in updates:
                     updates["email"] = ai_email
-                    emails_found += 1
+                    local_emails_found += 1
                 if result.get("website") and not website and "website" not in updates:
                     ai_site = str(result["website"]).strip()
-                    # Reject AI-returned URLs that point at an aggregator/directory.
                     if is_useful_business_url(ai_site):
                         updates["website"] = ai_site
                 if result.get("location") and not location and "location" not in updates:
@@ -401,35 +408,63 @@ Return JSON only:
                     base_notes = updates.get("notes") or current_notes or ""
                     updates["notes"] = base_notes + suffix if base_notes else suffix
 
-            # Run adaptive again with AI contacts for companies that still lack email
+            # Adaptive fallback with AI contacts for companies still missing email
             if not current_email and "email" not in updates:
                 ai_contacts: list[dict[str, str]] = []
-                if result and isinstance(result, dict) and result.get("result") != "error":
+                if isinstance(result, dict) and result.get("result") != "error":
                     ai_contacts = [c for c in (result.get("contacts") or []) if isinstance(c, dict)]
 
                 effective_website = website or updates.get("website")
                 domain = _dom(effective_website)
 
-                adaptive = adaptive_find_email(
-                    company_name=company_name,
-                    website=effective_website,
-                    domain=domain,
-                    contacts=ai_contacts,
-                    location=location,
-                )
+                try:
+                    adaptive = adaptive_find_email(
+                        company_name=company_name,
+                        website=effective_website,
+                        domain=domain,
+                        contacts=ai_contacts,
+                        location=location,
+                    )
+                except Exception as exc:
+                    _log.debug("adaptive fallback failed for %r: %s", company_name, exc)
+                    adaptive = {"email": None}
+
                 if adaptive.get("email"):
                     updates["email"] = adaptive["email"]
-                    emails_found += 1
-                    adaptive_hits += 1
+                    local_emails_found += 1
+                    local_adaptive_hits += 1
                     _adaptive_label = email_source_label(adaptive.get("source", "adaptive"))
                     base_notes = updates.get("notes") or current_notes or ""
                     updates["notes"] = (
                         f"{base_notes} | {_adaptive_label}" if base_notes else _adaptive_label
                     )
 
-            if updates:
-                update_company(str(cid), self.research_id, updates, root=self.root)
-                enriched += 1
+            return (
+                cid, updates,
+                local_emails_found, local_phones_found, local_adaptive_hits,
+            )
+
+        if need_ai:
+            # 4 workers — same default as draft_emails_for_research; the AI CLI
+            # is the bottleneck and parallelising past 4 just hits rate limits.
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    pool.submit(_ai_enrich_one, item): item[0][1]  # company name for logging
+                    for item in need_ai
+                }
+                for future in as_completed(futures):
+                    try:
+                        cid, updates, _emails, _phones, _adapt = future.result()
+                    except Exception as exc:
+                        _log.warning("[enrich] phase 2 worker crashed: %s", exc)
+                        continue
+                    ai_calls += 1
+                    emails_found += _emails
+                    phones_found += _phones
+                    adaptive_hits += _adapt
+                    if updates:
+                        update_company(str(cid), self.research_id, updates, root=self.root)
+                        enriched += 1
 
         return {
             "result": "ok",

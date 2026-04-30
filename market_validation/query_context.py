@@ -10,21 +10,52 @@ healthcare, industrial, and general markets alike.
 from __future__ import annotations
 
 _CATEGORY_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "saas": ("saas", "software", "api", "platform", "cloud", "automation", "app", "tool"),
+    "saas": ("saas", "software", "api", "platform", "cloud", "app", "tool"),
     "food": ("restaurant", "food", "bbq", "barbecue", "catering", "cafe", "coffee", "dining", "grocery", "produce", "beverage", "butcher", "deli", "bakery", "brewery", "winery"),
     "healthcare": ("clinic", "medical", "health", "dental", "hospital", "pharma", "wellness", "therapy"),
-    "industrial": ("manufacturer", "manufacturing", "industrial", "factory", "supplier", "wholesale", "robot", "robotics", "drone", "aerospace", "defense", "semiconductor", "hardware", "logistics"),
+    "industrial": (
+        "manufacturer", "manufacturing", "industrial", "factory", "supplier",
+        "wholesale", "robot", "robotics", "drone", "aerospace", "defense",
+        "semiconductor", "hardware", "logistics",
+        # Industrial automation / IoT / hardware
+        "automation", "automated", "iot", "sensor", "controller", "plc", "scada",
+        "actuator", "control system", "embedded", "machinery", "equipment",
+        # Agritech / controlled-environment agriculture
+        "agritech", "ag-tech", "agtech", "agriculture", "agricultural", "farming",
+        "hydroponic", "hydroponics", "aquaponic", "aquaponics", "aeroponic",
+        "aeroponics", "greenhouse", "vertical farm", "vertical farming",
+        "indoor farm", "indoor farming", "controlled environment",
+        "irrigation", "fertigation", "horticulture", "horticultural",
+        "grower", "growers", "nursery", "precision agriculture",
+    ),
     "services": ("agency", "consulting", "consultant", "legal", "accounting", "services", "staffing", "marketing"),
     "retail": ("retail", "store", "shop", "ecommerce", "consumer", "brand", "direct-to-consumer"),
 }
+
+# Hardware / IoT signals that pull "automation" away from saas into industrial.
+_HARDWARE_IOT_TOKENS: tuple[str, ...] = (
+    "iot", "sensor", "controller", "actuator", "plc", "scada", "embedded",
+    "device", "equipment", "machinery", "robot", "robotics", "drone",
+    "hardware", "valve", "pump", "agriculture", "agricultural", "agritech",
+    "ag-tech", "agtech", "farm", "farms", "farming", "grower", "growers",
+    "greenhouse", "hydroponic", "hydroponics", "vertical farm", "horticulture",
+)
 
 
 def detect_market_category(market: str, product: str | None = None) -> str:
     """Detect market vertical from keywords.
 
     Returns one of: saas, food, healthcare, industrial, services, retail, general.
+
+    The "automation" overlap between SaaS and Industrial is broken by giving
+    the industrial bucket priority whenever a hardware/IoT/agritech signal is
+    co-present. Pure-software automation pitches still resolve to saas.
     """
     text = f"{market} {product or ''}".lower()
+    has_hardware_signal = any(t in text for t in _HARDWARE_IOT_TOKENS)
+    matched_industrial = any(kw in text for kw in _CATEGORY_KEYWORDS["industrial"])
+    if matched_industrial and (has_hardware_signal or "industrial" in text):
+        return "industrial"
     for category, keywords in _CATEGORY_KEYWORDS.items():
         if any(kw in text for kw in keywords):
             return category

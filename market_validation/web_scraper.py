@@ -75,34 +75,65 @@ def _extract_phone(text: str) -> str | None:
 
 
 def _is_valid_us_phone(digits: str) -> bool:
-    """Check if a 10-digit string looks like a real US phone number."""
+    """Check if a 10-digit string looks like a real US phone number.
+
+    Kept as a backstop for callers that haven't been migrated to
+    country-aware validation yet (and for backward compat).
+    """
     if len(digits) != 10:
         return False
     area = digits[:3]
-    # US area codes: first digit 2-9, cannot be N11 (e.g. 411, 911)
     if area[0] in "01":
         return False
     if area[1] == area[2] == "1":
         return False
-    # Exchange (next 3 digits): first digit 2-9
     if digits[3] in "01":
         return False
-    # Reject obviously fake patterns (all same digit, sequential)
     if len(set(digits)) <= 2:
         return False
     return True
 
 
-def _extract_all_phones(text: str) -> list[str]:
-    """Extract all unique, valid US phone numbers from text."""
-    matches = re.findall(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", text)
+def _extract_all_phones(text: str, country_hint: str | None = None) -> list[str]:
+    """Extract all unique, valid phone numbers from text.
+
+    Defaults to US validation rules to preserve historic behavior when no
+    geography is provided. When ``country_hint`` is set (e.g. "GB", "FR"),
+    falls back to ``_helpers.contacts.is_valid_phone_intl`` which uses
+    ``phonenumbers`` if installed and country-specific length rules
+    otherwise.
+    """
+    # Broader regex picks up international formats (+44, +33, etc.) too.
+    matches = re.findall(
+        r"\+?\d{1,3}?[-.\s]?\(?\d{2,4}\)?[-.\s]?\d{2,4}[-.\s]?\d{2,4}(?:[-.\s]?\d{2,4})?",
+        text,
+    )
+    # Also keep the original simpler US pattern so we don't regress on US-only inputs.
+    matches += re.findall(r"\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}", text)
+
+    use_intl = country_hint and country_hint.upper() not in ("", "US")
+    is_valid_intl = None
+    if use_intl:
+        try:
+            from market_validation._helpers.contacts import is_valid_phone_intl
+            is_valid_intl = is_valid_phone_intl
+        except ImportError:
+            is_valid_intl = None
+
     seen: set[str] = set()
     out: list[str] = []
     for m in matches:
         digits = re.sub(r"\D", "", m)
-        if digits not in seen and _is_valid_us_phone(digits):
+        if not digits or digits in seen:
+            continue
+        ok: bool
+        if is_valid_intl is not None:
+            ok = bool(is_valid_intl(m, country_hint=country_hint))
+        else:
+            ok = _is_valid_us_phone(digits)
+        if ok:
             seen.add(digits)
-            out.append(m)
+            out.append(m.strip())
     return out[:10]
 
 
@@ -123,6 +154,28 @@ _EMAIL_JUNK_PATTERNS = {
     "mysite.com", "placeholder", "noreply", "no-reply",
     "sentry.io", "cloudflare", "squarespace.com", "wix.com",
 }
+
+# Placeholder LOCAL parts — these are CSS demo strings or template tokens, not
+# real addresses. We see these on sites that show "your.email@yourcompany.com"
+# in a contact form, or "first@plenty.ag" / "example@gmail.com" as illustrations.
+# Rejected by exact local-part match (case-insensitive, dots stripped).
+_PLACEHOLDER_LOCAL_PARTS: frozenset[str] = frozenset({
+    # Demo / template tokens — never real addresses.
+    "example", "test", "demo", "sample", "samplemail",
+    # Form-field placeholders for full names — appear in CSS demos.
+    "first", "last", "firstname", "lastname", "fullname",
+    "firstlast", "lastfirst",
+    # "Your name / your email" placeholders.
+    "yourname", "your", "youremail", "name", "username",
+    # Generic person placeholders.
+    "someone", "anyone",
+    # NOTE: "contact", "info", "sales", "hello", "support", "admin" are NOT
+    # placeholders — they're standard company info-mailbox prefixes. Real
+    # businesses use contact@theirdomain.com all the time.
+    # "user" stays in because it's only ever a placeholder local-part —
+    # real companies use admin/support/help instead.
+    "user",
+})
 
 
 def _extract_all_emails(text: str) -> list[str]:
@@ -154,6 +207,11 @@ def _extract_all_emails(text: str) -> list[str]:
             continue
         # Skip image/file extensions masquerading as emails
         if lower.endswith((".png", ".jpg", ".gif", ".svg", ".js", ".css")):
+            continue
+        # Reject placeholder LOCAL parts — "example@gmail.com" has a real
+        # domain but the local-part is a demo token from a CSS sample.
+        local_part = lower.split("@", 1)[0].replace(".", "").replace("-", "").replace("_", "")
+        if local_part in _PLACEHOLDER_LOCAL_PARTS:
             continue
         seen.add(lower)
         out.append(m)
@@ -485,15 +543,18 @@ def _scrape_page_contacts(
     # Cloudflare-obfuscated emails (data-cfemail="<hex>")
     all_emails.extend(_extract_cfemails(soup))
 
-    # Extract mailto: and tel: links explicitly (most reliable source)
+    # Extract mailto: and tel: links explicitly (most reliable source).
+    # Decode HTML entities first — many sites obfuscate the href as
+    # "mailto:&#106;&#115;&#99;..." or "&#109;ailto:user@&#100;omain.com".
+    import html as _html
     for a_tag in soup.find_all("a", href=True):
-        href = a_tag.get("href", "")
-        if href.startswith("mailto:"):
-            email = href.replace("mailto:", "").split("?")[0].strip()
+        href = _html.unescape(a_tag.get("href", "") or "")
+        if href.lower().startswith("mailto:"):
+            email = href[len("mailto:"):].split("?")[0].strip()
             if email and "@" in email:
                 all_emails.append(email)
-        elif href.startswith("tel:"):
-            phone = href.replace("tel:", "").strip()
+        elif href.lower().startswith("tel:"):
+            phone = href[len("tel:"):].strip()
             if phone:
                 all_phones.append(re.sub(r"[^\d()+\-.\s]", "", phone))
 
