@@ -39,6 +39,134 @@ _STATE_ABBR: dict[str, str] = {
 }
 
 
+# Display order for category groups in the company table. Earlier = higher
+# priority bucket. Anything not matched falls through to "Other / Uncategorized".
+CATEGORY_ORDER: list[str] = [
+    "Commercial Grower / Farm",
+    "Institutional / Research Greenhouse",
+    "Hydroponics Retailer / Store",
+    "Wholesale Nursery / Plant Supplier",
+    "CEA Equipment / Tech Vendor",
+    "Trade Association / Chamber",
+    "Academic Program",
+    "Directory / Listing",
+    "Marketplace",
+    "Consumer / Hobby",
+    "News / Article / Blog",
+    "Reference / Dictionary",
+    "Other / Uncategorized",
+]
+
+
+def _categorize_company(company: dict[str, Any]) -> str:
+    """Best-effort bucketing of a company into a display category.
+
+    Pure heuristic over name/website/notes — only used by the dashboard's
+    grouped view, not by any pipeline logic. Falls back to
+    "Other / Uncategorized" when nothing matches.
+
+    Order matters: detect article/blog URLs before vendor-domain rules so a
+    blog post on a vendor's site is bucketed as an article, not as the vendor.
+    """
+    name = (company.get("company_name") or "").lower()
+    site = (company.get("website") or "").lower()
+    notes = (company.get("notes") or "").lower()
+    blob = f"{name} {site} {notes}"
+
+    # URL path segments (everything after the domain)
+    after_proto = site.split("//", 1)[-1]
+    domain_split = after_proto.split("/", 1)
+    path_segments = [p for p in (domain_split[1] if len(domain_split) > 1 else "").split("/") if p]
+    last_slug = path_segments[-1] if path_segments else ""
+
+    if "allacronyms" in site or "wikipedia.org/wiki/" in site:
+        return "Reference / Dictionary"
+
+    if any(s in site for s in ("alibaba.", "amazon.com/", "ebay.com/")):
+        return "Marketplace"
+
+    if any(s in site for s in ("kickstarter.com", "indiegogo.com", "aerogarden.com")):
+        return "Consumer / Hobby"
+
+    if any(s in site for s in ("bizapedia.", "manta.com", "yellowpages.")):
+        return "Directory / Listing"
+    if "/member-directory/" in site or "facilities-map" in site or ".github.io/" in site:
+        return "Directory / Listing"
+
+    article_url_signals = (
+        "/blog", "/article", "/news/", "/post/", "/blogs/", "blog.", "news.",
+        "/2024", "/2025", "/tips/", "/guides/", "/learn/", "/seasonal-",
+        "/industry-analysis/",
+    )
+    if any(s in site for s in article_url_signals):
+        return "News / Article / Blog"
+    if any(any(k in seg for k in ("news", "blog", "article")) for seg in path_segments):
+        return "News / Article / Blog"
+    article_title_signals = (
+        "top 10", "top 25", "5 benefits", "this is when", "5 environmental",
+        "leading vertical", "reshaping", "applying ai", "grow smarter",
+        "future of controlled", "annual crop report", "gardeners flock",
+        "vertical farming news", "market size", "forecasts",
+    )
+    if any(s in name for s in article_title_signals):
+        return "News / Article / Blog"
+    if last_slug.count("-") >= 8:
+        return "News / Article / Blog"
+
+    if any(s in blob for s in ("alliance", "chamber of commerce", "farm bureau", "trade association")):
+        return "Trade Association / Chamber"
+
+    if any(s in blob for s in (
+        "graduate program", "graduate group", "degrees and programs",
+        "horticulture technology", "community college",
+    )):
+        return "Academic Program"
+    if "horticulture and agronomy" in name and "research" not in name:
+        return "Academic Program"
+    if "horticulture centre" in name or ("training" in blob and "campus" in blob):
+        return "Academic Program"
+
+    if "greenhouse" in name and any(s in blob for s in (
+        "research", "uc davis", "ucdavis", "university", ".edu", "campus",
+    )):
+        return "Institutional / Research Greenhouse"
+    if "research greenhouse" in blob or "plant growth facilit" in name:
+        return "Institutional / Research Greenhouse"
+
+    if any(s in name for s in (
+        "hydroponics store", "hydroponic store", "growgeneration", "growbigogh",
+        "grow supplies", "garden supply",
+    )) and "wholesale" not in name:
+        return "Hydroponics Retailer / Store"
+    if "the hydroponic connection" in name:
+        return "Hydroponics Retailer / Store"
+
+    if any(s in site for s in ("secretled.com", "vitabeam.com", "waybeyond.io", "seresag.com")):
+        return "CEA Equipment / Tech Vendor"
+    if any(s in blob for s in (
+        "led grow", "cea software", "automation system vendor", "cea specialist",
+    )):
+        return "CEA Equipment / Tech Vendor"
+
+    if any(s in name for s in (
+        "wholesale nursery", "wholesale plants", "tropical plants",
+        "live plants supplier", "wholesale of plants", "plant nursery",
+        "youngplants", "young plants",
+    )):
+        return "Wholesale Nursery / Plant Supplier"
+    if "wholesale" in blob and "plant" in blob and "hydroponic" not in name:
+        return "Wholesale Nursery / Plant Supplier"
+
+    if any(s in blob for s in (
+        "market farms", "commercial hydroponic grower",
+        "leafy green", "year-round production", "1,500 acres", "1500 acres",
+        "co-packer",
+    )):
+        return "Commercial Grower / Farm"
+
+    return "Other / Uncategorized"
+
+
 def _summarize_source_health(events: list[dict[str, Any]]) -> dict[str, Any]:
     """Roll up search-pipeline source_health events into a tidy summary.
 
@@ -170,25 +298,25 @@ def _load_data() -> dict[str, Any]:
         ).fetchall()
 
         for row in company_rows:
-            companies.append(
-                {
-                    "id": row[0],
-                    "research_id": row[1],
-                    "company_name": row[2],
-                    "website": row[3],
-                    "location": row[4],
-                    "phone": row[5],
-                    "email": row[6],
-                    "status": row[7],
-                    "priority_score": row[8],
-                    "priority_tier": row[9],
-                    "volume_estimate": row[10],
-                    "volume_unit": row[11],
-                    "notes": row[12],
-                    "created_at": row[13],
-                    "research_name": row[14],
-                }
-            )
+            company = {
+                "id": row[0],
+                "research_id": row[1],
+                "company_name": row[2],
+                "website": row[3],
+                "location": row[4],
+                "phone": row[5],
+                "email": row[6],
+                "status": row[7],
+                "priority_score": row[8],
+                "priority_tier": row[9],
+                "volume_estimate": row[10],
+                "volume_unit": row[11],
+                "notes": row[12],
+                "created_at": row[13],
+                "research_name": row[14],
+            }
+            company["category"] = _categorize_company(company)
+            companies.append(company)
 
         # Load validation data for each research
         validations: dict[str, dict[str, Any]] = {}
@@ -298,6 +426,7 @@ def _load_data() -> dict[str, Any]:
         "companies": companies,
         "emails": emails,
         "validations": validations,
+        "category_order": CATEGORY_ORDER,
     }
 
 

@@ -612,6 +612,30 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
     function renderCompanies() {
       const allRows = filteredCompanies();
       const current = selectedResearch();
+
+      // Sort by category (using server-provided CATEGORY_ORDER), then priority_score DESC, then name.
+      const order = (DATA.category_order || []);
+      const orderIdx = (cat) => {
+        const i = order.indexOf(cat);
+        return i === -1 ? order.length : i;
+      };
+      allRows.sort((a, b) => {
+        const ai = orderIdx(a.category || 'Other / Uncategorized');
+        const bi = orderIdx(b.category || 'Other / Uncategorized');
+        if (ai !== bi) return ai - bi;
+        const pa = a.priority_score == null ? -Infinity : a.priority_score;
+        const pb = b.priority_score == null ? -Infinity : b.priority_score;
+        if (pa !== pb) return pb - pa;
+        return (a.company_name || '').localeCompare(b.company_name || '');
+      });
+
+      // Per-category counts for the group header labels
+      const catCounts = {};
+      for (const c of allRows) {
+        const k = c.category || 'Other / Uncategorized';
+        catCounts[k] = (catCounts[k] || 0) + 1;
+      }
+
       const totalRows = allRows.length;
       const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
       if (currentPage > totalPages) currentPage = totalPages;
@@ -635,7 +659,13 @@ const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
       }
 
       let body = '';
+      let prevCategory = null;
       for (const c of rows) {
+        const cat = c.category || 'Other / Uncategorized';
+        if (cat !== prevCategory) {
+          body += `<tr class="category-header"><td colspan="10">${esc(cat)} <span class="category-count">${catCounts[cat]}</span></td></tr>`;
+          prevCategory = cat;
+        }
         const isEditing = editingCompanyId === c.id;
         const email = c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span class="muted">-</span>';
         const phoneHref = c.phone ? String(c.phone).replace(/\s+/g, '') : '';
