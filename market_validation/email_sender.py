@@ -684,11 +684,12 @@ def _ai_draft_subject_body(
 {context}
 
 Requirements:
-- Subject: concise, specific to {company_name} — no generic "Quick question" or "Reaching out". Max 70 chars.
+- Subject: concise, specific to {company_name}. No generic "Quick question" or "Reaching out". Max 70 chars.
 - Body: 4-6 short lines, plain text, no markdown. Open with a specific hook tied to what we know about them. State one clear value prop. End with a single low-commitment ask (15-minute call, reply if interested).
 - Salutation: address {greeting_target}. No "Hi there" or "Dear Sir/Madam".
 - No emojis. No "I hope this email finds you well." No postscripts.
-- Sign off with "Best," only — leave the sender name blank (the human will fill it).
+- Sign off with "Best," only. Leave the sender name blank (the human will fill it).
+- Do NOT use em dashes (—) or en dashes (–) anywhere in the subject or body. Use commas, periods, or a regular hyphen "-" instead.
 
 Return ONLY JSON with exactly these two keys:
 {{"subject": "...", "body": "..."}}"""
@@ -701,11 +702,22 @@ Return ONLY JSON with exactly these two keys:
     if start < 0 or end <= start:
         raise ValueError(f"AI response had no JSON object: {raw[:200]}")
     data = json.loads(raw[start : end + 1])
-    subject = str(data.get("subject") or "").strip()
-    body = str(data.get("body") or "").strip()
+    subject = _strip_dashes(str(data.get("subject") or "").strip())
+    body = _strip_dashes(str(data.get("body") or "").strip())
     if not subject or not body:
         raise ValueError("AI returned empty subject or body")
     return {"subject": subject, "body": body}
+
+
+def _strip_dashes(text: str) -> str:
+    """Replace em dashes and en dashes with comma+space.
+
+    Belt-and-suspenders for the prompt instruction: the LLM occasionally
+    slips an em dash through despite the explicit ask, so we sanitize after
+    parsing. Comma is the most natural substitute for the parenthetical
+    clauses where em dashes typically appear in cold-email prose.
+    """
+    return text.replace("—", ", ").replace("–", ", ")
 
 
 def draft_email_for_company(company_id: str) -> dict[str, Any]:
