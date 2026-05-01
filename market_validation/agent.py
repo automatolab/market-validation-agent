@@ -406,6 +406,16 @@ class Agent:
             result["validate"] = validate_result
             result["summary"]["verdict"] = validate_result.get("scorecard", {}).get("verdict")
             result["summary"]["overall_score"] = validate_result.get("scorecard", {}).get("overall_score")
+
+        try:
+            from market_validation.research_export import export_research_folder
+
+            folder = export_research_folder(self.research_id)
+            result["summary"]["export_folder"] = str(folder)
+        except Exception as exc:
+            # Non-fatal: the run succeeded even if the snapshot export fails.
+            result["summary"]["export_folder_error"] = str(exc)
+
         return result
 
 
