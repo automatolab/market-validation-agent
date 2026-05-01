@@ -679,17 +679,47 @@ def _ai_draft_subject_body(
     context = "\n".join(ctx_bits) if ctx_bits else "No extra context."
 
     greeting_target = contact_name or "the team"
-    prompt = f"""Write a short cold-outreach email from a seller of "{product_line}" (market: "{market}") to "{company_name}".
+    sender_name = os.getenv("EMAIL_SENDER_NAME", "").strip() or None
+    sender_org = os.getenv("EMAIL_FOOTER_SENDER", "").strip() or None
+    sender_desc = os.getenv("EMAIL_SENDER_DESCRIPTION", "").strip() or None
+    sign_off_line = (
+        f'Sign off with "Thanks, {sender_name}" or "Best, {sender_name}" (pick whichever feels more natural for the email).'
+        if sender_name
+        else 'Sign off with "Best," only. Leave the sender name blank (the human will fill it).'
+    )
+    intro_line_1 = (
+        f'"I\'m {sender_name}{f" from {sender_org}" if sender_org else ""}." (one short line, matter-of-fact, no buzzwords).'
+        if sender_name
+        else "A short self-intro line if you have a sender name; otherwise skip."
+    )
+    what_we_do_line = (
+        f'Use this exact framing for what {sender_org or "we"} does (paraphrase lightly to fit the sentence, but do not invent products or services we don\'t do): "{sender_desc}". Pull out the 1-2 details most relevant to {company_name} given what we know about them.'
+        if sender_desc
+        else f'one short line on what {sender_org or "we"} does. Plain language, no buzzwords. If "{product_line}" gives useful context, work it in naturally; otherwise keep it generic.'
+    )
+    prompt = f"""Write a short cold-outreach email about "{market}" to "{company_name}".
 
 {context}
 
+Tone: write like a real person typing on a laptop, not like a polished marketing email. Casual-professional, direct, conversational. The email frames the sender as someone researching the {market} space for an upcoming project, not as someone pitching a product. Curious and humble, not salesy.
+
 Requirements:
-- Subject: concise, specific to {company_name}. No generic "Quick question" or "Reaching out". Max 70 chars.
-- Body: 4-6 short lines, plain text, no markdown. Open with a specific hook tied to what we know about them. State one clear value prop. End with a single low-commitment ask (15-minute call, reply if interested).
-- Salutation: address {greeting_target}. No "Hi there" or "Dear Sir/Madam".
-- No emojis. No "I hope this email finds you well." No postscripts.
-- Sign off with "Best," only. Leave the sender name blank (the human will fill it).
-- Do NOT use em dashes (—) or en dashes (–) anywhere in the subject or body. Use commas, periods, or a regular hyphen "-" instead.
+- Subject: concise, specific to {company_name}. No generic "Quick question" or "Reaching out". Max 70 chars. Lowercase is fine.
+- Body: 4-6 short lines, plain text, no markdown. Mix sentence lengths, mostly short. One contraction is fine.
+  - Line 1 (intro): {intro_line_1}
+  - Line 2 (what we do): {what_we_do_line}
+  - Line 3 (why writing): "I'm learning about {market} for an upcoming project we're exploring in the sector." Frame as research, not sales. You can phrase it differently but keep that meaning.
+  - Line 4 (specific hook): one observation about {company_name} based on what we know. Concrete detail, not a generic compliment. Shows we actually looked at them.
+  - Final line (ask): a low-commitment, learning-flavored question. "Open to a quick 15-min chat to share what you've seen?" or "Worth a short call to swap notes?" style. NOT "want to buy" or "interested in our product".
+- Salutation: address {greeting_target} by first name if available; otherwise "Hey" / "Hi there team," / no salutation.
+- {sign_off_line}
+
+Avoid these AI / marketing tells:
+- No em dashes (—) or en dashes (–). Use commas, periods, or a regular hyphen.
+- No "I hope this finds you well", "I came across", "I noticed", "I wanted to reach out", "I'm writing to".
+- No words: leverage, synergy, streamline, robust, seamless, cutting-edge, value proposition, ecosystem, holistic, unlock, empower.
+- No triplet-rhythm sentences ("we help X do Y, Z, and W"). Keep it irregular.
+- No postscripts (P.S.). No emojis. No "Best regards,". No sales-speak.
 
 Return ONLY JSON with exactly these two keys:
 {{"subject": "...", "body": "..."}}"""
