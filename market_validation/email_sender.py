@@ -655,6 +655,43 @@ def _load_research_and_company(company_id: str) -> dict[str, Any]:
     }
 
 
+# Stylistic angles, sampled per-call so batched drafts don't all share the
+# same opener shape. The anti-pattern guidance in the prompt does most of
+# the work, but without varying the angle the model still gravitates to one
+# favorite opener across a whole batch.
+_DRAFT_ANGLES = (
+    "open with a single observed fact about them — something only this recipient would recognize about themselves",
+    "open with a short question they'd find easy and interesting to answer",
+    "open with a concrete tangible offer (a sample, a number, a piece of data, a name) — not a meeting ask",
+    "open mid-thought, like you're replying to something they said publicly, even though there's no thread",
+    "open by naming the specific operational pain their setup creates, then pivot fast",
+    "open with one short factual observation about their current setup and stop there — no second sentence before the ask",
+)
+
+
+def _load_sender_profile() -> str:
+    """Pull the sender-persona block from EMAIL_SENDER_PROFILE.
+
+    Operators set this in .env to describe who they actually are: business
+    name, what makes them different from competitors, price points, sample
+    availability, named references, voice/tone preference. Without it the
+    model has no grounding for sender claims and falls back to vague
+    adjectives ("competition-grade", "reliable") — the exact failure mode
+    that made earlier drafts feel like spam. The fallback string warns the
+    model not to fabricate specifics.
+    """
+    raw = os.getenv("EMAIL_SENDER_PROFILE", "").strip()
+    if raw:
+        return raw
+    return (
+        "(EMAIL_SENDER_PROFILE is not configured — the operator has not "
+        "described who they are. Do NOT invent specifics like pricing, "
+        "named customers, locations, certifications, awards, or guarantees. "
+        "Lean on curiosity and specificity-about-the-recipient instead of "
+        "credentials-about-the-sender.)"
+    )
+
+
 def _ai_draft_subject_body(
     *,
     company_name: str,
@@ -665,37 +702,123 @@ def _ai_draft_subject_body(
     description: str | None,
     contact_name: str | None = None,
 ) -> dict[str, str]:
-    """Ask Claude/opencode for a short cold email. Returns {subject, body}."""
+    """Ask Claude/opencode for a short cold email. Returns {subject, body}.
+
+    The prompt below is heavily defensive against AI cold-email tells. Every
+    banned phrase is there because an earlier draft produced exactly that
+    failure mode (formulaic "X for Y" subjects, "Hi [Company] team," openers,
+    "Worth a 15-minute call?" closes, vague claims like "competition-grade"
+    or "consistent supply"). Don't relax constraints without re-reviewing a
+    fresh batch of output.
+    """
+    import random
+
     from market_validation.company_enrichment import _run_ai_prompt
 
-    product_line = product or market
-    ctx_bits: list[str] = []
-    if description:
-        ctx_bits.append(f"Our product/service: {description}")
-    if geography:
-        ctx_bits.append(f"Target area: {geography}")
+    product_line = product or market or "what we sell"
+    sender_profile = _load_sender_profile()
+
+    recipient_lines: list[str] = [f"Company: {company_name}"]
+    if contact_name:
+        recipient_lines.append(f"Contact name: {contact_name} (address them by first name)")
+    else:
+        recipient_lines.append(
+            "Contact name: unknown — do NOT use 'Hi [Company] team,' / "
+            "'Team at X,' / 'To the X team,'. Either skip the salutation, "
+            "address them by role if obvious from context (e.g. 'Hey "
+            "pitmaster,' / 'Hey chef,'), or open with no salutation at all."
+        )
     if notes:
-        ctx_bits.append(f"What we know about them: {notes[:600]}")
-    context = "\n".join(ctx_bits) if ctx_bits else "No extra context."
+        recipient_lines.append(f"What we know about them:\n{notes[:1500]}")
+    else:
+        recipient_lines.append(
+            "What we know about them: very little. Be honest about that — "
+            "do NOT fabricate menu items, awards, volume claims, or events."
+        )
+    recipient_block = "\n".join(recipient_lines)
 
-    greeting_target = contact_name or "the team"
-    prompt = f"""Write a short cold-outreach email from a seller of "{product_line}" (market: "{market}") to "{company_name}".
+    campaign_lines: list[str] = [f"Selling: {product_line}"]
+    if market and market.lower() not in product_line.lower():
+        campaign_lines.append(f"Market focus: {market}")
+    if geography:
+        campaign_lines.append(f"Geography: {geography}")
+    if description:
+        campaign_lines.append(f"Campaign notes: {description}")
+    campaign_block = "\n".join(campaign_lines)
 
-{context}
+    angle = random.choice(_DRAFT_ANGLES)
 
-Requirements:
-- Subject: concise, specific to {company_name} — no generic "Quick question" or "Reaching out". Max 70 chars.
-- Body: 4-6 short lines, plain text, no markdown. Open with a specific hook tied to what we know about them. State one clear value prop. End with a single low-commitment ask (15-minute call, reply if interested).
-- Salutation: address {greeting_target}. No "Hi there" or "Dear Sir/Madam".
-- No emojis. No "I hope this email finds you well." No postscripts.
-- Sign off with "Best," only — leave the sender name blank (the human will fill it).
+    prompt = f"""You are writing ONE cold-outreach email on behalf of a human seller. \
+Recipients of these emails get a dozen variants of the same template every \
+week from generic vendors. Most are deleted in two seconds. Your only job \
+is to write one that does not get deleted.
 
-Return ONLY JSON with exactly these two keys:
+# RECIPIENT
+{recipient_block}
+
+# SENDER (the human you're writing on behalf of)
+{sender_profile}
+
+{campaign_block}
+
+# WHAT GETS DELETED INSTANTLY — banned, do not produce any of these
+- Subject lines shaped like "[product] for [Company]", "[product] supply for [Company]", \
+"Wholesale [X] for [Y]", "Reliable [X] for [Y]" — every vendor uses that template
+- Subjects starting with "Quick question", "Reaching out", "Touching base", "Following up", \
+"Introduction", "Connecting", "Idea for [Company]"
+- Openers: "Hi {company_name} team,", "Team at {company_name},", "Hello {company_name} team,", \
+"To the {company_name} team," — no real human types those
+- "I hope this email finds you well." / "I wanted to reach out about..." / "I came across your..."
+- The phrases "We supply", "We provide", "We offer", "We specialize in" anywhere in the body — the \
+recipient does not care about you yet
+- Vague unproven adjectives: "competition-grade", "high-grade", "premium", "best-in-class", \
+"reliable", "consistent", "scalable", "world-class", "industry-leading", "top-tier", "trusted"
+- Closing asks of "Worth a 15-minute call?", "open to a 15-minute call", "low-commitment call", \
+"quick chat", "brief intro call", "30-minute intro" — this is THE cold-email cliché; recipients see it 50x/week
+- The word "synergies", "circle back", "leverage" (as a verb), "touch base"
+- Em-dashes used as a rhythm tic — at most one em-dash in the whole email
+- Signing off "Best," every time. Vary it.
+- P.S. lines and postscripts. Skip them.
+- Inventing specifics that aren't in the recipient context above (fake awards, fake menu items, fake \
+vendors, fake volume numbers, fake locations)
+
+# WHAT EARNS A REPLY
+- Subject is concrete and surprising. Could be a question, two evocative words, a number, a single \
+specific noun the recipient would recognize about themselves, or a sentence fragment. Max 60 chars. \
+Lowercase is fine. Avoid the colon-template ("X: Y for Z").
+- Opener is one line that proves you're writing to THIS recipient specifically — pulled directly from \
+the "what we know about them" section. If that section is thin, say something honest like "saw your \
+spot on the way in" rather than faking detail.
+- One claim or offer that is tangible: a price range, a sample drop, a piece of data, a named \
+reference, a specific date you'll be in their area, a single number. NOT abstract value.
+- The ask is low-friction but NOT a meeting. A meeting is the highest-friction default ask in the \
+world. Better asks: "want me to send X?" / "reply with Y and I'll send Z" / "mind if I drop a sample \
+at the back door this week?" / "is [role] still the right person for this?" / "should I stop sending \
+these?" (yes, that one works).
+- Reads like one human typed it once, in one sitting, before coffee. Not three padded paragraphs.
+- 50-110 words is the sweet spot. Shorter is fine. Longer is worse. One-line emails can be powerful.
+- Sign off naturally. "Thanks,", "Cheers,", "—", "Talk soon,", or no sign-off at all (just leave the \
+blank for the name). Do NOT default to "Best," every time.
+- Leave the sender's name BLANK — the human will sign it. Do not write "[Your Name]" or similar; \
+just stop after the sign-off.
+
+# THIS DRAFT'S OPENING ANGLE
+For variety across batched outreach, this specific email should: {angle}.
+You can deviate if the recipient context demands it, but lean into this angle by default.
+
+# YOUR PROCESS — do this internally, then return only the final result
+1. Sketch a draft v1 following the angle above.
+2. Audit v1 honestly: Could a competitor send the same email by changing the company name? Does the \
+opener cite something only THIS recipient would recognize? Is the ask actually lower-friction than \
+"15-minute call"? Are any banned phrases present? Are any claims vague where they could be specific?
+3. Rewrite as v2, fixing every issue you found. Cut every word that does not earn its place.
+
+Return ONLY this JSON, with v2 — no explanation, no v1, no audit notes:
 {{"subject": "...", "body": "..."}}"""
 
-    raw = _run_ai_prompt(prompt, timeout=60)
+    raw = _run_ai_prompt(prompt, timeout=90)
 
-    # Parse first JSON object in the response
+    # Parse first JSON object in the response. Some agents wrap in code fences.
     start = raw.find("{")
     end = raw.rfind("}")
     if start < 0 or end <= start:
