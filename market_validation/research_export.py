@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import re
 import sqlite3
 from collections import defaultdict
@@ -42,19 +41,29 @@ def _research_dir(base: Path, research: dict[str, Any]) -> Path:
 def export_research_folder(
     research_id: str,
     base_dir: Path | str = "output/research",
+    root: Path | str | None = None,
 ) -> Path:
     """Materialize a single research's data into output/research/<slug>__<id>/.
 
-    Idempotent: re-running overwrites the folder's contents with current state.
+    Idempotent: re-running overwrites the folder's contents with current state
+    (including resetting validation.md to a placeholder if the validation row
+    has been removed since the last export).
+
     Returns the folder path.
     """
     from market_validation.dashboard import _categorize_company
+    from market_validation.email_sender import _ensure_email_schema
 
     base = Path(base_dir)
-    db_file = resolve_db_path(Path("."))
+    db_file = resolve_db_path(Path(root) if root is not None else Path("."))
 
     with _connect(db_file) as conn:
         _ensure_schema(conn)
+        # The emails table lives in email_sender.py's own schema function and
+        # is not created by _ensure_schema. Without this, exports on a fresh
+        # DB (or any run that never drafted an email) crash with
+        # "no such table: emails".
+        _ensure_email_schema(conn)
         conn.row_factory = sqlite3.Row
 
         research_row = conn.execute(
@@ -91,8 +100,7 @@ def export_research_folder(
     _write_companies_csv(folder, companies)
     _write_companies_by_type(folder, companies, _categorize_company)
     _write_emails(folder, emails)
-    if validation:
-        _write_validation(folder, validation)
+    _write_validation(folder, validation)
 
     return folder
 
@@ -157,9 +165,8 @@ def _write_summary(
         "- `companies.csv` — every company in this research, all columns",
         "- `companies-by-type.md` — companies grouped by category (commercial grower, nursery, retailer, etc.)",
         "- `emails.md` — all queued + sent emails (subject, body, status)",
+        "- `validation.md` — TAM/SAM/SOM + demand + competitive + signals scorecard",
     ]
-    if validation:
-        lines += ["- `validation.md` — TAM/SAM/SOM + demand + competitive + signals scorecard"]
 
     (folder / "summary.md").write_text("\n".join(lines) + "\n")
 
@@ -208,7 +215,12 @@ def _write_companies_by_type(
 
     for cat in ordered_cats:
         rows = grouped[cat]
-        rows.sort(key=lambda r: -(r.get("priority_score") or 0))
+        # NULLS LAST to match the dashboard ordering: companies with a real
+        # score (including negatives) come before unscored ones.
+        rows.sort(key=lambda r: (
+            r.get("priority_score") is None,
+            -(r.get("priority_score") or 0),
+        ))
         lines += [
             "",
             f"## {cat} ({len(rows)})",
@@ -258,7 +270,16 @@ def _write_emails(folder: Path, emails: list[dict[str, Any]]) -> None:
     (folder / "emails.md").write_text("\n".join(lines) + "\n")
 
 
-def _write_validation(folder: Path, v: dict[str, Any]) -> None:
+def _write_validation(folder: Path, v: dict[str, Any] | None) -> None:
+    if not v:
+        # Always write the file so the folder shape is stable across reruns.
+        # Without this, deleting a validation row would leave a stale
+        # validation.md from a previous export.
+        (folder / "validation.md").write_text(
+            "# Market validation\n\n_(no validation has been run for this research yet)_\n"
+        )
+        return
+
     def fmt(low: Any, high: Any) -> str:
         if low is None and high is None:
             return "n/a"

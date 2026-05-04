@@ -820,3 +820,105 @@ class TestExportCrmCsv:
             assert "company_name" in _CRM_FIELD_MAPS[crm]
             assert "email" in _CRM_FIELD_MAPS[crm]
             assert "phone" in _CRM_FIELD_MAPS[crm]
+
+
+# ---------------------------------------------------------------------------
+# 12. Per-research export folder
+# ---------------------------------------------------------------------------
+
+import sqlite3
+
+from market_validation.research import (
+    add_company,
+    resolve_db_path,
+    update_company,
+    update_validation,
+)
+from market_validation.research_export import export_research_folder
+
+
+def _seed_research(temp_db_root: str, *, with_validation: bool = False) -> str:
+    rid = create_research(
+        name="Hydroponics CA", market="hydroponics", geography="CA",
+        root=temp_db_root,
+    )["research_id"]
+    # Mix scored, unscored (None), and negative-scored companies so the
+    # NULLS-LAST sort can be observed in companies-by-type.md.
+    for name, score in [
+        ("Acme Greens", 90),
+        ("Bravo Farms", -5),
+        ("Charlie Hydro", None),
+        ("Delta Nursery", 50),
+    ]:
+        cid = add_company(
+            research_id=rid, company_name=name, market="hydroponics",
+            website=f"https://{name.lower().replace(' ', '')}.example.com",
+            root=temp_db_root,
+        )["company_id"]
+        if score is not None:
+            update_company(cid, rid, {"priority_score": score}, root=temp_db_root)
+    if with_validation:
+        vid = create_validation(rid, market="hydroponics", geography="CA",
+                                root=temp_db_root)["validation_id"]
+        update_validation(vid, {"verdict": "go", "overall_score": 72,
+                                "verdict_reasoning": "demand outpaces supply"},
+                          root=temp_db_root)
+    return rid
+
+
+class TestResearchExport:
+    def test_creates_all_five_files_on_fresh_db(self, temp_db_root):
+        # Fresh DB: research.py creates its tables, but the emails table
+        # only exists if email_sender has touched the DB. The export must
+        # still produce all 5 files (Copilot review concern about a
+        # "no such table: emails" crash on the first run).
+        rid = _seed_research(temp_db_root)
+        out = Path(temp_db_root) / "research-out"
+
+        folder = export_research_folder(rid, base_dir=out, root=temp_db_root)
+
+        for fname in ("summary.md", "companies.csv", "companies-by-type.md",
+                      "emails.md", "validation.md"):
+            assert (folder / fname).exists(), f"missing {fname}"
+        # No validation row → validation.md falls back to the placeholder
+        # rather than being skipped (description claims 5 files always).
+        assert "no validation has been run" in (folder / "validation.md").read_text()
+
+    def test_idempotent_overwrites_stale_validation(self, temp_db_root):
+        # Run 1: validation row exists → real content. Run 2 (after delete):
+        # the file must be reset to the placeholder, not left stale.
+        rid = _seed_research(temp_db_root, with_validation=True)
+        out = Path(temp_db_root) / "research-out"
+
+        folder = export_research_folder(rid, base_dir=out, root=temp_db_root)
+        assert "demand outpaces supply" in (folder / "validation.md").read_text()
+
+        # Drop the validation row, then re-export.
+        db_file = resolve_db_path(Path(temp_db_root))
+        with sqlite3.connect(db_file) as conn:
+            conn.execute("DELETE FROM market_validations WHERE research_id = ?", (rid,))
+
+        folder2 = export_research_folder(rid, base_dir=out, root=temp_db_root)
+        assert folder2 == folder
+        assert "no validation has been run" in (folder / "validation.md").read_text()
+        assert "demand outpaces supply" not in (folder / "validation.md").read_text()
+
+    def test_companies_by_type_nulls_last(self, temp_db_root):
+        rid = _seed_research(temp_db_root)
+        out = Path(temp_db_root) / "research-out"
+        folder = export_research_folder(rid, base_dir=out, root=temp_db_root)
+
+        text = (folder / "companies-by-type.md").read_text()
+        # Within the bucket, the order must be: 90, 50, -5, then None (last).
+        # All four seed companies fall into "Other / Uncategorized" by
+        # heuristic, so their relative order in the file is the sort order.
+        order = [
+            text.index("Acme Greens"),
+            text.index("Delta Nursery"),
+            text.index("Bravo Farms"),
+            text.index("Charlie Hydro"),
+        ]
+        assert order == sorted(order), (
+            "expected NULLS LAST sort: 90, 50, -5, then None — "
+            f"got positions {order}"
+        )
