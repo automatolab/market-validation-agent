@@ -143,9 +143,17 @@ def is_plausible_email(email: str | None) -> bool:
         return False
     # Placeholder local-part check (example@gmail.com, first@plenty.ag, etc.)
     try:
-        from market_validation.web_scraper import _PLACEHOLDER_LOCAL_PARTS
+        from market_validation.web_scraper import (
+            _JUNK_LOCAL_SUBSTRINGS,
+            _PLACEHOLDER_LOCAL_PARTS,
+        )
         normalized = local.replace(".", "").replace("-", "").replace("_", "")
         if normalized in _PLACEHOLDER_LOCAL_PARTS:
+            return False
+        # Substring junk check — catches spam-trap addresses like
+        # "medicare.fraud@..." that pass the format check but are clearly
+        # honeypot/abuse mailboxes scraped off directory pages.
+        if any(token in normalized for token in _JUNK_LOCAL_SUBSTRINGS):
             return False
     except ImportError:
         pass
@@ -337,8 +345,17 @@ def _run_ai_prompt(prompt: str, timeout: int = 120, cwd: str = ".") -> str:
     import subprocess as _sp
 
     if shutil.which("claude"):
+        # Allow WebSearch + WebFetch so enrichment / qualification subprocesses
+        # can actually look companies up. Without this they silently degrade
+        # ("WebFetch and WebSearch tool permissions were not granted in this
+        # session") and fall back to whatever's already in the prompt context,
+        # which is why locations were empty for ~85% of rows in the first run.
         result = _sp.run(
-            ["claude", "-p", prompt, "--output-format", "text"],
+            [
+                "claude", "-p", prompt,
+                "--output-format", "text",
+                "--allowedTools", "WebSearch,WebFetch",
+            ],
             capture_output=True, text=True, timeout=timeout, cwd=cwd,
         )
         if result.returncode == 0 and result.stdout.strip():

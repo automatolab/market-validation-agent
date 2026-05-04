@@ -178,6 +178,17 @@ _PLACEHOLDER_LOCAL_PARTS: frozenset[str] = frozenset({
 })
 
 
+# Junk-substring blocklist for local-parts. If any of these appear as a token
+# in the local-part (after dot-stripping), the address is rejected. Catches
+# spam-trap honeypots like "medicare.fraud@cvscaremark.com" that were appearing
+# repeatedly on scraped directory pages and getting attached to unrelated
+# companies, plus do-not-reply mailboxes that are useless for outreach.
+_JUNK_LOCAL_SUBSTRINGS: frozenset[str] = frozenset({
+    "fraud", "spam", "abuse", "phishing", "honeypot",
+    "donotreply", "donotemail", "noreply", "noemail",
+})
+
+
 def _extract_all_emails(text: str) -> list[str]:
     """Extract all unique email addresses from text, filtering out common false positives.
 
