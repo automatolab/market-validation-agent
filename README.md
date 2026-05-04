@@ -2,10 +2,10 @@
 
 A market research pipeline that validates opportunities, discovers companies, qualifies leads, enriches contacts, and manages AI-drafted email outreach. No external API keys required for core search, enrichment, or validation.
 
-## Quick Start
+## Quick Start ez
 
 ```bash
-# Install
+# Install  
 pip install -e .
 
 # Run the full pipeline in one call — validate → find → qualify → enrich → draft emails
